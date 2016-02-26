@@ -40,7 +40,7 @@ tools::Error mechanizm::run(double seconds, double skip, double tick) {
          if (e != NULL) {
             return tools::errorf(
                   "mechanizm::run: at %d seconds object %s returned error %s",
-                  current_time, (*oi->second).id, e);
+                  current_time, (*oi->second).id.c_str(), e);
          }
       }
    }
