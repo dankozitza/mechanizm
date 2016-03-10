@@ -20,15 +20,18 @@ using namespace std;
 class mechanizm {
 
    private:
-      typedef map<string, Object*>::iterator obj_iter;
-      map<string, Object*> objects;
+      //typedef map<string, Object*>::iterator obj_iter;
+      //map<string, Object*> objects;
+      vector<Object>* objects;
 
    public:
       double current_time;
 
       mechanizm();
-      tools::Error spawn(Object &object);
-      tools::Error unspawn(string id);
+      mechanizm(vector<Object> &objs);
+      //tools::Error spawn(Object &object);
+      void set_objects(vector<Object> &objs);
+      //tools::Error unspawn(int i);
       tools::Error run(double seconds = 0.0001);
       tools::Error run(double seconds, double skip);
       tools::Error run(double seconds, double skip, double tick);

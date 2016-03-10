@@ -7,18 +7,30 @@
 #include "mechanizm.hpp"
 
 mechanizm::mechanizm() {
+   objects = NULL;
    current_time = 0;
 }
 
-tools::Error mechanizm::spawn(Object &object) {
-   objects[object.id] = &object;
-   return NULL;
+mechanizm::mechanizm(vector<Object> &objs) {
+   objects = &objs;
+   current_time = 0;
 }
 
-tools::Error mechanizm::unspawn(string id) {
-   objects[id] = NULL;
-   return NULL;
+//tools::Error mechanizm::spawn(Object &object) {
+//   objects.push_back(&object);
+//   cout << "got object: " << object.id << ": ";
+//   cout << (*objects[objects.size()-1]).func_Motion << endl;
+//   return NULL;
+//}
+
+void mechanizm::set_objects(vector<Object> &objs) {
+   objects = &objs;
 }
+
+//tools::Error mechanizm::unspawn(int i) {
+//   objects[i] = NULL;
+//   return NULL;
+//}
 
 tools::Error mechanizm::run(double seconds) {
    return run(seconds, 0, 0.001);
@@ -29,18 +41,27 @@ tools::Error mechanizm::run(double seconds, double skip) {
 tools::Error mechanizm::run(double seconds, double skip, double tick) {
    tools::Error e = NULL;
    double init_time = current_time;
-   for (
-         current_time;
+
+   for ( current_time;
          current_time < init_time + seconds
-         && !tools::equal(current_time, init_time + seconds); )
-   {
+         && !tools::equal(current_time, init_time + seconds); ) {
+
       current_time += tick;
-      for (obj_iter oi = objects.begin(); oi != objects.end(); ++oi) {
-         e = (*oi->second).func_Motion(current_time, *oi->second);
+      //for (obj_iter oi = objects.begin(); oi != objects.end(); ++oi) {
+      for (int i = 0; i < objects->size(); ++i) {
+         //if ((*oi->second).func_Motion == NULL) {
+         if ((objects->operator[](i)).func_Motion == NULL) {
+
+            cout << "func motion for object: `";
+            cout << (objects->operator[](i)).id.c_str();
+            cout << "` is NULL!\n";
+            continue;//return NULL;
+         }
+         e = (objects->operator[](i)).func_Motion(current_time, objects->operator[](i));
          if (e != NULL) {
             return tools::errorf(
                   "mechanizm::run: at %d seconds object %s returned error %s",
-                  current_time, (*oi->second).id.c_str(), e);
+                  current_time, objects->operator[](i).id.c_str(), e);
          }
       }
    }

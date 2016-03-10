@@ -6,12 +6,11 @@
 // Created by Daniel Kozitza
 //
 
-//#include <windows.h>
-
 #include <csignal>
 #include <cstdlib>
 #include <dirent.h>
 #include <fstream>
+#include <glm/vec3.hpp>
 #include <iomanip>
 #include <iostream>
 #include "mechanizm.hpp"
@@ -19,39 +18,59 @@
 #include "tools.hpp"
 #include "Object.hpp"
 
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
+//#include <stdlib.h>
+//#include <string.h>
+//#include <math.h>
 
-#include "SDL.h"
-#include "SDL_image.h"
+#include <GL/glu.h>
+#include <GL/glut.h>
 
-#include "ballfield.h"
+
+#include "Camera.hpp"
 
 using namespace tools;
 
 void help(string prog_name);
 
+void
+   drawScene(void), setMatrix(int w, int h), animation(void),
+   resize(int w, int h),
+   mouse(int button, int state, int x, int y),
+   mouse_passive(int x, int y),
+   keyboard(unsigned char c, int x, int y), menu(int choice), 
+   keyboard_up(unsigned char c, int x, int y),
+   motion(int x, int y),
+   drawWireframe(int objs_index, int face),
+   drawFilled(int objs_index, int face);
+
 tools::Error to1_motion(double t, Object &self);
+tools::Error spawned_motion(double t, Object &self);
+
+static vector<Object> objs;
+static int selected_object = 0;
+
+// X Y Z theta (ax) psi (ay) rotationSpeed translationSpeed width height
+static Camera cam(2.8, 2.3, 2.5, 0.0, 0.0, 0.8, 0.2, 0.1, 0.1);
+
+
+static mechanizm mech;
+
+bool animation_on = false;
 
 int main(int argc, char *argv[]) {
 
-   //char * argv = new char[argc];
-   //for (int i = 0; i < argc; ++i)
-   //   argv[i] = char(wargv[i]); // need to convert to char
-
-   mechanizm mech;
-   string prog_name = "mechanizm";//   = string(argv[0]);
+   string prog_name = string(argv[0]);
    options opt;
    bool quiet      = false;
    bool show_help  = false;
    bool file_given = false;
    bool realtime   = false;
    string file_path;
-   Object::Position origin = {.x = 0, .y = 0, .z = 0};
    string m[5];
    vector<string> args;
    Error e = NULL;
+
+   mech.set_objects(objs);
 
    signal(SIGINT, signals_callback_handler);
 
@@ -73,19 +92,30 @@ int main(int argc, char *argv[]) {
       return 0;
    }
 
-   Object test_object_1("test_object_1", origin, 1, to1_motion);
-   mech.spawn(test_object_1);
-   for (int i = 0; i < 10; ++i) {
-      e = mech.run(1, 0, 0.015625);
-      if (e != NULL) {
-         cout << prog_name << "::" << e;
-         return 1;
-      }
-      cout << "t: " << mech.current_time << " x: ";
-      cout << test_object_1.current_pos.x << " y: ";
-      cout << test_object_1.current_pos.y << " z: ";
-      cout << test_object_1.current_pos.z << endl;
-   }
+   Object test_object_1("test_object_1", 1, to1_motion);
+   objs.push_back(test_object_1);
+
+   int fake = 0;
+   char** fake2;
+   glutInit(&fake, fake2);
+
+   glutInitWindowSize(800, 600);
+   glutInitDisplayMode(GLUT_RGB | GLUT_STENCIL | GLUT_DOUBLE | GLUT_DEPTH);
+   glutCreateWindow("Mechanizm");
+
+   glutDisplayFunc(drawScene);
+   //glutMouseFunc(mouse);
+   glutPassiveMotionFunc(mouse_passive);
+   glutReshapeFunc(resize);
+   glutCreateMenu(menu);
+   glutAddMenuEntry("Motion", 3);
+   glutAddMenuEntry("Stencil on", 1);
+   glutAddMenuEntry("Stencil off", 2);
+   glutAttachMenu(GLUT_RIGHT_BUTTON);
+   glutKeyboardFunc(keyboard);
+   glutKeyboardUpFunc(keyboard_up);
+   glutMainLoop();
+
 
    return 0;
 }
@@ -93,9 +123,65 @@ int main(int argc, char *argv[]) {
 // a pointer to this function placed in the test_object_1 object. It sets the
 // current position as a function of time.
 tools::Error to1_motion(double t, Object &self) {
-   self.current_pos.x = 4 * t;//2.4 * t * t - 0.12 * t * t * t;
-   self.current_pos.y = 40 + 5 * t - 4.9 * t * t;
-   self.current_pos.z = 0;//self.initial_pos.z + t * t - 4.9 * self.mass * t * t;
+
+
+   Object tmp;
+   //float gt = (float)(glutGet(GLUT_ELAPSED_TIME));
+   //cout << "gluttime: " << gt << endl;
+   self.translate_by(
+         0.0,
+         sin(t/2) / 5,
+         0.0);
+
+   //self.translate_by(
+   //      0.1 * sin(t * 3),
+   //      ,
+   //      0.1 * cos(t * 3));
+
+   //self.set_cube(tmp.cube);
+
+   cout << "t: " << t << endl;
+   cout << self.id << ": cube 0 0: " << self.cube[0][0] << endl;
+   cout << self.id << ": cube 0 1: " << self.cube[0][1] << endl;
+   cout << self.id << ": cube 0 2: " << self.cube[0][2] << endl;
+   return NULL;
+}
+
+tools::Error spawned_motion(double t, Object &self) {
+
+   //if (self.cube[0][1] <= 0.0000001) {
+   //   glutIdleFunc(NULL);
+   //}
+
+   Object tmp;
+
+   if (self.cube[0][1] <= -0.0000001) {
+      tmp.translate_by(
+            -25 / t,
+            -31.3 / t + 4.9 / t / t,
+            0.0);
+   }
+   else {
+
+   //float gt = (float)(glutGet(GLUT_ELAPSED_TIME));
+   //cout << "gluttime: " << gt << endl;
+      tmp.translate_by(
+            25 * t,
+            31.3 * t - 4.9 * t * t,
+            0.0);
+   }
+
+   //self.translate_by(
+   //      0.1 * sin(t * 3),
+   //      ,
+   //      0.1 * cos(t * 3));
+
+   self.set_cube(tmp.cube);
+
+   cout << "t: " << t << endl;
+   cout << self.id << ": cube 0 0: " << self.cube[0][0] << endl;
+   cout << self.id << ": cube 0 1: " << self.cube[0][1] << endl;
+   cout << self.id << ": cube 0 2: " << self.cube[0][2] << endl;
    return NULL;
 }
 
@@ -112,531 +198,287 @@ void help(string p_name) {
    cout << "   h             - Print this information.\n\n";
 }
 
-/*
- * "Ballfield"
- *
- *   (C) David Olofson <david@olofson.net>, 2002, 2003
- *
- * This software is released under the terms of the GPL.
- *
- * Contact author for permission if you want to use this
- * software, or work derived from it, under other terms.
- */
-
-
-/*----------------------------------------------------------
-	General tool functions
-----------------------------------------------------------*/
-
-/*
- * Bump areas of low and high alpha to 0% or 100%
- * respectively, just in case the graphics contains
- * "alpha noise".
- */
-SDL_Surface *clean_alpha(SDL_Surface *s)
+void
+drawWireframe(int objs_index, int face)
 {
-	SDL_Surface *work;
-	SDL_Rect r;
-	Uint32 *pixels;
-	int pp;
-	int x, y;
+   int i, j = objs_index;
+   glBegin(GL_LINE_LOOP);
+   for (i = 0; i < 4; i++)
+      glVertex3fv((GLfloat *) objs[j].cube[(objs[j].faceIndex[face][i])]);
+   glEnd();
+}
 
-	work = SDL_CreateRGBSurface(SDL_SWSURFACE, s->w, s->h,
-			32, 0xff000000, 0x00ff0000, 0x0000ff00,
-			0x000000ff);
-	if(!work)
-		return NULL;
+// This fills the space betwen the lines defined in faceIndex
+void
+drawFilled(int objs_index, int face)
+{
+   int i, j = objs_index;
+   glBegin(GL_POLYGON);
+   for (i = 0; i < 4; i++)
+      glVertex3fv((GLfloat *) objs[j].cube[objs[j].faceIndex[face][i]]);
+   glEnd();
+}
 
-	r.x = r.y = 0;
-	r.w = s->w;
-	r.h = s->h;
-	if(SDL_BlitSurface(s, &r, work, NULL) < 0)
-	{
-		SDL_FreeSurface(work);
-		return NULL;
-	}
+//void mouse(int button, int state, int x, int y) {
+//   //cam.rotation(x, y);
+//   //cout << "here! ";
+////   SDL_SetRelativeMouseMode((SDL_bool) 1);
+//   //glutPostRedisplay();
+//}
 
-	SDL_LockSurface(work);
-	pixels = work->pixels;
-	pp = work->pitch / sizeof(Uint32);
-	for(y = 0; y < work->h; ++y)
-		for(x = 0; x < work->w; ++x)
-		{
-			Uint32 pix = pixels[y*pp + x];
-			switch((pix & 0xff) >> 4)
-			{
-			  case 0:
-				pix = 0x00000000;
-			  	break;
-			  default:
-			  	break;
-			  case 15:
-				pix |= 0xff;
-			  	break;
-			}
-			pixels[y*pp + x] = pix;
-		}
-	SDL_UnlockSurface(work);
+void mouse_passive(int x, int y) {
+   cam.rotation(x, y);
 
-	return work;
+//   SDL_SetRelativeMouseMode((SDL_bool) 1);
+   glutPostRedisplay();
 }
 
 
-/*
- * Load and convert an antialiazed, zoomed set of sprites.
- */
-SDL_Surface *load_zoomed(char *name, int alpha)
-{
-	SDL_Surface *sprites;
-	SDL_Surface *temp = IMG_Load(name);
-	if(!temp)
-		return NULL;
+void drawScene(void) {
+   int i;
 
-	sprites = temp;
-	SDL_SetAlpha(sprites, SDL_RLEACCEL, 255);
-	temp = clean_alpha(sprites);
-	SDL_FreeSurface(sprites);
-	if(!temp)
-	{
-		fprintf(stderr, "Could not clean alpha!\n");
-		return NULL;
-	}
+   glClearColor(0.0, 0.0, 0.0, 0.0);
+   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	if(alpha)
-	{
+   glPushMatrix();
 
-		SDL_SetAlpha(temp, SDL_SRCALPHA|SDL_RLEACCEL, 0);
-		sprites = SDL_DisplayFormatAlpha(temp);
-	}
-	else
-	{
-		SDL_SetColorKey(temp, SDL_SRCCOLORKEY|SDL_RLEACCEL,
-				SDL_MapRGB(temp->format, 0, 0, 0));
-		sprites = SDL_DisplayFormat(temp);
-	}
-	SDL_FreeSurface(temp);
+   //// set up camera
+   //glViewport(0, 0, 500, 500);
 
-	return sprites;
-}
+   //cout << "here!\n";
+   
+   glLoadIdentity();
+   //cam.translation();
+   glRotatef(180 * cam.getAY() / 3.141592653, 1.0, 0.0, 0.0);
+   glRotatef(180 * cam.getAX() / 3.141592653, 0.0, 1.0, 0.0);
+   glTranslated(-cam.getX(), -cam.getY(), -cam.getZ());
 
+   //glRotatef(cam.getTheta(), 1.0, 0.0, 0.0);
+   //glRotatef(cam.getPsi(), 0.0, 1.0, 0.0);
+   //glTranslated(-cam.getX(), -cam.getY(), -cam.getZ());
 
-void print_num(SDL_Surface *dst, SDL_Surface *font, int x, int y, float value)
-{
-	char buf[16];
-	int val = (int)(value * 10.0);
-	int pos, p = 0;
-	SDL_Rect from;
+   //gluLookAt(cam.getX(), cam.getY(), cam.getZ(), cam.getSightX(),
+         //cam.getSightY(), cam.getSightZ(), 0, 1, 0);
+   //gluLookAt(cam.getX(), cam.getY(), cam.getZ(), 0.0, 0.0, 0.0, 0, 1, 0);
+   //cout << " SX: " << cam.getSightX() << " SY: " << cam.getSightY();
+   //cout << " SZ: " << cam.getSightZ() << endl;
+   //
+  //cout << "X: " << cam.getX() << " Y: " << cam.getY() << " Z: " << cam.getZ();
+   //cout << " _AX: " << cam.getAX() << " _AY: " << -cam.getAY() << endl;
 
-	/* Sign */
-	if(val < 0)
-	{
-		buf[p++] = 10;
-		val = -val;
-	}
-
-	/* Integer part */
-	pos = 10000000;
-	while(pos > 1)
-	{
-		int num = val / pos;
-		val -= num * pos;
-		pos /= 10;
-		if(p || num)
-			buf[p++] = num;
-	}
-
-	/* Decimals */
-	if(val / pos)
-	{
-		buf[p++] = 11;
-		while(pos > 0)
-		{
-			int num = val / pos;
-			val -= num * pos;
-			pos /= 10;
-			buf[p++] = num;
-		}
-	}
-
-	/* Render! */
-	from.y = 0;
-	from.w = 7;
-	from.h = 10;
-	for(pos = 0; pos < p; ++pos)
-	{
-		SDL_Rect to;
-		to.x = x + pos * 7;
-		to.y = y;
-		from.x = buf[pos] * 7;
-		SDL_BlitSurface(font, &from, dst, &to);
-	}
-}
+   // draw stuff
+   glEnable(GL_DEPTH_TEST);
+   glDepthFunc(GL_LEQUAL);
 
 
+//   for (int j = 0; j < objs.size(); ++j) {
+//      glRotatef(objs[j].ax, 1.0, 0.0, 0.0);
+//      glRotatef(-objs[j].ay, 0.0, 1.0, 0.0);
+//   }
 
-/*----------------------------------------------------------
-	ballfield_t functions
-----------------------------------------------------------*/
+   /* all the good stuff follows */
 
-ballfield_t *ballfield_init(void)
-{
-	int i;
-	ballfield_t *bf = calloc(sizeof(ballfield_t), 1);
-	if(!bf)
-		return NULL;
-	for(i = 1; i < BALLS; ++i)
-	{
-      if (i == 1) { // ok now abstract the functionality we want
-                    // into client.cpp of mechanizm
-         bf->points[0].x = 0;
-         bf->points[0].y = 0;
-         bf->points[0].z = 0;
-         bf->points[0].c = 1;
+   glEnable(GL_STENCIL_TEST);
+   glClear(GL_STENCIL_BUFFER_BIT);
+   glStencilMask(1);
+   glStencilFunc(GL_ALWAYS, 0, 1);
+   glStencilOp(GL_INVERT, GL_INVERT, GL_INVERT);
+   glColor3f(1.0, 1.0, 0.0);
+
+   for (int j = 0; j < objs.size(); ++j) {
+      for (i = 0; i < 6; i++) {
+         drawWireframe(j, i);
+         glStencilFunc(GL_EQUAL, 0, 1);
+         glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+         glColor3f(0.0, 0.0, 0.0);
+         drawFilled(j, i);
+
+         glColor3f(1.0, 1.0, 0.0);
+         glStencilFunc(GL_ALWAYS, 0, 1);
+         glStencilOp(GL_INVERT, GL_INVERT, GL_INVERT);
+         glColor3f(1.0, 1.0, 0.0);
+         drawWireframe(j, i);
       }
-		bf->points[i].x = rand() % 0x20000;
-		bf->points[i].y = rand() % 0x20000;
-		bf->points[i].z = 0x20000 * i / BALLS;
-		if(rand() % 100 > 80)
-			bf->points[i].c = 1;
-		else
-			bf->points[i].c = 0;
-	}
-	return bf;
+   }
+   glPopMatrix();
+
+   glDisable(GL_STENCIL_TEST);
+
+   /* end of good stuff */
+
+   glutSwapBuffers();
 }
 
-DottedLine * dotted_line_init(void)
+void
+setMatrix(int w, int h)
 {
-	DottedLine *dl = calloc(sizeof(DottedLine), 1);
-	if(!dt)
-		return NULL;
-   long low = -1 * (BALLS / 2);
-   long high = Balls + low;
-	for(long i = 0; i < BALLS; ++i)
-	{
-		dt->points[i].x = i - BALLS / 2;
-		dt->points[i].y = 0;
-		dt->points[i].z = 0;
-	   dt->points[i].c = 0;
-	}
-	return dt;
+   glMatrixMode(GL_PROJECTION);
+   glLoadIdentity();
+
+//  glOrtho(-2.0, 2.0, -2.0, 2.0, -2.0, 2.0);
+//
+
+   // set the perspective (angle of sight, width, height, depth)
+   gluPerspective(60, (GLfloat)w / (GLfloat)h, 1.0, 1000.0);
+
+//   gluLookAt(cam.getX(), cam.getY(), cam.getZ(), 0, 0, 0, 0, 1, 0);
+
+
+   //glRotatef(cam.getTheta(), 1.0, 0.0, 0.0);
+   //glRotatef(cam.getPsi(), 0.0, 1.0, 0.0);
+   //glTranslated(-cam.getX(), -cam.getY(), -cam.getZ());
+
+   glMatrixMode(GL_MODELVIEW);
+   glLoadIdentity();
 }
 
+int count = 1;
 
-void ballfield_free(ballfield_t *bf)
+void
+animation(void)
 {
-	int i;
-	for(i = 0; i < COLORS; ++i)
-		SDL_FreeSurface(bf->gfx[i]);
+   tools::Error e = NULL;
+   // 1/64th of a second
+   e = mech.run(0.015625, 0, 0.015625);
+   if (e != NULL) {
+      cout << e;
+      return;
+   }
+
+//   cout << "count: " << count << " t: " << mech.current_time << "\n";
+
+   glutPostRedisplay();
+
+   //if (count == 60) { // make up for the time lost
+   if (count == 60) { // make up for the time lost
+      e = mech.run(0.046875, 0, 0.046875);
+//      cout << "last t: " << mech.current_time << "\n";
+   }
+   if (e != NULL) {
+      cout << e;
+      return;
+   }
+
+   glutPostRedisplay();
+
+   count++;
+   if (count >= 61) {
+      count = 0;
+//      glutIdleFunc(NULL);
+   }
 }
 
-
-static int ballfield_init_frames(ballfield_t *bf)
+void
+menu(int choice)
 {
-	int i, j;
-	/*
-	 * Set up source rects for all frames
-	 */
-	bf->frames = calloc(sizeof(SDL_Rect), bf->gfx[0]->w);
-	if(!bf->frames)
-	{
-		fprintf(stderr, "No memory for frame rects!\n");
-		return -1;
-	}
-	for(j = 0, i = 0; i < bf->gfx[0]->w; ++i)
-	{
-		bf->frames[i].x = 0;
-		bf->frames[i].y = j;
-		bf->frames[i].w = bf->gfx[0]->w - i;
-		bf->frames[i].h = bf->gfx[0]->w - i;
-		j += bf->gfx[0]->w - i;
-	}
-	return 0;
+   switch (choice) {
+   case 3:
+      count = 0;
+      if (mech.current_time >= 1.2) {
+         mech.current_time = 0.0;
+      }
+      if (animation_on) {
+         glutIdleFunc(NULL);
+         animation_on = false;
+      }
+      else {
+         glutIdleFunc(animation);
+         animation_on = true;
+      }
+      break;
+   case 2:
+      glutSetWindowTitle("Stencil Disabled");
+      glutPostRedisplay();
+      break;
+   case 1:
+      glutSetWindowTitle("Stencil Enabled");
+      glutPostRedisplay();
+      break;
+  }
 }
 
+static int selected_side;
 
-int ballfield_load_gfx(ballfield_t *bf, char *name, unsigned int color)
+/* ARGSUSED1 */
+void
+keyboard(unsigned char c, int x, int y)
 {
-	if(color >= COLORS)
-		return -1;
+   string id = "spawned_object_";
+   for (int i = 0; i < objs.size(); ++i) {
+      id += "1";
+   }
+   Object spawned_test_object(id, 1, spawned_motion);
 
-	bf->gfx[color] = load_zoomed(name, bf->use_alpha);
-	if(!bf->gfx[color])
-		return -2;
+   switch (c) {
+   case 27:
+      exit(0);
+      break;
+   case 93: // ]
+      //grow_side(selected_side, 1.0);
+      glutPostRedisplay();
+      break;
+   case 91: // [
+      //grow_side(selected_side, -1.0);
+      glutPostRedisplay();
+      break;
+   case 'i':
+      objs[selected_object].translate_by(0, 0, -0.1);
+      break;
+   case 'j':
+      objs[selected_object].translate_by(-0.1, 0, 0);
+      break;
+   case 'k':
+      objs[selected_object].translate_by(0, 0, 0.1);
+      break;
+   case 'l':
+      objs[selected_object].translate_by(0.1, 0, 0);
+      break;
+   case 'y':
+      objs[selected_object].translate_by(0, 0.1, 0);
+      break;
+   case 'n':
+      objs[selected_object].translate_by(0, -0.1, 0);
+      break;
 
-	if(!bf->frames)
-		return ballfield_init_frames(bf);
+   case 'o':
+      objs[selected_object].scale_by(1.1, 1.1, 1.1);
+      break;
+   case 'u':
+      objs[selected_object].scale_by(0.9, 0.9, 0.9);
+      break;
+   case 'p':
+      objs.push_back(spawned_test_object);
+      //mech.spawn(objs[objs.size()-1]);
+      selected_object = objs.size() - 1;
+      break;
 
-	return 0;
+//   case 'c':
+//      cam.Move(DOWN);
+//      break;
+//   case ' ':
+//      cam.Move(UP);
+//      break;
+   default:
+      if (c == '1' || c == '2' || c == '3' || c == '4' || c == '5' || c == '0')
+         selected_object = (int)c - 48;
+      else
+         cam.pressKey(c, x, y);
+
+      glutPostRedisplay();
+
+      //std::cout << "got key:" << (int)c << std::endl;
+      break;
+  }
 }
 
-
-void ballfield_move(ballfield_t *bf, Sint32 dx, Sint32 dy, Sint32 dz)
-{
-	for(int i = 1; i < BALLS; ++i)
-	{
-		bf->points[i].x += dx;
-		bf->points[i].x &= 0x1ffff;
-		bf->points[i].y += dy;
-		bf->points[i].y &= 0x1ffff;
-		bf->points[i].z += dz;
-		bf->points[i].z &= 0x1ffff;
-	}
+void keyboard_up(unsigned char c, int x, int y) {
+   cam.setKeyboard(c, false);
+   glutPostRedisplay();
 }
 
-
-void ballfield_render(ballfield_t *bf, SDL_Surface *screen)
+void
+resize(int w, int h)
 {
-	int i, j, z;
-
-	/* 
-	 * Find the ball with the highest Z.
-	 */
-	z = 0;
-	j = 0;
-	for(i = 0; i < BALLS; ++i)
-	{
-		if(bf->points[i].z > z)
-		{
-			j = i;
-			z = bf->points[i].z;
-		}
-	}
-
-	/* 
-	 * Render all balls in back->front order.
-	 */
-	for(i = 0; i < BALLS; ++i)
-	{
-		SDL_Rect r;
-		int f;
-		z = bf->points[j].z;
-		z += 50;
-		f = ((bf->frames[0].w << 12) + 100000) / z;
-		f = bf->frames[0].w - f;
-		if(f < 0)
-			f = 0;
-		else if(f > bf->frames[0].w - 1)
-			f = bf->frames[0].w - 1;
-		z >>= 7;
-		z += 1;
-		r.x = (bf->points[j].x - 0x10000) / z;
-		r.y = (bf->points[j].y - 0x10000) / z;
-		r.x += (screen->w - bf->frames[f].w) >> 1;
-		r.y += (screen->h - bf->frames[f].h) >> 1;
-		SDL_BlitSurface(bf->gfx[bf->points[j].c],
-			&bf->frames[f], screen, &r);
-		if(--j < 0)
-			j = BALLS - 1;
-	}
-}
-
-
-
-/*----------------------------------------------------------
-	Other rendering functions
-----------------------------------------------------------*/
-
-/*
- * Draw tiled background image with offset.
- */
-void tiled_back(SDL_Surface *back, SDL_Surface *screen, int xo, int yo)
-{
-	int x, y;
-	SDL_Rect r;
-	if(xo < 0)
-		xo += back->w*(-xo/back->w + 1);
-	if(yo < 0)
-		yo += back->h*(-yo/back->h + 1);
-	xo %= back->w;
-	yo %= back->h;
-	for(y = -yo; y < screen->h; y += back->h)
-		for(x = -xo; x < screen->w; x += back->w)
-		{
-			r.x = x;
-			r.y = y;
-			SDL_BlitSurface(back, NULL, screen, &r);
-		}
-}
-
-
-
-/*----------------------------------------------------------
-	main()
-----------------------------------------------------------*/
-
-int main(int argc, char* argv[])
-{
-	ballfield_t	*balls;
-	SDL_Surface	*screen;
-	SDL_Surface	*temp_image;
-	SDL_Surface	*back, *logo, *font;
-	SDL_Event	event;
-	int		bpp = 0,
-			flags = SDL_DOUBLEBUF | SDL_SWSURFACE,
-			alpha = 1;
-	int		x_offs = 0, y_offs = 0;
-	long		tick,
-			last_tick,
-			last_avg_tick;
-	double		t = 0;
-	float		dt;
-	int		i;
-	float		fps = 0.0;
-	int		fps_count = 0;
-	int		fps_start = 0;
-	float		x_speed, y_speed, z_speed;
-
-	SDL_Init(SDL_INIT_VIDEO);
-
-	atexit(SDL_Quit);
-
-	for(i = 1; i < argc; ++i)
-	{
-		if(strncmp(argv[i], "-na", 3) == 0)
-			alpha = 0;
-		else if(strncmp(argv[i], "-nd", 3) == 0)
-			flags &= ~SDL_DOUBLEBUF;
-		else if(strncmp(argv[i], "-h", 2) == 0)
-		{
-			flags |= SDL_HWSURFACE;
-			flags &= ~SDL_SWSURFACE;
-		}
-		else if(strncmp(argv[i], "-f", 2) == 0)
-			flags |= SDL_FULLSCREEN;
-		else
-			bpp = atoi(&argv[i][1]);
-	}
-
-	screen = SDL_SetVideoMode(SCREEN_W, SCREEN_H, bpp, flags);
-	if(!screen)
-	{
-		fprintf(stderr, "Failed to open screen!\n");
-		exit(-1);
-	}
-
-	SDL_WM_SetCaption("Ballfield", "Ballfield");
-	if(flags & SDL_FULLSCREEN)
-		SDL_ShowCursor(0);
-
-	balls = ballfield_init();
-	if(!balls)
-	{
-		fprintf(stderr, "Failed to create ballfield!\n");
-		exit(-1);
-	}
-
-	/*
-	 * Load and prepare balls...
-	 */
-	balls->use_alpha = alpha;
-	if( ballfield_load_gfx(balls, "blueball.png", 0)
-				||
-			ballfield_load_gfx(balls, "redball.png", 1) )
-	{
-		fprintf(stderr, "Could not load balls!\n");
-		exit(-1);
-	}
-
-	/*
-	 * Load background image
-	 */
-	temp_image = IMG_Load("redbluestars.png");
-	if(!temp_image)
-	{
-		fprintf(stderr, "Could not load background!\n");
-		exit(-1);
-	}
-	back = SDL_DisplayFormat(temp_image);
-	SDL_FreeSurface(temp_image);
-
-	/*
-	 * Load logo
-	 */
-	temp_image = SDL_LoadBMP("logo.bmp");
-	if(!temp_image)
-	{
-		fprintf(stderr, "Could not load logo!\n");
-		exit(-1);
-	}
-	SDL_SetColorKey(temp_image, SDL_SRCCOLORKEY|SDL_RLEACCEL,
-			SDL_MapRGB(temp_image->format, 255, 0, 255));
-	logo = SDL_DisplayFormat(temp_image);
-	SDL_FreeSurface(temp_image);
-
-	/*
-	 * Load font
-	 */
-	temp_image = SDL_LoadBMP("font7x10.bmp");
-	if(!temp_image)
-	{
-		fprintf(stderr, "Could not load font!\n");
-		exit(-1);
-	}
-	SDL_SetColorKey(temp_image, SDL_SRCCOLORKEY|SDL_RLEACCEL,
-			SDL_MapRGB(temp_image->format, 255, 0, 255));
-	font = SDL_DisplayFormat(temp_image);
-	SDL_FreeSurface(temp_image);
-
-	last_avg_tick = last_tick = SDL_GetTicks();
-	while(1)
-	{
-		SDL_Rect r;
-		if(SDL_PollEvent(&event) > 0)
-		{
-			if(event.type == SDL_MOUSEBUTTONDOWN)
-				break;
-
-			if(event.type & (SDL_KEYUP | SDL_KEYDOWN))
-			{
-				Uint8	*keys = SDL_GetKeyState(&i);
-				if(keys[SDLK_ESCAPE])
-					break;
-			}
-		}
-
-		/* Timing */
-		tick = SDL_GetTicks();
-		dt = (tick - last_tick) * 0.001f;
-		last_tick = tick;
-
-		/* Background image */
-		tiled_back(back, screen, x_offs>>11, y_offs>>11);
-
-		/* Ballfield */
-		ballfield_render(balls, screen);
-
-		/* Logo */
-		r.x = 2;
-		r.y = 2;
-		SDL_BlitSurface(logo, NULL, screen, &r);
-
-		/* FPS counter */
-		if(tick > fps_start + 500)
-		{
-			fps = (float)fps_count * 1000.0 / (tick - fps_start);
-			fps_count = 0;
-			fps_start = tick;
-		}
-		print_num(screen, font, screen->w-37, screen->h-12, fps);
-		++fps_count;
-
-		SDL_Flip(screen);
-
-		/* Animate */
-		x_speed = 500.0 * sin(t * 0.37);
-		y_speed = 500.0 * sin(t * 0.53);
-		z_speed = 500.0 * sin(t * 0.21);
-
-		ballfield_move(balls, x_speed, y_speed, z_speed);
-		x_offs -= x_speed;
-		y_offs -= y_speed;
-
-		t += dt;
-	}
-
-	ballfield_free(balls);
-	SDL_FreeSurface(back);
-	SDL_FreeSurface(logo);
-	SDL_FreeSurface(font);
-	exit(0);
+  glViewport(0, 0, w, h);
+  setMatrix(w, h);
 }
