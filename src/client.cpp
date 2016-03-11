@@ -462,7 +462,7 @@ keyboard(unsigned char c, int x, int y)
       if (c == '1' || c == '2' || c == '3' || c == '4' || c == '5' || c == '0')
          selected_object = (int)c - 48;
       else
-         cam.pressKey(c, x, y);
+         cam.pressKey(c);
 
       glutPostRedisplay();
 
