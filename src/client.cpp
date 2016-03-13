@@ -43,15 +43,16 @@ void
    drawWireframe(int objs_index, int face),
    drawFilled(int objs_index, int face);
 
-tools::Error to1_motion(double t, Object &self);
+tools::Error random_motion(double t, Object &self);
+tools::Error random_motion_2(double t, Object &self);
 tools::Error spawned_motion(double t, Object &self);
+tools::Error tryhard_motion(double t, Object &self);
 
 static vector<Object> objs;
 static int selected_object = 0;
 
 // X Y Z theta (ax) psi (ay) rotationSpeed translationSpeed width height
 static Camera cam(2.8, 2.3, 2.5, 0.0, 0.0, 0.8, 0.2, 0.1, 0.1);
-
 
 static mechanizm mech;
 
@@ -92,7 +93,8 @@ int main(int argc, char *argv[]) {
       return 0;
    }
 
-   Object test_object_1("test_object_1", 1, to1_motion);
+
+   Object test_object_1("test_object_1", 1, NULL);
    objs.push_back(test_object_1);
 
    int fake = 0;
@@ -110,41 +112,72 @@ int main(int argc, char *argv[]) {
    glutCreateMenu(menu);
    glutAddMenuEntry("Motion", 3);
    glutAddMenuEntry("Stencil on", 1);
-   glutAddMenuEntry("Stencil off", 2);
+   glutAddMenuEntry("Reset", 2);
    glutAttachMenu(GLUT_RIGHT_BUTTON);
    glutKeyboardFunc(keyboard);
    glutKeyboardUpFunc(keyboard_up);
    glutMainLoop();
-
 
    return 0;
 }
 
 // a pointer to this function placed in the test_object_1 object. It sets the
 // current position as a function of time.
-tools::Error to1_motion(double t, Object &self) {
+tools::Error random_motion(double t, Object &self) {
 
+   GLfloat x = -0.01;
+   if (rand() % 2) {
+      x = 0.01;
+   }
+   GLfloat y = -0.01;
+   if (rand() % 2) {
+      y = 0.01;
+   }
+   GLfloat z = -0.01;
+   if (rand() % 2) {
+      z = 0.01;
+   }
+
+   self.translate_by(
+         x,
+         y,
+         z);
+
+//   cout << "t: " << t << "\n   ";
+//   cout << self.id << ": x: " << self.cube[0][0];
+//   cout << " y: " << self.cube[0][1];
+//   cout << " z: " << self.cube[0][2] << endl;
+   return NULL;
+}
+
+tools::Error random_motion_2(double t, Object &self) {
 
    Object tmp;
-   //float gt = (float)(glutGet(GLUT_ELAPSED_TIME));
-   //cout << "gluttime: " << gt << endl;
-   self.translate_by(
-         0.0,
-         sin(t/2) / 5,
-         0.0);
+   tmp.setConstQ("vi", self.c_qs["vi"]);
+   tmp.setConstQ("a", {
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 20,
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 20,
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 20});
 
-   //self.translate_by(
-   //      0.1 * sin(t * 3),
-   //      ,
-   //      0.1 * cos(t * 3));
+//            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
+//            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
+//            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10});
 
-   //self.set_cube(tmp.cube);
+   Object tmp_2 = tmp;
+   tryhard_motion(t, tmp);
+   tryhard_motion(self.last_t, tmp_2);
 
-   cout << "t: " << t << endl;
-   cout << self.id << ": cube 0 0: " << self.cube[0][0] << endl;
-   cout << self.id << ": cube 0 1: " << self.cube[0][1] << endl;
-   cout << self.id << ": cube 0 2: " << self.cube[0][2] << endl;
-   return NULL;
+   tmp_2.multiply_by(-1, -1, -1);
+   tmp.translate_by(tmp_2.cube[0][0], tmp_2.cube[0][1], tmp_2.cube[0][2]);
+
+   self.translate_by(tmp.cube[0][0], tmp.cube[0][1], tmp.cube[0][2]);
+
+//   cout << "t: " << t << "\n   ";
+//   cout << self.id << ": x: " << self.cube[0][0];
+//   cout << " y: " << self.cube[0][1];
+//   cout << " z: " << self.cube[0][2] << endl;
+
+   self.last_t = t;
 }
 
 tools::Error spawned_motion(double t, Object &self) {
@@ -155,21 +188,12 @@ tools::Error spawned_motion(double t, Object &self) {
 
    Object tmp;
 
-   if (self.cube[0][1] <= -0.0000001) {
-      tmp.translate_by(
-            -25 / t,
-            -31.3 / t + 4.9 / t / t,
-            0.0);
-   }
-   else {
-
    //float gt = (float)(glutGet(GLUT_ELAPSED_TIME));
    //cout << "gluttime: " << gt << endl;
-      tmp.translate_by(
-            25 * t,
-            31.3 * t - 4.9 * t * t,
-            0.0);
-   }
+   tmp.translate_by(
+         25 * t,
+         31.3 * t - 4.9 * t * t,
+         0.0);
 
    //self.translate_by(
    //      0.1 * sin(t * 3),
@@ -184,6 +208,30 @@ tools::Error spawned_motion(double t, Object &self) {
    cout << self.id << ": cube 0 2: " << self.cube[0][2] << endl;
    return NULL;
 }
+
+//tools::Error tryhard_motion(double t, Object &self) {
+//   vector<GLfloat> posi, v, vi, a; 
+//   Object tmp;
+//
+//   posi = self.c_qs["posi"];
+//   vi   = self.c_qs["vi"];
+//
+//   if (self.get_v(v)) {
+//      self.set_cube(tmp.cube);
+//      self.translate_by(
+//         posi[0] + v[0] * t,
+//         posi[1] + v[1] * t,
+//         posi[2] + v[2] * t);
+//   }
+//   else if (self.get_a(a)) {
+//      self.set_cube(tmp.cube);
+//      self.translate_by(
+//         posi[0] + vi[0] * t + a[0] * t * t,
+//         posi[1] + vi[1] * t + a[1] * t * t,
+//         posi[2] + vi[2] * t + a[2] * t * t);
+//   }
+//   return NULL;
+//}  
 
 void help(string p_name) {
    cout << "\n";
@@ -349,7 +397,6 @@ animation(void)
 
    glutPostRedisplay();
 
-   //if (count == 60) { // make up for the time lost
    if (count == 60) { // make up for the time lost
       e = mech.run(0.046875, 0, 0.046875);
 //      cout << "last t: " << mech.current_time << "\n";
@@ -363,8 +410,14 @@ animation(void)
 
    count++;
    if (count >= 61) {
+      cout << "t: " << mech.current_time << "\n";
+      for (int i = 0; i < objs.size(); ++i) {
+         cout << "   "  << objs[i].id << ": x: " << objs[i].cube[0][0];
+         cout << " y: " << objs[i].cube[0][1];
+         cout << " z: " << objs[i].cube[0][2] << endl;
+      }
+
       count = 0;
-//      glutIdleFunc(NULL);
    }
 }
 
@@ -372,11 +425,8 @@ void
 menu(int choice)
 {
    switch (choice) {
-   case 3:
+   case 3: // Menu
       count = 0;
-      if (mech.current_time >= 1.2) {
-         mech.current_time = 0.0;
-      }
       if (animation_on) {
          glutIdleFunc(NULL);
          animation_on = false;
@@ -386,8 +436,13 @@ menu(int choice)
          animation_on = true;
       }
       break;
-   case 2:
-      glutSetWindowTitle("Stencil Disabled");
+   case 2: // Reset
+      mech.current_time = 0.0;
+      for (int i = 0; i < objs.size(); ++i) {
+         objs[i].set_cube(Object().cube);
+         objs[i].last_t = 0.0;
+      }
+
       glutPostRedisplay();
       break;
    case 1:
@@ -404,10 +459,15 @@ void
 keyboard(unsigned char c, int x, int y)
 {
    string id = "spawned_object_";
-   for (int i = 0; i < objs.size(); ++i) {
-      id += "1";
-   }
-   Object spawned_test_object(id, 1, spawned_motion);
+   id.push_back((char)(objs.size() + 48));
+   Object spawned_test_object(id, 1, random_motion_2);
+   spawned_test_object.setConstQ("vi", {
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 2,
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 2,
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 2});
+            //(GLfloat) (rand() % 5 - 2),
+            //(GLfloat) (rand() % 5 - 2)});
+
 
    switch (c) {
    case 27:
@@ -466,7 +526,7 @@ keyboard(unsigned char c, int x, int y)
 
       glutPostRedisplay();
 
-      //std::cout << "got key:" << (int)c << std::endl;
+      std::cout << "got key:" << (int)c << std::endl;
       break;
   }
 }

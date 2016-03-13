@@ -4,6 +4,7 @@
 // Created by Daniel Kozitza
 //
 
+#include <cmath>
 #include "Object.hpp"
 
 static GLfloat init_cube[8][3] = {
@@ -24,30 +25,59 @@ static GLfloat init_faceIndex[6][4] = {
       3, 2, 5, 6,
       7, 4, 1, 0};
 
-
-Object::Object() {
-   set_cube(init_cube);
-   set_faceIndex(init_faceIndex);
-   ax = 10.0;
-   ay = -10.0;
-   az = 0.0;
-   id = "";
-   func_Motion = NULL;
+// default motion function
+//
+// it uses the get_* functions to calculate the position as a function of time
+// in whatever way it can.
+//
+tools::Error tryhard_motion(double t, Object &self) {
+   vector<GLfloat> posi, v, vi, a;
+   posi = self.c_qs["posi"];
+   vi   = self.c_qs["vi"];
+   if (self.get_v(v)) {
+      self.set_cube(init_cube);
+      self.translate_by(
+            posi[0] + v[0] * t,
+            posi[1] + v[1] * t,
+            posi[2] + v[2] * t);
+   }
+   else if (self.get_a(a)) {
+      self.set_cube(init_cube);
+      self.translate_by(
+         posi[0] + vi[0] * t + a[0] * t * t,
+         posi[1] + vi[1] * t + a[1] * t * t,
+         posi[2] + vi[2] * t + a[2] * t * t);
+   }
+   return NULL;
 }
 
-Object::Object(
-      string identity,
-      GLfloat mass_d,
-      Function function_Motion) {
+void Object::initialize(string identity, Function func) {
+
    set_cube(init_cube);
    set_faceIndex(init_faceIndex);
-   ax = 10.0;
-   ay = -10.0;
-   az = 0.0;
    id = identity;
-   c_qs["m"] = new GLfloat;
-   *c_qs["m"] = mass_d;
-   func_Motion = function_Motion;
+   last_t = 0.0;
+   func_motion = func;
+
+   // these quantities can be initialized without worrying about them breaking
+   // the physics equations. Mainly initial values.
+   c_qs["posi"] = {cube[0][0], cube[0][1], cube[0][2]};
+   c_qs["vi"].resize(3);
+}
+
+Object::Object() {
+   initialize("", tryhard_motion);
+}
+Object::Object(string identity) {
+   initialize(identity, tryhard_motion);
+}
+Object::Object(string identity, GLfloat mass) {
+   c_qs["m"].push_back(mass);
+   initialize(identity, tryhard_motion);
+}
+Object::Object(string identity, GLfloat mass, Function func) {
+   c_qs["m"].push_back(mass);
+   initialize(identity, func);
 }
 
 void Object::set_cube(GLfloat new_cube[][3]) {
@@ -56,6 +86,11 @@ void Object::set_cube(GLfloat new_cube[][3]) {
          cube[i][j] = new_cube[i][j];
       }
    }
+   if (c_qs["posi"].size() != 3)
+      c_qs["posi"].resize(3);
+   c_qs["posi"][0] = cube[0][0];
+   c_qs["posi"][1] = cube[0][1];
+   c_qs["posi"][2] = cube[0][2];
 }
 
 void Object::set_faceIndex(GLfloat new_faceIndex[][4]) {
@@ -71,6 +106,14 @@ void Object::translate_by(GLfloat x, GLfloat y, GLfloat z) {
       cube[i][0] += x;
       cube[i][1] += y;
       cube[i][2] += z;
+   }
+}
+
+void Object::translate_by(GLfloat add_cube[][3]) {
+   for (int i = 0; i < vertices; ++i) {
+      cube[i][0] += add_cube[i][0];
+      cube[i][1] += add_cube[i][1];
+      cube[i][2] += add_cube[i][2];
    }
 }
 
@@ -116,4 +159,86 @@ void Object::scale_by(GLfloat x, GLfloat y, GLfloat z) {
    multiply_vert_by(5, x,   y,   z);
    multiply_vert_by(6, 1.0, y,   z);
    multiply_vert_by(7, 1.0, y,   1.0);
+}
+
+GLfloat Object::magnitude(vector<GLfloat> q) {
+   GLfloat r = 0.0;
+   for (int i = 0; i < q.size(); ++i)
+      r += q[i] * q[i];
+   sqrt(r);
+   return r;
+}
+
+void Object::setConstQ(string name, GLfloat q) {
+   vector<GLfloat> tmp;
+   tmp.push_back(q);
+   setConstQ(name, tmp);
+}
+
+void Object::setConstQ(string name, vector<GLfloat> q) {
+   c_qs[name] = q;
+}
+
+vector<GLfloat> Object::getConstQ(string name) {
+   return c_qs[name];
+}
+
+bool Object::get_m(GLfloat &m) {
+   if (c_qs["m"].size() != 0) {
+      m = c_qs["m"][0];
+      return true;
+   }
+   if (c_qs["K"].size() != 0 && c_qs["v"].size() != 0) {
+      m = (2 * c_qs["K"][0]) / (c_qs["v"][0] * c_qs["v"][0]);
+      return true;
+   }
+   return false;
+}
+
+bool Object::get_v(vector<GLfloat> &v) {
+   if (c_qs["v"].size() != 0) {
+      v = c_qs["v"];
+      return true;
+   }
+// this can only find the magnitude not the direction
+//   if (c_qs["m"].size() != 0 && c_qs["K"].size() != 0) {
+//      v = sqrt((2 * c_qs["K"][0]) / c_qs["m"][0]);
+//   }
+   return false;
+}
+
+bool Object::get_a(vector<GLfloat> &a) {
+   if (c_qs["a"].size() != 0) {
+      a = c_qs["a"];
+      return true;
+   }
+   return false;
+}
+
+bool Object::get_K(GLfloat &K) {
+   if (c_qs["K"].size() != 0) {
+      K = c_qs["K"][0];
+      return true;
+   }
+   if (c_qs["m"].size() != 0 && c_qs["v"].size() != 0) {
+      K = 0.5 * c_qs["m"][0] * magnitude(c_qs["v"]) * magnitude(c_qs["v"]);
+      return true;
+   }
+   return false;
+}
+
+bool Object::get_U(GLfloat &U) {
+   if (c_qs["U"].size() != 0) {
+      U = c_qs["U"][0];
+      return true;
+   }
+   return false;
+}
+
+bool Object::get_k(GLfloat &k) {
+   if (c_qs["k"].size() != 0) {
+      k = c_qs["k"][0];
+      return true;
+   }
+   return false;
 }

@@ -32,53 +32,63 @@ class Object {
       GLfloat az;
 
       string   id;
-      double   last_run_time; // used to determine whether or not to run func
+      double   last_t; // used to integrate cube transformations using different
+                       // motion functions
 
 //      vector<string> connected; // list of objects this object is connected to
       // this function describes the objects motion as a function of time.
       // It will be used by mechanizm to get the objects position.
       // the reference passed to it is a reference to this very object.
-      Function func_Motion;
+      Function func_motion;
 
       Object();
-      Object(
-            string identity,
-            GLfloat mass_d,
-            Function function_Motion);
+      Object(string identity);
+      Object(string identity, GLfloat mass);
+      Object(string identity, GLfloat mass, Function func);
+      void initialize(string identity, Function func);
 
       void set_cube(GLfloat new_cube[][3]);
       void set_faceIndex(GLfloat new_faceIndex[][4]);
 
       // cube transformations
       void translate_by(GLfloat x, GLfloat y, GLfloat z);
+      void translate_by(GLfloat add_cube[][3]);
       void multiply_by(GLfloat x, GLfloat y, GLfloat z);
       void multiply_vert_by(int vertex_index, GLfloat x, GLfloat y, GLfloat z);
       void scale_by(GLfloat x, GLfloat y, GLfloat z);
 
-      void setQuantity(string name, GLfloat q);
-      GLfloat* getQuantity(string name);// this simply returns what's in the map
+      // getters and setters for the constant quantities vector, c_qs
+      //
+      // Given a scalar quantity this will place the GLfloat q in the first
+      // element of the vector c_qs[name].
+      //
+      void setConstQ(string name, GLfloat q);
+      void setConstQ(string name, vector<GLfloat> q);
+      vector<GLfloat> getConstQ(string name);
 
       // these functions will try in multiple ways to calculate the quantity
-      GLfloat* get_m();
-      GLfloat* get_v();
-      GLfloat* get_a();
-      GLfloat* get_K();
-      GLfloat* get_p();
+      // they return false if the quantity cannot be calculated
+      bool get_m(GLfloat &m);           // mass
+      bool get_v(vector<GLfloat> &v);   // velocity
+      bool get_vi(vector<GLfloat> &vi); // initial velocity
+      bool get_a(vector<GLfloat> &a);   // acceleration
+      bool get_K(GLfloat &K);           // kinetic energy
+      bool get_U(GLfloat &U);           // potential energy
+      bool get_k(GLfloat &k);           // force constant
+      bool get_p(vector<GLfloat> &p);   // momentum
 
-      // these functions do the same but with respect to time.
-      GLfloat* get_m_o_t(GLfloat t);
-      GLfloat* get_v_o_t(GLfloat t);
-      GLfloat* get_a_o_t(GLfloat t);
-      GLfloat* get_K_o_t(GLfloat t);
-      GLfloat* get_p_o_t(GLfloat t);
+      GLfloat magnitude(vector<GLfloat> q);
 
-   private:
+      //tools::Error tryhard_motion(double t, Object &self);
+
+      //// these functions do the same but with respect to time.
+      //GLfloat* get_v_o_t(GLfloat t);
+      //GLfloat* get_a_o_t(GLfloat t);
+      //GLfloat* get_K_o_t(GLfloat t);
+      //GLfloat* get_p_o_t(GLfloat t);
 
       // constant physics quantities
       // 
-      // These are pointers specifically so we can check if they are NULL with
-      // constant time.
-      //
       // The values set in this can be any physical quantities. The ones known
       // by the get_* functions are listed here. these functions will use
       // whatever values they can find to calculate the desired quantity. They
@@ -87,18 +97,23 @@ class Object {
       // Values can be set using the setQuantity function, the getQuantity
       // function is used to get copies of the values in the map.
       //
+      // scalar quantities will be placed in the 0 element of the vector,
+      // vector quantities will fill whatever space they need
+      //
       // Quantities known by the get_* functions:
       //
-      //    m        - the mass
-      //    v        - the velocity
-      //    a        - the acceleration
-      //    K        - the kinetic energy
-      //    p        - the momentum
+      //    m        - mass
+      //    v        - velocity
+      //    a        - acceleration
+      //    K        - kinetic energy
+      //    U        - potential energy
+      //    p        - momentum
+      //    k        - force constant
+      //    us       - coefficient of static friction
+      //    uk       - coefficient of kinetic friction
+      //    ipos     - initial position
       // 
-      unordered_map<string, GLfloat*> c_qs;
-
-
-
+      unordered_map<string, vector<GLfloat>> c_qs;
 };
 
 #endif

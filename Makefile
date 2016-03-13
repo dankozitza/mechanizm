@@ -1,10 +1,10 @@
-# eec9080481811c9f16a5bdf17583353e
+# 845eca46f9e31d72d0dd41fa9845e0a3
 # Generated with vfnmkmc by the mc program.
 PREFIX=/usr/local
 CFLAGS=-O$(O)  -std=c++11
 O=2
 LFLAGS= -l pcre2-8 -l GL -l GLU -l glut -l glfw -l GLEW -l assimp
-OBJS=objs/mechanizm.o objs/options.o objs/Camera.o objs/anim_test.o objs/Object.o objs/radix.o objs/scene.o objs/glstuff.o objs/png_loader.o objs/vectors.o objs/pcre2.o objs/doubles.o objs/system.o objs/utils.o objs/strings.o
+OBJS=objs/mechanizm.o objs/options.o objs/Camera.o objs/Object.o objs/client.o objs/radix.o objs/scene.o objs/glstuff.o objs/png_loader.o objs/vectors.o objs/pcre2.o objs/doubles.o objs/system.o objs/utils.o objs/strings.o
 
 
 .PHONY: all
@@ -24,16 +24,13 @@ objs/options.o: src/options.cpp src/options.hpp src/tools.hpp
 objs/Camera.o: src/Camera.cpp src/Camera.hpp
 	@ echo "    CXX  src/Camera.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Camera.cpp" -o $@
-objs/anim_test.o: src/anim_test.cpp src/../include/linealg.h \
- src/../include/vector2.h src/../include/vector3.h \
- src/../include/vector4.h src/../include/matrix3.h \
- src/../include/matrix4.h src/assimp_wrapper/glstuff.h \
- src/assimp_wrapper/scene.h
-	@ echo "    CXX  src/anim_test.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/anim_test.cpp" -o $@
 objs/Object.o: src/Object.cpp src/Object.hpp src/tools.hpp
 	@ echo "    CXX  src/Object.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Object.cpp" -o $@
+objs/client.o: src/client.cpp src/mechanizm.hpp src/tools.hpp src/Object.hpp \
+ src/options.hpp src/Camera.hpp
+	@ echo "    CXX  src/client.cpp"
+	@ $(CXX) $(CFLAGS) -c "src/client.cpp" -o $@
 objs/radix.o: src/sorters/radix.cpp src/sorters/../sorters.hpp
 	@ echo "    CXX  src/sorters/radix.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/sorters/radix.cpp" -o $@

@@ -47,17 +47,15 @@ tools::Error mechanizm::run(double seconds, double skip, double tick) {
          && !tools::equal(current_time, init_time + seconds); ) {
 
       current_time += tick;
-      //for (obj_iter oi = objects.begin(); oi != objects.end(); ++oi) {
       for (int i = 0; i < objects->size(); ++i) {
-         //if ((*oi->second).func_Motion == NULL) {
-         if ((objects->operator[](i)).func_Motion == NULL) {
+         if (objects->at(i).func_motion == NULL) {
 
-            cout << "func motion for object: `";
-            cout << (objects->operator[](i)).id.c_str();
-            cout << "` is NULL!\n";
+//            cout << "func motion for object: `";
+//            cout << objects->at(i).id.c_str();
+//            cout << "` is NULL!\n";
             continue;//return NULL;
          }
-         e = (objects->operator[](i)).func_Motion(current_time, objects->operator[](i));
+         e = objects->at(i).func_motion(current_time, objects->operator[](i));
          if (e != NULL) {
             return tools::errorf(
                   "mechanizm::run: at %d seconds object %s returned error %s",
