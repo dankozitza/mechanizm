@@ -72,6 +72,7 @@ int main(int argc, char *argv[]) {
    Error e = NULL;
 
    mech.set_objects(objs);
+   mech.current_time = 30.0;
 
    signal(SIGINT, signals_callback_handler);
 
@@ -152,12 +153,23 @@ tools::Error random_motion(double t, Object &self) {
 
 tools::Error random_motion_2(double t, Object &self) {
 
+   if (self.c_qs["a"].size() != 3)
+      self.setConstQ("a", {
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 30,
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 30,
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 30});
+
+//            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
+//            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
+//            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10});
+
+
    Object tmp;
    tmp.setConstQ("vi", self.c_qs["vi"]);
    tmp.setConstQ("a", {
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 20,
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 20,
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 20});
+            self.c_qs["a"][0] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 50,
+            self.c_qs["a"][1] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 50,
+            self.c_qs["a"][2] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 50});
 
 //            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
 //            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
@@ -202,10 +214,11 @@ tools::Error spawned_motion(double t, Object &self) {
 
    self.set_cube(tmp.cube);
 
-   cout << "t: " << t << endl;
    cout << self.id << ": cube 0 0: " << self.cube[0][0] << endl;
    cout << self.id << ": cube 0 1: " << self.cube[0][1] << endl;
    cout << self.id << ": cube 0 2: " << self.cube[0][2] << endl;
+   cout << "t: " << t << endl;
+
    return NULL;
 }
 
@@ -367,7 +380,7 @@ setMatrix(int w, int h)
 //
 
    // set the perspective (angle of sight, width, height, depth)
-   gluPerspective(60, (GLfloat)w / (GLfloat)h, 1.0, 1000.0);
+   gluPerspective(60, (GLfloat)w / (GLfloat)h, 1.0, 10000.0);
 
 //   gluLookAt(cam.getX(), cam.getY(), cam.getZ(), 0, 0, 0, 0, 1, 0);
 
@@ -411,11 +424,11 @@ animation(void)
    count++;
    if (count >= 61) {
       cout << "t: " << mech.current_time << "\n";
-      for (int i = 0; i < objs.size(); ++i) {
-         cout << "   "  << objs[i].id << ": x: " << objs[i].cube[0][0];
-         cout << " y: " << objs[i].cube[0][1];
-         cout << " z: " << objs[i].cube[0][2] << endl;
-      }
+//      for (int i = 0; i < objs.size(); ++i) {
+//         cout << "   "  << objs[i].id << ": x: " << objs[i].cube[0][0];
+//         cout << " y: " << objs[i].cube[0][1];
+//         cout << " z: " << objs[i].cube[0][2] << endl;
+//      }
 
       count = 0;
    }
@@ -459,12 +472,15 @@ void
 keyboard(unsigned char c, int x, int y)
 {
    string id = "spawned_object_";
-   id.push_back((char)(objs.size() + 48));
+   if (objs.size() < 9)
+      id.push_back((char)(objs.size() + 48));
+   else
+      id += "n";
    Object spawned_test_object(id, 1, random_motion_2);
-   spawned_test_object.setConstQ("vi", {
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 2,
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 2,
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 2});
+//   spawned_test_object.setConstQ("vi", {
+//            (GLfloat) (rand() % 21 - 10) * (GLfloat) 2,
+//            (GLfloat) (rand() % 21 - 10) * (GLfloat) 2,
+//            (GLfloat) (rand() % 21 - 10) * (GLfloat) 2});
             //(GLfloat) (rand() % 5 - 2),
             //(GLfloat) (rand() % 5 - 2)});
 
@@ -526,7 +542,7 @@ keyboard(unsigned char c, int x, int y)
 
       glutPostRedisplay();
 
-      std::cout << "got key:" << (int)c << std::endl;
+      //std::cout << "got key:" << (int)c << std::endl;
       break;
   }
 }
