@@ -33,7 +33,7 @@ using namespace tools;
 void help(string prog_name);
 
 void
-   drawScene(void), setMatrix(int w, int h), animation(void),
+   drawScene(void), setMatrix(int w, int h), animation(void), hot_pause(void),
    resize(int w, int h),
    mouse(int button, int state, int x, int y),
    mouse_passive(int x, int y),
@@ -51,8 +51,8 @@ tools::Error tryhard_motion(double t, Object &self);
 static vector<Object> objs;
 static int selected_object = 0;
 
-// X Y Z theta (ax) psi (ay) rotationSpeed translationSpeed width height
-static Camera cam(2.8, 2.3, 2.5, 0.0, 0.0, 0.8, 0.2, 0.1, 0.1);
+// X Y Z theta (ax) psi (ay) rotationSpeed translationSpeed
+static Camera cam(2.8, 2.3, 2.5, 0.0, 0.0, 0.6, 0.0022);
 
 static mechanizm mech;
 
@@ -66,7 +66,9 @@ int main(int argc, char *argv[]) {
    bool show_help  = false;
    bool file_given = false;
    bool realtime   = false;
+   bool time       = false;
    string file_path;
+   string time_int_str;
    string m[5];
    vector<string> args;
    Error e = NULL;
@@ -80,6 +82,7 @@ int main(int argc, char *argv[]) {
    opt.handle('h', show_help);
    opt.handle('f', file_given, file_path);
    opt.handle('r', realtime);
+   opt.handle('t', time, time_int_str);
 
    for (int i = 1; i < argc; ++i)
       args.push_back(argv[i]);
@@ -106,6 +109,7 @@ int main(int argc, char *argv[]) {
    glutInitDisplayMode(GLUT_RGB | GLUT_STENCIL | GLUT_DOUBLE | GLUT_DEPTH);
    glutCreateWindow("Mechanizm");
 
+   glutIdleFunc(hot_pause);
    glutDisplayFunc(drawScene);
    //glutMouseFunc(mouse);
    glutPassiveMotionFunc(mouse_passive);
@@ -155,21 +159,17 @@ tools::Error random_motion_2(double t, Object &self) {
 
    if (self.c_qs["a"].size() != 3)
       self.setConstQ("a", {
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 30,
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 30,
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 30});
-
-//            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
-//            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
-//            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10});
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 220,
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 220,
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 220});
 
 
    Object tmp;
    tmp.setConstQ("vi", self.c_qs["vi"]);
    tmp.setConstQ("a", {
-            self.c_qs["a"][0] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 50,
-            self.c_qs["a"][1] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 50,
-            self.c_qs["a"][2] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 50});
+            self.c_qs["a"][0] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190,
+            self.c_qs["a"][1] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190,
+            self.c_qs["a"][2] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190});
 
 //            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
 //            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
@@ -192,10 +192,42 @@ tools::Error random_motion_2(double t, Object &self) {
    self.last_t = t;
 }
 
+tools::Error random_motion_3(double t, Object &self) {
+   if (self.c_qs["v"].size() != 3)
+      self.setConstQ("v", {
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 180,
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 180,
+            (GLfloat) (rand() % 21 - 10) / (GLfloat) 180});
+
+
+   Object tmp;
+   tmp.setConstQ("v", {
+            self.c_qs["v"][0] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 150,
+            self.c_qs["v"][1] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 150,
+            self.c_qs["v"][2] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 150});
+
+   Object tmp_2 = tmp;
+   tryhard_motion(t, tmp);
+   tryhard_motion(self.last_t, tmp_2);
+
+   tmp_2.multiply_by(-1, -1, -1);
+   tmp.translate_by(tmp_2.cube[0][0], tmp_2.cube[0][1], tmp_2.cube[0][2]);
+
+   self.translate_by(tmp.cube[0][0], tmp.cube[0][1], tmp.cube[0][2]);
+
+//   cout << "t: " << t << "\n   ";
+//   cout << self.id << ": x: " << self.cube[0][0];
+//   cout << " y: " << self.cube[0][1];
+//   cout << " z: " << self.cube[0][2] << endl;
+
+   self.last_t = t;
+   return NULL;
+}
+
 tools::Error spawned_motion(double t, Object &self) {
 
    //if (self.cube[0][1] <= 0.0000001) {
-   //   glutIdleFunc(NULL);
+   //   glutIdleFunc(hot_pause);
    //}
 
    Object tmp;
@@ -309,7 +341,7 @@ void drawScene(void) {
    //cout << "here!\n";
    
    glLoadIdentity();
-   //cam.translation();
+   cam.translation();
    glRotatef(180 * cam.getAY() / 3.141592653, 1.0, 0.0, 0.0);
    glRotatef(180 * cam.getAX() / 3.141592653, 0.0, 1.0, 0.0);
    glTranslated(-cam.getX(), -cam.getY(), -cam.getZ());
@@ -413,13 +445,13 @@ animation(void)
    if (count == 60) { // make up for the time lost
       e = mech.run(0.046875, 0, 0.046875);
 //      cout << "last t: " << mech.current_time << "\n";
+      glutPostRedisplay();
    }
    if (e != NULL) {
       cout << e;
       return;
    }
 
-   glutPostRedisplay();
 
    count++;
    if (count >= 61) {
@@ -434,6 +466,10 @@ animation(void)
    }
 }
 
+void hot_pause(void) {
+   glutPostRedisplay();
+}
+
 void
 menu(int choice)
 {
@@ -441,7 +477,7 @@ menu(int choice)
    case 3: // Menu
       count = 0;
       if (animation_on) {
-         glutIdleFunc(NULL);
+         glutIdleFunc(hot_pause);
          animation_on = false;
       }
       else {
@@ -471,19 +507,30 @@ static int selected_side;
 void
 keyboard(unsigned char c, int x, int y)
 {
-   string id = "spawned_object_";
-   if (objs.size() < 9)
-      id.push_back((char)(objs.size() + 48));
-   else
-      id += "n";
-   Object spawned_test_object(id, 1, random_motion_2);
-//   spawned_test_object.setConstQ("vi", {
-//            (GLfloat) (rand() % 21 - 10) * (GLfloat) 2,
-//            (GLfloat) (rand() % 21 - 10) * (GLfloat) 2,
-//            (GLfloat) (rand() % 21 - 10) * (GLfloat) 2});
-            //(GLfloat) (rand() % 5 - 2),
-            //(GLfloat) (rand() % 5 - 2)});
-
+   Object spawned_test_object;
+   if (c == 'p') {
+      string id = "spawned_object_";
+      if (objs.size() < 9)
+         id.push_back((char)(objs.size() + 48));
+      else
+         id += "n";
+      spawned_test_object.id = id;
+      spawned_test_object.setConstQ("m", 1);
+      switch (rand() % 3) {
+      case 0:
+         cout << "0!\n";
+         spawned_test_object.func_motion = random_motion;
+         break;
+      case 1:
+         cout << "1!\n";
+         spawned_test_object.func_motion = random_motion_2;
+         break;
+      case 2:
+         cout << "2!\n";
+         spawned_test_object.func_motion = random_motion_3;
+         break;
+      }
+   }
 
    switch (c) {
    case 27:

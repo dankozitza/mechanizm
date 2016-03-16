@@ -15,28 +15,28 @@
 
 #include <iostream>
 
-Camera::Camera(float X, float Y, float Z, float AX, float AY, float rotationSpeed, float translationSpeed, int width, int height) : 
-	_mouseX(width/2),
-	_mouseY(height/2),
-	_rotationSpeed(rotationSpeed),
-	_translationSpeed(translationSpeed),
-	_X(X),
-	_Y(Y),
-	_Z(Z),
-   _AX(AX),
-   _AY(AY),
-   last_mouse_pos_x(0),
-   last_mouse_pos_y(0) {
+Camera::Camera(
+      float X, float Y, float Z, float AX, float AY,
+      float rotationSpeed, float translationSpeed) : 
+
+	   _rotationSpeed(rotationSpeed),
+	   _translationSpeed(translationSpeed),
+	   _X(X),
+	   _Y(Y),
+	   _Z(Z),
+      _AX(AX),
+      _AY(AY),
+      last_mouse_pos_x(0),
+      last_mouse_pos_y(0) {
+   
+   _time = glutGet(GLUT_ELAPSED_TIME);
+   _shift = 1.0;
         
-    for(int i=0 ; i<255 ; i++) { _keyboard[i] = false; }
+   for(int i=0 ; i<255 ; i++) { _keyboard[i] = false; }
         
 }
 
 void Camera::rotation(int x, int y) {
-
-//   glRotatf(_X, 1.0, 0.0, 0.0); // rotate our camera on the x axis
-//   glRotatef(_y, 0.0, 1.0, 0.0);// rotate our camera on the y axis
-//   GLTranslated(-_X, -_Y, -_Z); // translate the screen
 
    GLfloat diffx = x - last_mouse_pos_x;
    GLfloat diffy = y - last_mouse_pos_y;
@@ -64,80 +64,69 @@ void Camera::rotation(int x, int y) {
 
    _AX += (3.141592654 * diffx / 180) * _rotationSpeed;
    _AY += (3.141592654 * diffy / 180) * _rotationSpeed;
+}
 
-	//_AX -= (float)(x - _mouseX) * _rotationSpeed;
-	//_AY   += (float)(y - _mouseY) * _rotationSpeed;
-	
-	//if(_AY <= 0.1)			   _AY = 0.1;
-	//else if(_AY >= 0.95*M_PI) _AY = 0.95*M_PI;
-	
-	//_mouseX = x;
-	//_mouseY = y;
+void Camera::setKeyboard(int i, bool etat) {
+   if (i >= 'A' && i <= 'Z') // convert to lower case
+      i += 32;
+
+   _keyboard[i] = etat;
 }
 
 void Camera::pressKey(unsigned char c) {
+
+   if (c >= 'A' && c <= 'Z') { // convert to lower case
+      c += 32;
+      _shift = 3.5;
+   }
+   else if (c != ' ')
+      _shift = 1.0;
 	
 	if(c == 'd') {
+      _keyboard[c] = true;
 		
-		//_X -= sin(_AX + M_PI/2)*sin(_AY) * _translationSpeed * t;
-		//_Z -= cos(_AX + M_PI/2)*sin(_AY) * _translationSpeed * t;
-
-      _X += (cos(_AX) * cos(-_AY)) * _translationSpeed;
-      _Z += (sin(_AX) * cos(-_AY)) * _translationSpeed;
+     // _X += (cos(_AX) * cos(-_AY)) * _translationSpeed * _shift;
+     // _Z += (sin(_AX) * cos(-_AY)) * _translationSpeed * _shift;
 		
 	}
 	
 	if(c == 'a') {
+      _keyboard[c] = true;
 
-		//_X -= sin(_AX - M_PI/2)*sin(_AY) * _translationSpeed * t;
-		//_Z -= cos(_AX - M_PI/2)*sin(_AY) * _translationSpeed * t;
+      //_X -= (cos(_AX) * cos(-_AY)) * _translationSpeed * _shift;
+      //_Z -= (sin(_AX) * cos(-_AY)) * _translationSpeed * _shift;
 
-      _X -= (cos(_AX) * cos(-_AY)) * _translationSpeed;
-      _Z -= (sin(_AX) * cos(-_AY)) * _translationSpeed;
-
-		
 	}
 
 	if(c == 'w') {
-	 
-		//_X += sin(_AX)*sin(_AY) * _translationSpeed * t;
-		//_Y += cos(_AY)			    * _translationSpeed * t;
-		//_Z += cos(_AX)*sin(_AY) * _translationSpeed * t;
+	   _keyboard[c] = true;
 
-      _X += (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed;
-	   _Y += sin(-_AY) * _translationSpeed;
-      _Z += (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed;
+      //_X += (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * _shift;
+	   //_Y += sin(-_AY) * _translationSpeed * _shift;
+      //_Z += (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * _shift;
 	}
-
  
 	if(c == 's') {
-	 
-//		_X -= sin(_AX)*sin(_AY) * _translationSpeed * t;
-//		_Y -= cos(_AY)			    * _translationSpeed * t;
-//		_Z -= cos(_AX)*sin(_AY) * _translationSpeed * t;
+	   _keyboard[c] = true;
 
-      //_X -= cos(_AX) * _translationSpeed * t;
-	   //_Y += sin(_AX) * _translationSpeed * t;
-      //_Z += cos(-_AY) * _translationSpeed * t;
-
-      _X -= (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed;
-	   _Y -= sin(-_AY) * _translationSpeed;
-      _Z -= (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed;
+      //_X -= (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * _shift;
+	   //_Y -= sin(-_AY) * _translationSpeed * _shift;
+      //_Z -= (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * _shift;
 	}
    
    if (c == ' ') {
-      
-      _X -= (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed;
-      _Y += cos(-_AY) * _translationSpeed;
-      _Z -= (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed;
+      _keyboard[c] = true;
+      //_X -= (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * _shift;
+      //_Y += cos(-_AY) * _translationSpeed * _shift;
+      //_Z -= (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * _shift;
 
    }
 
    if (c == 'c') {
-      
-      _X += (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed;
-      _Y -= cos(-_AY) * _translationSpeed;
-      _Z += (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed;
+      _keyboard[c] = true;
+      //_X += (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * _shift;
+      //_Y -= cos(-_AY) * _translationSpeed * _shift;
+      //_Z += (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * _shift;
 
    }
 
@@ -148,71 +137,51 @@ void Camera::translation() {
 	
 	float t = (float)(glutGet(GLUT_ELAPSED_TIME) - _time);
 	_time   = glutGet(GLUT_ELAPSED_TIME);
-	
+
 	if(_keyboard[100]) { // d
 		
-		//_X -= sin(_AX + M_PI/2)*sin(_AY) * _translationSpeed * t;
-		//_Z -= cos(_AX + M_PI/2)*sin(_AY) * _translationSpeed * t;
-
-      _X += (cos(_AX) * cos(-_AY)) * _translationSpeed * t;
-      _Z += (sin(_AX) * cos(-_AY)) * _translationSpeed * t;
+      _X += (cos(_AX) * cos(-_AY)) * _translationSpeed * t * _shift;
+      _Z += (sin(_AX) * cos(-_AY)) * _translationSpeed * t * _shift;
 		
 	}
 	
 	if(_keyboard[97]) { // a
 
-		//_X -= sin(_AX - M_PI/2)*sin(_AY) * _translationSpeed * t;
-		//_Z -= cos(_AX - M_PI/2)*sin(_AY) * _translationSpeed * t;
-
-      _X -= (cos(_AX) * cos(-_AY)) * _translationSpeed * t;
-      _Z -= (sin(_AX) * cos(-_AY)) * _translationSpeed * t;
+      _X -= (cos(_AX) * cos(-_AY)) * _translationSpeed * t * _shift;
+      _Z -= (sin(_AX) * cos(-_AY)) * _translationSpeed * t * _shift;
 
 		
 	}
 
 	if(_keyboard[119]) { // w
 	 
-		//_X += sin(_AX)*sin(_AY) * _translationSpeed * t;
-		//_Y += cos(_AY)			    * _translationSpeed * t;
-		//_Z += cos(_AX)*sin(_AY) * _translationSpeed * t;
-
-      _X += (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t;
-	   _Y += sin(-_AY) * _translationSpeed * t;
-      _Z += (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t;
+      _X += (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift;
+	   _Y += sin(-_AY) * _translationSpeed * t * _shift;
+      _Z += (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift;
 	}
 
  
 	if(_keyboard[115]) { // s
 	 
-//		_X -= sin(_AX)*sin(_AY) * _translationSpeed * t;
-//		_Y -= cos(_AY)			    * _translationSpeed * t;
-//		_Z -= cos(_AX)*sin(_AY) * _translationSpeed * t;
-
-      //_X -= cos(_AX) * _translationSpeed * t;
-	   //_Y += sin(_AX) * _translationSpeed * t;
-      //_Z += cos(-_AY) * _translationSpeed * t;
-
-      _X -= (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t;
-	   _Y -= sin(-_AY) * _translationSpeed * t;
-      _Z -= (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t;
+      _X -= (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift;
+	   _Y -= sin(-_AY) * _translationSpeed * t * _shift;
+      _Z -= (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift;
 	}
    
    if (_keyboard[' ']) {
       
-      _X -= (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t;
-      _Y += cos(-_AY) * _translationSpeed * t;
-      _Z -= (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t;
+      _X -= (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t * _shift;
+      _Y += cos(-_AY) * _translationSpeed * t * _shift;
+      _Z -= (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t * _shift;
 
    }
 
    if (_keyboard['c']) {
       
-      _X += (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t;
-      _Y -= cos(-_AY) * _translationSpeed * t;
-      _Z += (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t;
+      _X += (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t * _shift;
+      _Y -= cos(-_AY) * _translationSpeed * t * _shift;
+      _Z += (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t * _shift;
 
    }
-
 }
-																						  
 #endif
