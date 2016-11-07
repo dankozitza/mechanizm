@@ -10,7 +10,7 @@
 #include <cstdlib>
 #include <dirent.h>
 #include <fstream>
-#include <glm/vec3.hpp>
+#include <glm/core/type_vec.hpp>
 #include <iomanip>
 #include <iostream>
 #include "mechanizm.hpp"
@@ -508,6 +508,14 @@ void
 keyboard(unsigned char c, int x, int y)
 {
    Object spawned_test_object;
+	if (c == 'h' | c == '?') {
+		cout << "\n   Controls:\n";
+		cout << "      p -   spawn a cube\n";
+		cout << "      i j k l y n -   move selected cube\n";
+		cout << "      u o -   stretch selected cube\n";
+		cout << "      0-9 -   select cube\n";
+		cout << "      m -   reset motion function on selected cube\n";
+	}
    if (c == 'p') {
       string id = "spawned_object_";
       if (objs.size() < 9)
@@ -574,6 +582,9 @@ keyboard(unsigned char c, int x, int y)
       //mech.spawn(objs[objs.size()-1]);
       selected_object = objs.size() - 1;
       break;
+	case 'm':
+		objs[selected_object].func_motion = NULL;
+		break;
 
 //   case 'c':
 //      cam.Move(DOWN);

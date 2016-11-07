@@ -3,8 +3,9 @@
 PREFIX=/usr/local
 CFLAGS=-O$(O)  -std=c++11
 O=2
-LFLAGS= -l pcre2-8 -l GL -l GLU -l glut -l glfw -l GLEW -l assimp
-OBJS=objs/mechanizm.o objs/options.o objs/Camera.o objs/Object.o objs/client.o objs/radix.o objs/scene.o objs/glstuff.o objs/png_loader.o objs/vectors.o objs/pcre2.o objs/doubles.o objs/system.o objs/utils.o objs/strings.o
+LFLAGS= -l pcre2-8 -l GL -l GLU -l glut
+#LFLAGS= -l pcre2-8 -l GL -l GLU -l glut -l glfw -l GLEW -l assimp
+OBJS=objs/mechanizm.o objs/options.o objs/Camera.o objs/Object.o objs/client.o objs/radix.o objs/vectors.o objs/pcre2.o objs/doubles.o objs/system.o objs/utils.o objs/strings.o
 
 
 .PHONY: all
@@ -34,16 +35,19 @@ objs/client.o: src/client.cpp src/mechanizm.hpp src/tools.hpp src/Object.hpp \
 objs/radix.o: src/sorters/radix.cpp src/sorters/../sorters.hpp
 	@ echo "    CXX  src/sorters/radix.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/sorters/radix.cpp" -o $@
-objs/scene.o: src/assimp_wrapper/scene.cpp src/assimp_wrapper/scene.h \
- src/assimp_wrapper/png_loader.h src/assimp_wrapper/glstuff.h
-	@ echo "    CXX  src/assimp_wrapper/scene.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/assimp_wrapper/scene.cpp" -o $@
-objs/glstuff.o: src/assimp_wrapper/glstuff.cpp src/assimp_wrapper/glstuff.h
-	@ echo "    CXX  src/assimp_wrapper/glstuff.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/assimp_wrapper/glstuff.cpp" -o $@
-objs/png_loader.o: src/assimp_wrapper/png_loader.cpp
-	@ echo "    CXX  src/assimp_wrapper/png_loader.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/assimp_wrapper/png_loader.cpp" -o $@
+#objs/scene.o: src/assimp_wrapper/scene.cpp src/assimp_wrapper/scene.h \
+# src/assimp_wrapper/png_loader.h src/assimp_wrapper/glstuff.h
+#	@ echo "    CXX  src/assimp_wrapper/scene.cpp"
+#	@ $(CXX) $(CFLAGS) -c "src/assimp_wrapper/scene.cpp" -o $@
+
+#objs/glstuff.o: src/assimp_wrapper/glstuff.cpp src/assimp_wrapper/glstuff.h
+#	@ echo "    CXX  src/assimp_wrapper/glstuff.cpp"
+#	@ $(CXX) $(CFLAGS) -c "src/assimp_wrapper/glstuff.cpp" -o $@
+
+#objs/png_loader.o: src/assimp_wrapper/png_loader.cpp
+#	@ echo "    CXX  src/assimp_wrapper/png_loader.cpp"
+#	@ $(CXX) $(CFLAGS) -c "src/assimp_wrapper/png_loader.cpp" -o $@
+
 objs/vectors.o: src/tools/vectors.cpp src/tools/../tools.hpp
 	@ echo "    CXX  src/tools/vectors.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/tools/vectors.cpp" -o $@
