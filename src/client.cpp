@@ -13,6 +13,7 @@
 #include <glm/core/type_vec.hpp>
 #include <iomanip>
 #include <iostream>
+#include "commands.hpp"
 #include "mechanizm.hpp"
 #include "options.hpp"
 #include "tools.hpp"
@@ -50,6 +51,8 @@ tools::Error tryhard_motion(double t, Object &self);
 
 static vector<Object> objs;
 static int selected_object = 0;
+static int menu_depth = 0;
+static string menu_input;
 
 // X Y Z theta (ax) psi (ay) rotationSpeed translationSpeed
 static Camera cam(2.8, 2.3, 2.5, 0.0, 0.0, 0.6, 0.0022);
@@ -96,6 +99,10 @@ int main(int argc, char *argv[]) {
       help(prog_name);
       return 0;
    }
+
+	// set up the in game menu. or use this for in-game command line
+	//cmds.set_max_line_width(80);
+	//cmds.set_cmds_help("\n"
 
 
    Object test_object_1("test_object_1", 1, NULL);
@@ -455,7 +462,7 @@ animation(void)
 
    count++;
    if (count >= 61) {
-      cout << "t: " << mech.current_time << "\n";
+      //cout << "t: " << mech.current_time << "\n";
 //      for (int i = 0; i < objs.size(); ++i) {
 //         cout << "   "  << objs[i].id << ": x: " << objs[i].cube[0][0];
 //         cout << " y: " << objs[i].cube[0][1];
@@ -501,12 +508,82 @@ menu(int choice)
   }
 }
 
-static int selected_side;
+void menu_1_help() {
+	cout << "\n*** Menu level: 1";
+	cout << "  -  selected object: " << selected_object;
+	cout << "  -  time: " << mech.current_time << "\n";
+	cout << "   p -   Print the object information\n";
+	cout << "   r -   Set motion function to null.\n";
+	cout << "   e -   Enter command.\n";
+	cout << "   c -   Print help for commands.\n";
+	cout << "   h -   Print this help message.\n";
+	cout << "   q -   exit menu\n";
+	cout << "\n";
+}
 
 /* ARGSUSED1 */
 void
 keyboard(unsigned char c, int x, int y)
 {
+
+	string prefix = "-> ";
+	for (int i = 0; i < menu_depth; ++i) {
+		prefix += "   ";
+	}
+
+	if (menu_depth != 0) { // go into menu mode
+
+		if (menu_depth == 37) { // this means we're taking input
+			if (c != '\n') {
+				// use a buffer to hold the input while writing the characters
+				// to stdout.
+				//menu_input += c;
+				cout << "c";
+			}
+			else {
+				cout << "\n";
+				menu_depth = 1;
+				// cmds.run(menu_input);
+			}
+			return;
+		}
+
+		cout << "\n*** Menu level: " << menu_depth;
+	  	cout << "  -  selected object: " << selected_object;
+		cout << "  -  time: " << mech.current_time << "\n";
+
+		// run menu 1 level buttons
+		if (c == 'p') {
+			for (int i = 0; i < 8; ++i) {
+				cout << prefix;
+				for (int j = 0; j < 3; ++j) {
+					cout << objs[selected_object].cube[i][j] << " ";
+				}
+				cout << "\n";
+			}
+		}
+		if (c == 'r') {
+			cout << prefix;
+		   cout << "reset motion function for object " << selected_object;
+			cout << "\n";
+			objs[selected_object].func_motion = NULL;
+		}
+		if (c == 'e') {
+			menu_depth = 37;
+			menu_input = "";
+			cout << prefix << "entering command mode:\n";
+		}
+		if (c == 'h') {
+			menu_1_help();
+		}
+		if (c == 'q') {
+			cout << prefix << "exiting menu\n";
+			menu_depth = 0;
+		}
+		return;
+	}
+
+	// gameplay level controls
    Object spawned_test_object;
 	if (c == 'h' | c == '?') {
 		cout << "\n   Controls:\n";
@@ -514,10 +591,13 @@ keyboard(unsigned char c, int x, int y)
 		cout << "      i j k l y n -   move selected cube\n";
 		cout << "      u o -   stretch selected cube\n";
 		cout << "      0-9 -   select cube\n";
-		cout << "      m -   reset motion function on selected cube\n";
+		cout << "      m -   open menu\n";
 	}
    if (c == 'p') {
       string id = "spawned_object_";
+		cout << prefix;
+		cout << "spawning random object: " << id << objs.size();
+	  	cout << "\n";
       if (objs.size() < 9)
          id.push_back((char)(objs.size() + 48));
       else
@@ -539,6 +619,8 @@ keyboard(unsigned char c, int x, int y)
          break;
       }
    }
+
+
 
    switch (c) {
    case 27:
@@ -579,11 +661,11 @@ keyboard(unsigned char c, int x, int y)
       break;
    case 'p':
       objs.push_back(spawned_test_object);
-      //mech.spawn(objs[objs.size()-1]);
       selected_object = objs.size() - 1;
       break;
 	case 'm':
-		objs[selected_object].func_motion = NULL;
+		menu_depth = 1;
+		menu_1_help();
 		break;
 
 //   case 'c':
