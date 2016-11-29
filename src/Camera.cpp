@@ -134,7 +134,7 @@ void Camera::pressKey(unsigned char c) {
 
 // computes the right speeds to give to the given directions using trigonometric formulas
 void Camera::translation() {
-	
+
 	float t = (float)(glutGet(GLUT_ELAPSED_TIME) - _time);
 	_time   = glutGet(GLUT_ELAPSED_TIME);
 

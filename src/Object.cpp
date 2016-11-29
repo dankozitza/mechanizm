@@ -32,7 +32,10 @@ static GLfloat init_faceIndex[6][4] = {
 //
 tools::Error tryhard_motion(double t, Object &self) {
    vector<GLfloat> posi, v, vi, a;
-   posi = self.c_qs["posi"];
+	if (self.c_qs.count("posi"))
+   	posi = self.c_qs["posi"];
+	else
+		posi = {0.0, 0.0, 0.0};
    vi   = self.c_qs["vi"];
    if (self.get_v(v)) {
       self.set_cube(init_cube);
@@ -61,8 +64,8 @@ void Object::initialize(string identity, Function func) {
 
    // these quantities can be initialized without worrying about them breaking
    // the physics equations. Mainly initial values.
-   c_qs["posi"] = {cube[0][0], cube[0][1], cube[0][2]};
-   c_qs["vi"].resize(3);
+   //c_qs["posi"] = {cube[0][0], cube[0][1], cube[0][2]};
+   //c_qs["vi"].resize(3);
 }
 
 Object::Object() {
@@ -86,11 +89,12 @@ void Object::set_cube(GLfloat new_cube[][3]) {
          cube[i][j] = new_cube[i][j];
       }
    }
-   if (c_qs["posi"].size() != 3)
+   if (c_qs["posi"].size() != 3) {
       c_qs["posi"].resize(3);
-   c_qs["posi"][0] = cube[0][0];
-   c_qs["posi"][1] = cube[0][1];
-   c_qs["posi"][2] = cube[0][2];
+   	c_qs["posi"][0] = cube[0][0];
+   	c_qs["posi"][1] = cube[0][1];
+   	c_qs["posi"][2] = cube[0][2];
+	}
 }
 
 void Object::set_faceIndex(GLfloat new_faceIndex[][4]) {

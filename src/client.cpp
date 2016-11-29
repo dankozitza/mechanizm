@@ -13,7 +13,7 @@
 #include <glm/core/type_vec.hpp>
 #include <iomanip>
 #include <iostream>
-#include "commands.hpp"
+//#include "commands.hpp"
 #include "mechanizm.hpp"
 #include "options.hpp"
 #include "tools.hpp"
@@ -53,13 +53,17 @@ static vector<Object> objs;
 static int selected_object = 0;
 static int menu_depth = 0;
 static string menu_input;
+vector<GLfloat *> terrain;
 
 // X Y Z theta (ax) psi (ay) rotationSpeed translationSpeed
-static Camera cam(2.8, 2.3, 2.5, 0.0, 0.0, 0.6, 0.0022);
+static Camera cam(2.0, 2.0, 3.5, 0.0, 0.0, 0.6, 0.0022);
 
 static mechanizm mech;
 
 bool animation_on = false;
+
+// commands for the in-game cli
+void cmd_select(vector<string>& argv);
 
 int main(int argc, char *argv[]) {
 
@@ -100,10 +104,18 @@ int main(int argc, char *argv[]) {
       return 0;
    }
 
-	// set up the in game menu. or use this for in-game command line
-	//cmds.set_max_line_width(80);
-	//cmds.set_cmds_help("\n"
+	// set up the in game command line
+	vector<string> cmd_argv = {"help"};
+	//commands cmds;
 
+	//cmds.set_max_line_width(80);
+	//cmds.set_cmds_help("\nThis is the in-game command line interface.\n\n");
+
+	//cmds.handle(
+	//		"select",
+	//		cmd_select,
+	//		"Select an object by index.",
+	//		"select [index]");
 
    Object test_object_1("test_object_1", 1, NULL);
    objs.push_back(test_object_1);
@@ -133,21 +145,25 @@ int main(int argc, char *argv[]) {
    return 0;
 }
 
+void cmd_select(vector<string>& argv) {
+	cout << "you ran select!\n";
+}
+
 // a pointer to this function placed in the test_object_1 object. It sets the
 // current position as a function of time.
 tools::Error random_motion(double t, Object &self) {
 
-   GLfloat x = -0.01;
+   GLfloat x = -0.007;
    if (rand() % 2) {
-      x = 0.01;
+      x = 0.007;
    }
-   GLfloat y = -0.01;
+   GLfloat y = -0.007;
    if (rand() % 2) {
-      y = 0.01;
+      y = 0.007;
    }
-   GLfloat z = -0.01;
+   GLfloat z = -0.007;
    if (rand() % 2) {
-      z = 0.01;
+      z = 0.007;
    }
 
    self.translate_by(
@@ -155,10 +171,6 @@ tools::Error random_motion(double t, Object &self) {
          y,
          z);
 
-//   cout << "t: " << t << "\n   ";
-//   cout << self.id << ": x: " << self.cube[0][0];
-//   cout << " y: " << self.cube[0][1];
-//   cout << " z: " << self.cube[0][2] << endl;
    return NULL;
 }
 
@@ -166,17 +178,20 @@ tools::Error random_motion_2(double t, Object &self) {
 
    if (self.c_qs["a"].size() != 3)
       self.setConstQ("a", {
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 220,
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 220,
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 220});
+            (GLfloat) (rand() % 7 - 3) / (GLfloat) 220,
+            (GLfloat) (rand() % 7 - 3) / (GLfloat) 220,
+            (GLfloat) (rand() % 7 - 3) / (GLfloat) 220});
 
 
    Object tmp;
-   tmp.setConstQ("vi", self.c_qs["vi"]);
+	if (self.c_qs.count("vi"))
+   	tmp.setConstQ("vi", self.c_qs["vi"]);
+	else
+		tmp.setConstQ("vi", 0.0);
    tmp.setConstQ("a", {
-            self.c_qs["a"][0] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190,
-            self.c_qs["a"][1] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190,
-            self.c_qs["a"][2] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190});
+		self.c_qs["a"][0] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190,
+		self.c_qs["a"][1] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190,
+		self.c_qs["a"][2] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190});
 
 //            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
 //            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
@@ -191,45 +206,40 @@ tools::Error random_motion_2(double t, Object &self) {
 
    self.translate_by(tmp.cube[0][0], tmp.cube[0][1], tmp.cube[0][2]);
 
-//   cout << "t: " << t << "\n   ";
-//   cout << self.id << ": x: " << self.cube[0][0];
-//   cout << " y: " << self.cube[0][1];
-//   cout << " z: " << self.cube[0][2] << endl;
-
    self.last_t = t;
 }
 
-tools::Error random_motion_3(double t, Object &self) {
-   if (self.c_qs["v"].size() != 3)
-      self.setConstQ("v", {
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 180,
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 180,
-            (GLfloat) (rand() % 21 - 10) / (GLfloat) 180});
-
-
-   Object tmp;
-   tmp.setConstQ("v", {
-            self.c_qs["v"][0] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 150,
-            self.c_qs["v"][1] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 150,
-            self.c_qs["v"][2] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 150});
-
-   Object tmp_2 = tmp;
-   tryhard_motion(t, tmp);
-   tryhard_motion(self.last_t, tmp_2);
-
-   tmp_2.multiply_by(-1, -1, -1);
-   tmp.translate_by(tmp_2.cube[0][0], tmp_2.cube[0][1], tmp_2.cube[0][2]);
-
-   self.translate_by(tmp.cube[0][0], tmp.cube[0][1], tmp.cube[0][2]);
-
-//   cout << "t: " << t << "\n   ";
-//   cout << self.id << ": x: " << self.cube[0][0];
-//   cout << " y: " << self.cube[0][1];
-//   cout << " z: " << self.cube[0][2] << endl;
-
-   self.last_t = t;
-   return NULL;
-}
+//tools::Error random_motion_3(double t, Object &self) {
+//   if (self.c_qs["v"].size() != 3)
+//      self.setConstQ("v", {
+//            (GLfloat) (rand() % 17 - 8) / (GLfloat) 180,
+//            (GLfloat) (rand() % 17 - 8) / (GLfloat) 180,
+//            (GLfloat) (rand() % 17 - 8) / (GLfloat) 180});
+//
+//
+//   Object tmp;
+//   tmp.setConstQ("v", {
+//            self.c_qs["v"][0] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 150,
+//            self.c_qs["v"][1] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 150,
+//            self.c_qs["v"][2] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 150});
+//
+//   Object tmp_2 = tmp;
+//   tryhard_motion(t, tmp);
+//   tryhard_motion(self.last_t, tmp_2);
+//
+//   tmp_2.multiply_by(-1, -1, -1);
+//   tmp.translate_by(tmp_2.cube[0][0], tmp_2.cube[0][1], tmp_2.cube[0][2]);
+//
+//   self.translate_by(tmp.cube[0][0], tmp.cube[0][1], tmp.cube[0][2]);
+//
+////   cout << "t: " << t << "\n   ";
+////   cout << self.id << ": x: " << self.cube[0][0];
+////   cout << " y: " << self.cube[0][1];
+////   cout << " z: " << self.cube[0][2] << endl;
+//
+//   self.last_t = t;
+//   return NULL;
+//}
 
 tools::Error spawned_motion(double t, Object &self) {
 
@@ -319,6 +329,15 @@ drawFilled(int objs_index, int face)
    glEnd();
 }
 
+void drawFilledTStrip() {
+	glBegin(GL_TRIANGLE_STRIP);
+//	for (GLFloat i = -10; i <= 10; ++i) {
+	glColor3f(1, 0, 0); glVertex3f(0, 2, 0);
+	glColor3f(0, 1, 0); glVertex3f(-1, 0, 1);
+	glColor3f(0, 0, 1); glVertex3f(1, 0, 1);
+	glEnd();
+}
+
 //void mouse(int button, int state, int x, int y) {
 //   //cam.rotation(x, y);
 //   //cout << "here! ";
@@ -333,11 +352,18 @@ void mouse_passive(int x, int y) {
    glutPostRedisplay();
 }
 
+void renderBitmapString(float x, float y, float z, void *font) {
+	glRasterPos3f(x, y, z);
+	for (int i = 0; i < menu_input.size(); ++i) {
+		glColor3f(1.0, 1.0, 1.0);
+		glutBitmapCharacter(font, menu_input[i]);
+	}
+}
 
 void drawScene(void) {
    int i;
 
-   glClearColor(0.0, 0.0, 0.0, 0.0);
+   glClearColor(0.2, 0.4, 0.5, 0.0); // background color
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
    glPushMatrix();
@@ -370,6 +396,36 @@ void drawScene(void) {
    glEnable(GL_DEPTH_TEST);
    glDepthFunc(GL_LEQUAL);
 
+	// testing terrain draw
+	if (terrain.size() > 2) {
+		//glFrontFace(GL_CW);
+		
+		//glBegin(GL_LINES);
+		//glBegin(GL_POINTS);
+		//glBegin(GL_POLYGON);
+		glBegin(GL_TRIANGLE_STRIP);
+		for (int i = 0; i < terrain.size(); ++i) {
+			glColor3f(1.0, 1.0, 1.0); glVertex3fv(terrain[i]);
+		}
+		glEnd();
+	}
+
+	glBegin(GL_TRIANGLE_STRIP);
+	glColor3f(1, 0, 0); glVertex3f(0, 2, 0);
+	glColor3f(0, 1, 0); glVertex3f(-1, 0, 1);
+	glColor3f(0, 0, 1); glVertex3f(1, 0, 1);
+	glEnd();
+
+	// draw a simple grid
+	glColor3f(1.0, 1.0, 1.0);
+	glBegin(GL_LINES);
+	for (GLfloat i = -30; i <= 30; i += 0.25) {
+		if (mech.current_time > i + 40.0) {
+		glVertex3f(i, 0, 30); glVertex3f(i, 0, -30);
+		glVertex3f(30, 0, i); glVertex3f(-30, 0, i);
+		}
+	}
+	glEnd();
 
 //   for (int j = 0; j < objs.size(); ++j) {
 //      glRotatef(objs[j].ax, 1.0, 0.0, 0.0);
@@ -378,28 +434,47 @@ void drawScene(void) {
 
    /* all the good stuff follows */
 
-   glEnable(GL_STENCIL_TEST);
-   glClear(GL_STENCIL_BUFFER_BIT);
-   glStencilMask(1);
-   glStencilFunc(GL_ALWAYS, 0, 1);
-   glStencilOp(GL_INVERT, GL_INVERT, GL_INVERT);
-   glColor3f(1.0, 1.0, 0.0);
+   //glEnable(GL_STENCIL_TEST);
+   //glClear(GL_STENCIL_BUFFER_BIT);
+   //glStencilMask(1);
+   //glStencilFunc(GL_ALWAYS, 0, 1);
+   //glStencilOp(GL_INVERT, GL_INVERT, GL_INVERT);
+   //glColor3f(1.0, 1.0, 0.0);
 
    for (int j = 0; j < objs.size(); ++j) {
       for (i = 0; i < 6; i++) {
-         drawWireframe(j, i);
-         glStencilFunc(GL_EQUAL, 0, 1);
-         glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-         glColor3f(0.0, 0.0, 0.0);
+         //drawWireframe(j, i);
+         //glStencilFunc(GL_EQUAL, 0, 1);
+         //glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+			// set the default color
+			//objs[j].faceColors[i][0] = rand() % 100 / 100.0;//0.7;
+			//objs[j].faceColors[i][1] = rand() % 100 / 100.0;//0.7;
+			//objs[j].faceColors[i][2] = rand() % 100 / 100.0;//0.7;
+         glColor3fv(objs[j].faceColors[i]); // box color
          drawFilled(j, i);
 
-         glColor3f(1.0, 1.0, 0.0);
-         glStencilFunc(GL_ALWAYS, 0, 1);
-         glStencilOp(GL_INVERT, GL_INVERT, GL_INVERT);
-         glColor3f(1.0, 1.0, 0.0);
+//         glStencilFunc(GL_ALWAYS, 0, 1);
+//         glStencilOp(GL_INVERT, GL_INVERT, GL_INVERT);
+         glColor3f(0.0, 0.0, 0.0);
          drawWireframe(j, i);
       }
    }
+
+	if (menu_depth != 0) {
+		// write character bitmaps into the menu_input raster
+		renderBitmapString(
+			// these calculate the location in front of the face
+			cam.getX() + (cos(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*1.3,
+			//cam.getY() + sin(-cam.getAY()) - 0.5,
+			(GLfloat) (cam.getY() + sin(-cam.getAY())*1.3 - 0.33),
+			cam.getZ() + (sin(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*1.3,
+			GLUT_BITMAP_9_BY_15);
+
+		// render the output next
+	}
+
+
    glPopMatrix();
 
    glDisable(GL_STENCIL_TEST);
@@ -444,9 +519,7 @@ animation(void)
       cout << e;
       return;
    }
-
-//   cout << "count: " << count << " t: " << mech.current_time << "\n";
-
+   //cout << "count: " << count << " t: " << mech.current_time << "\n";
    glutPostRedisplay();
 
    if (count == 60) { // make up for the time lost
@@ -462,13 +535,6 @@ animation(void)
 
    count++;
    if (count >= 61) {
-      //cout << "t: " << mech.current_time << "\n";
-//      for (int i = 0; i < objs.size(); ++i) {
-//         cout << "   "  << objs[i].id << ": x: " << objs[i].cube[0][0];
-//         cout << " y: " << objs[i].cube[0][1];
-//         cout << " z: " << objs[i].cube[0][2] << endl;
-//      }
-
       count = 0;
    }
 }
@@ -477,6 +543,7 @@ void hot_pause(void) {
    glutPostRedisplay();
 }
 
+// mouse right click menu
 void
 menu(int choice)
 {
@@ -496,6 +563,13 @@ menu(int choice)
       mech.current_time = 0.0;
       for (int i = 0; i < objs.size(); ++i) {
          objs[i].set_cube(Object().cube);
+			if (objs[i].c_qs.count("posi")
+					&& objs[i].c_qs["posi"].size() == 3) {
+				objs[i].translate_by(
+						objs[i].c_qs["posi"][0],
+						objs[i].c_qs["posi"][1],
+						objs[i].c_qs["posi"][2]);
+			}
          objs[i].last_t = 0.0;
       }
 
@@ -514,8 +588,8 @@ void menu_1_help() {
 	cout << "  -  time: " << mech.current_time << "\n";
 	cout << "   p -   Print the object information\n";
 	cout << "   r -   Set motion function to null.\n";
+	cout << "   c -   Randomize the colors of selected object.\n";
 	cout << "   e -   Enter command.\n";
-	cout << "   c -   Print help for commands.\n";
 	cout << "   h -   Print this help message.\n";
 	cout << "   q -   exit menu\n";
 	cout << "\n";
@@ -534,16 +608,24 @@ keyboard(unsigned char c, int x, int y)
 	if (menu_depth != 0) { // go into menu mode
 
 		if (menu_depth == 37) { // this means we're taking input
-			if (c != '\n') {
+			if (c != 13 && c != 8) { // 13 is Enter
 				// use a buffer to hold the input while writing the characters
 				// to stdout.
-				//menu_input += c;
-				cout << "c";
+				menu_input += c;
+				cout << (int)c << "\n";
+				//glColor3f(1.0, 1.0, 1.0);
+				//glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, c);
 			}
-			else {
-				cout << "\n";
+			else if (c == 8) { // backspace
+				if (menu_input.size() > 0) {
+					menu_input.resize(menu_input.size()-1);
+				}
+			}
+			else  {
+				cout << selected_object << "# " << menu_input << "\n";
 				menu_depth = 1;
-				// cmds.run(menu_input);
+				//vector<string> cmd_argv;
+				//cmds.run(menu_input, cmd_argv);
 			}
 			return;
 		}
@@ -555,7 +637,6 @@ keyboard(unsigned char c, int x, int y)
 		// run menu 1 level buttons
 		if (c == 'p') {
 			for (int i = 0; i < 8; ++i) {
-				cout << prefix;
 				for (int j = 0; j < 3; ++j) {
 					cout << objs[selected_object].cube[i][j] << " ";
 				}
@@ -567,6 +648,16 @@ keyboard(unsigned char c, int x, int y)
 		   cout << "reset motion function for object " << selected_object;
 			cout << "\n";
 			objs[selected_object].func_motion = NULL;
+		}
+		if (c == 'c') {
+			cout << prefix;
+			cout << "reset colors for object " << selected_object << "\n";
+			for (int i = 0; i < 6; i++) {
+				// set the default color
+				objs[selected_object].faceColors[i][0] = rand() % 100 / 100.0;
+				objs[selected_object].faceColors[i][1] = rand() % 100 / 100.0;
+				objs[selected_object].faceColors[i][2] = rand() % 100 / 100.0;
+			}
 		}
 		if (c == 'e') {
 			menu_depth = 37;
@@ -587,13 +678,14 @@ keyboard(unsigned char c, int x, int y)
    Object spawned_test_object;
 	if (c == 'h' | c == '?') {
 		cout << "\n   Controls:\n";
-		cout << "      p -   spawn a cube\n";
+		cout << "      b -             spawn a cube\n";
+		cout << "      v -             spawn a vertice\n";
 		cout << "      i j k l y n -   move selected cube\n";
-		cout << "      u o -   stretch selected cube\n";
-		cout << "      0-9 -   select cube\n";
-		cout << "      m -   open menu\n";
+		cout << "      u o -           stretch selected cube\n";
+		cout << "      0-9 -           select cube\n";
+		cout << "      m -             open menu\n";
 	}
-   if (c == 'p') {
+   if (c == 'b') {
       string id = "spawned_object_";
 		cout << prefix;
 		cout << "spawning random object: " << id << objs.size();
@@ -606,24 +698,54 @@ keyboard(unsigned char c, int x, int y)
       spawned_test_object.setConstQ("m", 1);
       switch (rand() % 3) {
       case 0:
-         cout << "0!\n";
+         cout << "1!\n";
          spawned_test_object.func_motion = random_motion;
          break;
       case 1:
-         cout << "1!\n";
+         cout << "2!\n";
          spawned_test_object.func_motion = random_motion_2;
          break;
       case 2:
          cout << "2!\n";
-         spawned_test_object.func_motion = random_motion_3;
+         spawned_test_object.func_motion = random_motion_2;
          break;
       }
-   }
+		for (int i = 0; i < 6; i++) {
+			// set the default color
+			spawned_test_object.faceColors[i][0] = 0.8;//rand() % 100 / 100.0;
+			spawned_test_object.faceColors[i][1] = 0.8;//rand() % 100 / 100.0;
+			spawned_test_object.faceColors[i][2] = 0.8;//rand() % 100 / 100.0;
+		}
+		spawned_test_object.translate_by(
+			(GLfloat) \
+			(cam.getX() + (cos(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*7.0),
+			(GLfloat) \
+			(cam.getY() + sin(-cam.getAY())*7.0 - 1.0),
+			(GLfloat) \
+		(cam.getZ() + (sin(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*7.0));
 
+		spawned_test_object.c_qs["posi"][0] = spawned_test_object.cube[0][0];
+		spawned_test_object.c_qs["posi"][1] = spawned_test_object.cube[0][1];
+		spawned_test_object.c_qs["posi"][2] = spawned_test_object.cube[0][2];
+   }
+	if (c == 'v') { // add a vector to the terrain
+		GLfloat tmp[3] = {
+			(GLfloat) \
+			(cam.getX() + (cos(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*2.0),
+			(GLfloat) \
+			(cam.getY() + sin(-cam.getAY())*2.0),
+			(GLfloat) \
+			(cam.getZ() + (sin(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*2.0)
+		};
+		terrain.push_back(tmp);
+		cout << prefix << "set vertice at (" << tmp[0] << ", " << tmp[1];
+		cout << ", " << tmp[2] << ")\n";
+		return;
+	}
 
 
    switch (c) {
-   case 27:
+   case 27: // Esc
       exit(0);
       break;
    case 93: // ]
@@ -659,11 +781,12 @@ keyboard(unsigned char c, int x, int y)
    case 'u':
       objs[selected_object].scale_by(0.9, 0.9, 0.9);
       break;
-   case 'p':
+   case 'b':
       objs.push_back(spawned_test_object);
       selected_object = objs.size() - 1;
       break;
 	case 'm':
+	case '`':
 		menu_depth = 1;
 		menu_1_help();
 		break;

@@ -26,6 +26,7 @@ class Object {
       int vertices = 8;
       GLfloat cube[8][3];
       int faceIndex[6][4];
+		GLfloat faceColors[6][3];
 
       GLfloat ax;
       GLfloat ay;
