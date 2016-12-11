@@ -22,25 +22,36 @@ MapSection::MapSection(int x, int y, int z, int section_index) {
 
 void MapSection::generate_blocks() {
 
-	// generate a cube composed of size00 blocks
+	// generate a cube composed of size blocks
 	for (int l = 0; l < size; ++l) {
 		for (int r = 0; r < size; ++r) {
 			for (int c = 0; c < size; ++c) {
 				Block block(l, r, c);
 				for (int i = 0; i < 6; i++) {
 					// set the default color
-					block.faceColors[i][0] = 0.2;//rand() % 10 / 10.0;
-					block.faceColors[i][1] = rand() % 10 / 10.0;
-					block.faceColors[i][2] = rand() % 10 / 10.0;
+
+               // blue-green world
+					block.faceColors[i][0] = 0.2;
+               block.faceColors[i][1] = rand() % 8 / 8.0;
+					block.faceColors[i][2] = rand() % 8 / 8.0;
+
+					//block.faceColors[i][0] = rand() % 100 / (GLfloat) (sid[0] + r);
+               //block.faceColors[i][1] = rand() % 100 / (GLfloat) (sid[1] + l);
+					//block.faceColors[i][2] = rand() % 100 / (GLfloat) (sid[2] + c);
 				}
 				block.translate_by(
 					(GLfloat) sid[0] + (GLfloat) r,
 					(GLfloat) sid[1] + (GLfloat) l,
 					(GLfloat) sid[2] + (GLfloat) c);
+
 				block.type = 1;
 
-				if (sid[1] + l > -5 && rand() % 20 - 10 < sid[1] + l)
+            // more empty blocks the higher you get
+				//if (sid[1] + l > -5 && rand() % 20 - 10 < sid[1] + l)
+            //if (rand() % 1000 < sid[1] + l + 900)
+            if (rand() % 100 < r || rand() % 200 < sid[1] + l + 150)
 					block.type = 0;
+
 
 				blocks[l][r][c] = block;
 			}

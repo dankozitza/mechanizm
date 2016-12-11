@@ -19,7 +19,7 @@ using namespace tools;
 class MapSection {
 
    public:
-		static const int size = 24;
+		static const int size = 18;
       // <-- this must be equal to the dimentions of the
 		Block blocks[size][size][size]; // blocks array
 		int sid[3];

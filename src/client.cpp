@@ -598,6 +598,8 @@ animation(void)
    if (count == 15 || count == 30 || count == 45 || count == 60) {
 //cout << "before:\n" << MAP.ms << "\n";
       MAP.update(cam.getX(), cam.getY(), cam.getZ());
+
+//		if (visible_sides.size() > 25000)
       visible_sides.clear();
 
 // removing this causes a segmentation fault?
