@@ -13,15 +13,15 @@
 #include <glm/core/type_vec.hpp>
 #include "Side.hpp"
 #include "Block.hpp"
+#include "Camera.hpp"
 
 using namespace tools;
 
 class MapSection {
 
    public:
-		static const int size = 18;
-      // <-- this must be equal to the dimentions of the
-		Block blocks[size][size][size]; // blocks array
+		static const int size = 20;
+		Block blocks[size][size][size];
 		int sid[3];
 		int s_index;
 
@@ -29,7 +29,7 @@ class MapSection {
       MapSection(int x, int y, int z, int section_index);
 
 		void generate_blocks();
-		void populate_visible_sides(vector<Side> &vsides);
+		void populate_visible_sides(vector<Side>& vsides, Camera& cam);
 };
 
 #endif

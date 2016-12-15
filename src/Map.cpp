@@ -12,21 +12,19 @@ Map::Map() {
 
 void Map::update(GLfloat x, GLfloat y, GLfloat z) {
 	MapSection emss; // empty section used only for the size (number of blocks
-	int nx = roundf(x / emss.size) * emss.size; // in x, y, and z directions)
-	int ny = roundf(y / emss.size) * emss.size;
-	int nz = roundf(z / emss.size) * emss.size;
+	int nx = roundf(x / (GLfloat) emss.size) * emss.size; // in x, y, and z directions)
+	int ny = roundf(y / (GLfloat) emss.size) * emss.size;
+	int nz = roundf(z / (GLfloat) emss.size) * emss.size;
 
 	cout << "position: (" << x << ", " << y << ", " << z << "):\n";
 	cout << "center of map (" << nx << ", " << ny << ", " << nz;
  	cout << ")\n";
 
 
-	int i = 0;
+	int i;
 
 	ms.reset_item_ptr();
 	MapSection* ms_it = ms.get_item_ptr();
-
-	bool restart = true;
 
 	// delete any sections that are not the 8 sections surrounding nx, ny, nz
 	for (i = 0; i < ms.size();) {
@@ -66,7 +64,7 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z) {
 		ms_it = ms.get_item_ptr();
 	}
 	if (!skip) {
-	cout << "loading map section section (" << nx - emss.size << ", " << ny - emss.size << ", " << nz - emss.size;
+	cout << "loading map section (" << nx - emss.size << ", " << ny - emss.size << ", " << nz - emss.size;
   	cout << ")\n";
 
 		MapSection bnw(nx - emss.size, ny - emss.size, nz - emss.size, 0);

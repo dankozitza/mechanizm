@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
 
    for (int z = 0; z < MAP.ms.size(); ++z) { // loop through 8 map sections
       cout << ms->sid[0] << " " << ms->sid[1] << " " << ms->sid[2] << "\n";
-      ms->populate_visible_sides(visible_sides);
+      ms->populate_visible_sides(visible_sides, cam);
       MAP.ms.increment_item_ptr();
       ms = MAP.ms.get_item_ptr();
    }
@@ -389,6 +389,7 @@ void drawSides() {
 
          glVertex3fv(s.points[point]);
       }
+		//glVertex3fv(s.points[0]);
       glEnd();
    }
 }
@@ -474,7 +475,8 @@ void drawScene(void) {
       glEnd();
    }
 
-	if (count = 60)
+	// this was count = 60 which stops the seg faults
+	if (count == 60)
    	cout << "DrawScene: visible_sides has " << visible_sides.size() << " elements\n";
    drawSides();
 
@@ -591,29 +593,30 @@ animation(void)
 
    if (count == 60) { // make up for the time lost
       e = mech.run(0.046875, 0, 0.046875);
-//      cout << "last t: " << mech.current_time << "\n";
+      cout << "last t: " << mech.current_time << "\n";
 
-   }
-
-   if (count == 15 || count == 30 || count == 45 || count == 60) {
-//cout << "before:\n" << MAP.ms << "\n";
-      MAP.update(cam.getX(), cam.getY(), cam.getZ());
-
-//		if (visible_sides.size() > 25000)
-      visible_sides.clear();
-
-// removing this causes a segmentation fault?
-if (count == 60)
-cout << "map section locations:\n" << MAP.ms << "\n";
-
-      for (int z = 0; z < MAP.ms.size(); ++z)
-         MAP.ms[z].populate_visible_sides(visible_sides);
-
-      glutPostRedisplay();
    }
    if (e != NULL) {
       cout << e;
       return;
+   }
+
+   if (count == 15 || count == 30 || count == 45 || count == 60) {
+		
+      visible_sides.clear();
+      MAP.update(cam.getX(), cam.getY(), cam.getZ());
+//
+////		if (visible_sides.size() > 25000)
+//
+//// removing this causes a segmentation fault?
+//if (count == 60) {
+//cout << "map section locations:\n" << MAP.ms << "\n";
+//}
+//
+      for (int z = 0; z < MAP.ms.size(); ++z)
+         MAP.ms[z].populate_visible_sides(visible_sides, cam);
+
+      glutPostRedisplay();
    }
 
 

@@ -31,7 +31,7 @@ void MapSection::generate_blocks() {
 					// set the default color
 
                // blue-green world
-					block.faceColors[i][0] = 0.2;
+					block.faceColors[i][0] = 0.3;
                block.faceColors[i][1] = rand() % 8 / 8.0;
 					block.faceColors[i][2] = rand() % 8 / 8.0;
 
@@ -49,7 +49,7 @@ void MapSection::generate_blocks() {
             // more empty blocks the higher you get
 				//if (sid[1] + l > -5 && rand() % 20 - 10 < sid[1] + l)
             //if (rand() % 1000 < sid[1] + l + 900)
-            if (rand() % 100 < r || rand() % 200 < sid[1] + l + 150)
+            if (rand() % 70 < r || rand() % 200 < sid[1] + l + 150)
 					block.type = 0;
 
 
@@ -59,13 +59,27 @@ void MapSection::generate_blocks() {
 	}
 }
 
-void MapSection::populate_visible_sides(vector<Side> &vsides) {
+void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
 	for (int l = 0; l < size; ++l) {
 		for (int r = 0; r < size; ++r) {
 			for (int c = 0; c < size; ++c) {
 				// skip empty blocks
+            //cout << "populating visible sides for block: (";
+            //cout << l << " " << r << " " << c << ")\n";
 				if (blocks[l][r][c].type == 0)
 					continue;
+            // skip blocks that are further than size from the camera
+            //GLfloat section_pos[3];
+            //section_pos[0] = (GLfloat) sid[0] + (GLfloat) r;
+            //section_pos[1] = (GLfloat) sid[1] + (GLfloat) l;
+            //section_pos[2] = (GLfloat) sid[2] + (GLfloat) c;
+            //GLfloat cam_pos[3];
+            //cam_pos[0] = cam.getX();
+            //cam_pos[1] = cam.getY();
+            //cam_pos[2] = cam.getZ();
+            //GLfloat d = distance(section_pos, cam_pos);
+         
+            //cout << "block distance from cam: " << d << " ";
 
 				int up    = 2;
 				int down  = 0;
@@ -79,15 +93,13 @@ void MapSection::populate_visible_sides(vector<Side> &vsides) {
 					// check adjacent block's type
 					if (blocks[l+1][r][c].type == 0) {
 						Side s(l, r, c, up, s_index);
-                  //s.cube = blocks[l][r][c].cube;
-                  //s.faceIndex = blocks[l][r][c].faceIndex;
 
                   // assign the correct vertices to the pointers in the points
                   // array
                   for (int p = 0; p < 4; ++p) {
                      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[up][p] ];
                   }
-
+                  s.color = (GLfloat *) blocks[l][r][c].faceColors[up];
 						vsides.push_back(s);
 					}
 				}
@@ -97,6 +109,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides) {
                for (int p = 0; p < 4; ++p) {
                   s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[up][p] ];
                }
+               s.color = (GLfloat *) blocks[l][r][c].faceColors[up];
 					vsides.push_back(s);
 				}
 
@@ -117,6 +130,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides) {
                for (int p = 0; p < 4; ++p) {
                   s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[down][p] ];
                }
+               s.color = (GLfloat *) blocks[l][r][c].faceColors[down];
 					vsides.push_back(s);
 				}
 				
@@ -128,15 +142,17 @@ void MapSection::populate_visible_sides(vector<Side> &vsides) {
                   for (int p = 0; p < 4; ++p) {
                      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[north][p] ];
                   }
+                  s.color = (GLfloat *) blocks[l][r][c].faceColors[north];
 						vsides.push_back(s);
 					}
 				}
 				else {
 					// edge of section always gets drawn
 					Side s(l, r, c, north, s_index);
-                  for (int p = 0; p < 4; ++p) {
-                     s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[north][p] ];
-                  }
+               for (int p = 0; p < 4; ++p) {
+                  s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[north][p] ];
+               }
+               s.color = (GLfloat *) blocks[l][r][c].faceColors[north];
 					vsides.push_back(s);
 				}
 
@@ -148,6 +164,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides) {
                   for (int p = 0; p < 4; ++p) {
                      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[south][p] ];
                   }
+                  s.color = (GLfloat *) blocks[l][r][c].faceColors[south];
 						vsides.push_back(s);
 					}
 				}
@@ -157,6 +174,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides) {
                for (int p = 0; p < 4; ++p) {
                   s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[south][p] ];
                }
+               s.color = (GLfloat *) blocks[l][r][c].faceColors[south];
 					vsides.push_back(s);
 				}
 
@@ -168,6 +186,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides) {
                   for (int p = 0; p < 4; ++p) {
                      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[east][p] ];
                   }
+                  s.color = (GLfloat *) blocks[l][r][c].faceColors[east];
 						vsides.push_back(s);
 					}
 				}
@@ -177,6 +196,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides) {
                for (int p = 0; p < 4; ++p) {
                   s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[east][p] ];
                }
+               s.color = (GLfloat *) blocks[l][r][c].faceColors[east];
 					vsides.push_back(s);
 				}
 
@@ -198,9 +218,10 @@ void MapSection::populate_visible_sides(vector<Side> &vsides) {
                for (int p = 0; p < 4; ++p) {
                   s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[west][p] ];
                }
+               s.color = (GLfloat *) blocks[l][r][c].faceColors[west];
 					vsides.push_back(s);
 				}
-			}
-		}
-	}
+			} // c
+		} // r
+	} // l
 }

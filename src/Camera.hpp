@@ -4,6 +4,9 @@
 
 /* This class is a Camera. It provides all the information needed by gluLookAt() function. */
 
+#ifndef _MECH_CAMERA
+#define _MECH_CAMERA
+
 #include <cmath>
 
 class Camera {
@@ -42,3 +45,5 @@ class Camera {
       int last_mouse_pos_y;
       float _shift; // when shift is pressed this increases speed
 };
+
+#endif
