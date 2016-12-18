@@ -63,7 +63,6 @@ static mechanizm mech;
 int count = 1; // cycles through 1/60th of a second
 
 Map MAP;
-MapSection s1(-4, -4, -4, 0);
 vector<Side> visible_sides;
 
 bool animation_on = false;
@@ -139,10 +138,6 @@ int main(int argc, char *argv[]) {
       MAP.ms.increment_item_ptr();
       ms = MAP.ms.get_item_ptr();
    }
-
-   // generate a cube composed of 1000 blocks
-   //s1.generate_blocks();
-   //s1.populate_visible_sides(visible_sides);
 
    int fake = 0;
    char** fake2;
@@ -354,42 +349,15 @@ drawFilled(int objs_index, int face)
 }
 
 void drawSides() {
-   //for (int vsi = 0; vsi < visible_sides.size(); ++vsi) {
-   //   Side s = visible_sides[vsi];
-
-//   //   cout << "drawing visible_sides[" << vsi << "]\n";
-   //   glBegin(GL_POLYGON);
-
-   //   glColor3fv(s1.blocks[s.id[0]][s.id[1]][s.id[2]].faceColors[s.index]);
-
-   //   for (int point = 0; point < 4; ++point) {
-
-   //      glVertex3fv(
-   //(GLfloat *) s1.blocks[s.id[0]][s.id[1]][s.id[2]].cube[ s1.blocks[s.id[0]][s.id[1]][s.id[2]].faceIndex[s.index][point]   ]
-   //      );
-   //   }
-   //   glEnd();
-   //}
-
    for (int vsi = 0; vsi < visible_sides.size(); ++vsi) {
       Side s = visible_sides[vsi];
 
-//      cout << "drawing visible_sides[" << vsi << "]\n";
       glBegin(GL_POLYGON);
 
-//      glColor3fv(
-//   MAP.ms[s.s_index].blocks[s.id[0]][s.id[1]][s.id[2]].faceColors[s.index]);
 		glColor3fv(s.color);
-
       for (int point = 0; point < 4; ++point) {
-
-//         glVertex3fv(
-//   (GLfloat *) MAP.ms[s.s_index].blocks[s.id[0]][s.id[1]][s.id[2]].cube[ MAP.ms[s.s_index].blocks[s.id[0]][s.id[1]][s.id[2]].faceIndex[s.index][point] ]
-//         );
-
          glVertex3fv(s.points[point]);
       }
-		//glVertex3fv(s.points[0]);
       glEnd();
    }
 }

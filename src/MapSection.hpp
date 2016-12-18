@@ -20,13 +20,15 @@ using namespace tools;
 class MapSection {
 
    public:
-		static const int size = 20;
+		static const int size = 24;
 		Block blocks[size][size][size];
 		int sid[3];
 		int s_index;
 
+      tools::Error (*func_gen)(MapSection&);
+
 		MapSection();
-      MapSection(int x, int y, int z, int section_index);
+      MapSection(int x, int y, int z, tools::Error (*func)(MapSection&));
 
 		void generate_blocks();
 		void populate_visible_sides(vector<Side>& vsides, Camera& cam);

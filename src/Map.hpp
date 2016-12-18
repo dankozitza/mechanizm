@@ -7,6 +7,7 @@
 #ifndef _MECH_MAP
 #define _MECH_MAP
 
+#include <cmath>
 #include "tools.hpp"
 
 #include <GL/glut.h>

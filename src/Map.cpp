@@ -7,7 +7,204 @@
 #include "Map.hpp"
 #include <math.h>
 
+// used by all MapGen functions to get the general height
+int height = 0;
+int h_change = 7;
+int x_h_scale = 24;
+int z_h_scale = 24;
+int h_s_change = 4;
+
 Map::Map() {
+}
+
+void ground(GLfloat& g, GLfloat x, GLfloat z) {
+   GLfloat y1, y2;
+   y1 = height + sin(x/((GLfloat) x_h_scale/3.14)) * h_change;
+   y2 = height + sin(z/((GLfloat) z_h_scale/3.14)) * h_change;
+   g  = ((y1 + y2) / 2.0);
+}
+
+// these functions are passed to MapSection objects to be used for generating
+// block type, color, and the general shape of the map
+//
+tools::Error MapGen_flatland(MapSection& ms) {
+   for (int l = 0; l < ms.size; ++l) {
+      for (int r = 0; r < ms.size; ++r) {
+         for (int c = 0; c < ms.size; ++c) {
+            Block block(l, r, c);
+            for (int i = 0; i < 6; i++) {
+               // set the default color
+               // green
+               block.faceColors[i][0] = (GLfloat) (rand() % 2 + 1) / 4.0;
+               block.faceColors[i][1] = (GLfloat) (rand() % 2 + 1) / 4.0 + 0.4;
+               block.faceColors[i][2] = (GLfloat) (rand() % 2 + 1) / 4.0;
+            }
+            block.translate_by(
+               (GLfloat) ms.sid[0] + (GLfloat) r,
+               (GLfloat) ms.sid[1] + (GLfloat) l,
+               (GLfloat) ms.sid[2] + (GLfloat) c);
+
+            block.type = 1;
+
+            if (ms.sid[1] + l > height)
+               block.type = 0;
+
+            ms.blocks[l][r][c] = block;
+         }
+      }
+   }
+   return NULL;
+}
+
+tools::Error MapGen_hills(MapSection& ms) {
+
+   // change the overall elevation of generated terrain
+   if (rand() % 3 == 1) {
+      if (rand() % 2 == 1)
+         height += (rand() % h_change) + 1;
+      else
+         height -= (rand() % h_change) + 1;
+   }
+
+
+
+   for (int l = 0; l < ms.size; ++l) {
+      for (int r = 0; r < ms.size; ++r) {
+         for (int c = 0; c < ms.size; ++c) {
+            Block block(l, r, c);
+            for (int i = 0; i < 6; i++) {
+               // set the default color
+               // green
+               block.faceColors[i][0] = (GLfloat) (rand() % 2 + 1) / 4.0;
+               block.faceColors[i][1] = (GLfloat) (rand() % 2 + 1) / 4.0 + 0.4;
+               block.faceColors[i][2] = (GLfloat) (rand() % 2 + 1) / 4.0;
+            }
+            block.translate_by(
+               (GLfloat) ms.sid[0] + (GLfloat) r,
+               (GLfloat) ms.sid[1] + (GLfloat) l,
+               (GLfloat) ms.sid[2] + (GLfloat) c);
+
+            block.type = 1;
+
+            if (ms.sid[1] + l > height)
+               block.type = 0;
+
+            ms.blocks[l][r][c] = block;
+         } // c
+      } // r
+   } // l
+   return NULL;
+}
+
+tools::Error MapGen_single_hill(MapSection& ms) {
+
+   // change the x and z scale for the sin waves in ground
+   if (rand() % 3 == 1) {
+      if (rand() % 2 == 1) {
+         if (x_h_scale < 300)
+            x_h_scale += (rand() % h_s_change) + 1;
+         if (z_h_scale < 300)
+            z_h_scale += (rand() % h_s_change) + 1;
+      }
+      else {
+         if (x_h_scale > 12)
+            x_h_scale -= (rand() % h_s_change) + 1;
+         if (z_h_scale > 12)
+            z_h_scale -= (rand() % h_s_change) + 1;
+      }
+   }
+
+   for (int l = 0; l < ms.size; ++l) {
+      for (int r = 0; r < ms.size; ++r) {
+         for (int c = 0; c < ms.size; ++c) {
+            Block block(l, r, c);
+            for (int i = 0; i < 6; i++) {
+               // set the default color
+               // green
+               block.faceColors[i][0] = (GLfloat) (rand() % 2 + 1) / 4.0;
+               block.faceColors[i][1] = (GLfloat) (rand() % 2 + 1) / 4.0 + 0.4;
+               block.faceColors[i][2] = (GLfloat) (rand() % 2 + 1) / 4.0;
+            }
+            block.translate_by(
+               (GLfloat) ms.sid[0] + (GLfloat) r,
+               (GLfloat) ms.sid[1] + (GLfloat) l,
+               (GLfloat) ms.sid[2] + (GLfloat) c);
+
+            block.type = 1;
+
+            GLfloat g;
+            ground(g, ms.sid[0] + r, ms.sid[2] + c);
+            if (ms.sid[1] + l > height + roundf(g))
+               block.type = 0;
+
+            ms.blocks[l][r][c] = block;
+         } // c
+      } // r
+   } // l
+   return NULL;
+}
+
+tools::Error MapGen_bg_random(MapSection& ms) {
+   for (int l = 0; l < ms.size; ++l) {
+      for (int r = 0; r < ms.size; ++r) {
+         for (int c = 0; c < ms.size; ++c) {
+            Block block(l, r, c);
+            for (int i = 0; i < 6; i++) {
+               // set the default color
+
+               // blue-green world
+               block.faceColors[i][0] = 0.3;
+               block.faceColors[i][1] = rand() % 8 / 8.0;
+               block.faceColors[i][2] = rand() % 8 / 8.0;
+
+               //block.faceColors[i][0] = rand() % 100 / (GLfloat) (sid[0] + r);
+               //block.faceColors[i][1] = rand() % 100 / (GLfloat) (sid[1] + l);
+               //block.faceColors[i][2] = rand() % 100 / (GLfloat) (sid[2] + c);
+            }
+            block.translate_by(
+               (GLfloat) ms.sid[0] + (GLfloat) r,
+               (GLfloat) ms.sid[1] + (GLfloat) l,
+               (GLfloat) ms.sid[2] + (GLfloat) c);
+
+            block.type = 1;
+
+            // more empty blocks the higher you get
+            //if (sid[1] + l > -5 && rand() % 20 - 10 < sid[1] + l)
+            //if (rand() % 1000 < sid[1] + l + 900)
+            if (rand() % 70 < r || rand() % 200 < ms.sid[1] + l + 150)
+               block.type = 0;
+
+            ms.blocks[l][r][c] = block;
+         }
+      }
+   }
+   return NULL;
+}
+
+tools::Error MapGen_random(MapSection& ms) {
+   switch (rand() % 4) {
+
+      case 0:
+         cout << "Map: loading flatland\n";
+         return MapGen_flatland(ms);
+         break;
+
+      case 1:
+         cout << "Map: loading hills\n";
+         return MapGen_hills(ms);
+         break;
+
+
+      case 2:
+         cout << "Map: loading single_hill\n";
+         return MapGen_single_hill(ms);
+         break;
+
+      case 3:
+         cout << "Map: loading bg_random\n"; 
+         return MapGen_bg_random(ms);
+         break;
+   }
 }
 
 void Map::update(GLfloat x, GLfloat y, GLfloat z) {
@@ -33,7 +230,7 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z) {
 				(ms[i].sid[1] != ny && ms[i].sid[1] != ny - emss.size) ||
 				(ms[i].sid[2] != nz && ms[i].sid[2] != nz - emss.size)) {
 			cout << "deleting section (" << ms[i].sid[0] << ", " << ms[i].sid[1];
-			cout << ", " << ms[i].sid[2] << ") index: " << i << "\n";
+			cout << ", " << ms[i].sid[2] << ")\n";
 
 			// delete the item from wherever it is in the queue
 			ms.delete_item(i);
@@ -67,7 +264,7 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z) {
 	cout << "loading map section (" << nx - emss.size << ", " << ny - emss.size << ", " << nz - emss.size;
   	cout << ")\n";
 
-		MapSection bnw(nx - emss.size, ny - emss.size, nz - emss.size, 0);
+		MapSection bnw(nx - emss.size, ny - emss.size, nz - emss.size, MapGen_random);
 		bnw.generate_blocks();
 		ms.enq(bnw);
 	}
@@ -87,10 +284,10 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z) {
 		ms_it = ms.get_item_ptr();
 	}
 	if (!skip) {
-	cout << "loading map section section (" << nx << ", " << ny - emss.size << ", " << nz - emss.size;
+	cout << "loading map section (" << nx << ", " << ny - emss.size << ", " << nz - emss.size;
   	cout << ")\n";
 
-		MapSection bne(nx, ny - emss.size, nz - emss.size, 1);
+		MapSection bne(nx, ny - emss.size, nz - emss.size, MapGen_random);
 		bne.generate_blocks();
 		ms.enq(bne);
 	}
@@ -110,10 +307,10 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z) {
 		ms_it = ms.get_item_ptr();
 	}
 	if (!skip) {
-	cout << "loading map section section (" << nx - emss.size << ", " << ny - emss.size << ", " << nz;
+	cout << "loading map section (" << nx - emss.size << ", " << ny - emss.size << ", " << nz;
   	cout << ")\n";
 
-		MapSection bsw(nx - emss.size, ny - emss.size, nz, 2);
+		MapSection bsw(nx - emss.size, ny - emss.size, nz, MapGen_random);
 		bsw.generate_blocks();
 		ms.enq(bsw);
 	}
@@ -133,10 +330,10 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z) {
 		ms_it = ms.get_item_ptr();
 	}
 	if (!skip) {
-	cout << "loading map section section (" << nx << ", " << ny - emss.size << ", " << nz;
+	cout << "loading map section (" << nx << ", " << ny - emss.size << ", " << nz;
   	cout << ")\n";
 
-		MapSection bse(nx, ny - emss.size, nz, 3);
+		MapSection bse(nx, ny - emss.size, nz, MapGen_random);
 		bse.generate_blocks();
 		ms.enq(bse);
 	}
@@ -157,10 +354,10 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z) {
 		ms_it = ms.get_item_ptr();
 	}
 	if (!skip) {
-	cout << "loading map section section (" << nx - emss.size << ", " << ny << ", " << nz - emss.size;
+	cout << "loading map section (" << nx - emss.size << ", " << ny << ", " << nz - emss.size;
   	cout << ")\n";
 
-		MapSection tnw(nx - emss.size, ny, nz - emss.size, 4);
+		MapSection tnw(nx - emss.size, ny, nz - emss.size, MapGen_random);
 		tnw.generate_blocks();
 		ms.enq(tnw);
 	}
@@ -182,10 +379,10 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z) {
 
 	}
 	if (!skip) {
-	cout << "loading map section section (" << nx << ", " << ny << ", " << nz - emss.size;
+	cout << "loading map section (" << nx << ", " << ny << ", " << nz - emss.size;
   	cout << ")\n";
 
-		MapSection tne(nx, ny, nz - emss.size, 5);
+		MapSection tne(nx, ny, nz - emss.size, MapGen_random);
 		tne.generate_blocks();
 		ms.enq(tne);
 	}
@@ -206,10 +403,10 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z) {
 		ms_it = ms.get_item_ptr();
 	}
 	if (!skip) {
-	cout << "loading map section section (" << nx - emss.size << ", " << ny << ", " << nz;
+	cout << "loading map section (" << nx - emss.size << ", " << ny << ", " << nz;
   	cout << ")\n";
 
-		MapSection tsw(nx - emss.size, ny, nz, 6);
+		MapSection tsw(nx - emss.size, ny, nz, MapGen_random);
 		tsw.generate_blocks();
 		ms.enq(tsw);
 	}
@@ -229,10 +426,10 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z) {
 		ms_it = ms.get_item_ptr();
 	}
 	if (!skip) {
-	cout << "loading map section section (" << nx << ", " << ny << ", " << nz;
+	cout << "loading map section (" << nx << ", " << ny << ", " << nz;
   	cout << ")\n";
 
-		MapSection tse(nx, ny, nz, 7);
+		MapSection tse(nx, ny, nz, MapGen_random);
 		tse.generate_blocks();
 		ms.enq(tse);
 	}

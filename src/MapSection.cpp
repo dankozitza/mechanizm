@@ -6,57 +6,65 @@
 
 #include "MapSection.hpp"
 
+tools::Error dummy_func(MapSection& ms) {
+   return NULL;
+}
+
 MapSection::MapSection() {
 	sid[0] = 0;
 	sid[1] = 0;
 	sid[2] = 0;
-	s_index = 0;
+   func_gen = dummy_func;
 }
 
-MapSection::MapSection(int x, int y, int z, int section_index) {
+MapSection::MapSection(int x, int y, int z, tools::Error (*func)(MapSection&)) {
 	sid[0] = x;
 	sid[1] = y;
 	sid[2] = z;
-	s_index = section_index;
+   func_gen = func;
 }
 
 void MapSection::generate_blocks() {
 
-	// generate a cube composed of size blocks
-	for (int l = 0; l < size; ++l) {
-		for (int r = 0; r < size; ++r) {
-			for (int c = 0; c < size; ++c) {
-				Block block(l, r, c);
-				for (int i = 0; i < 6; i++) {
-					// set the default color
+   tools::Error e = func_gen(*this);
+   if (e != NULL)
+      cout << "MapSection::generate_blocks: Error: " << e << "\n";
 
-               // blue-green world
-					block.faceColors[i][0] = 0.3;
-               block.faceColors[i][1] = rand() % 8 / 8.0;
-					block.faceColors[i][2] = rand() % 8 / 8.0;
+	//// generate a cube composed of size blocks
+	//for (int l = 0; l < size; ++l) {
+	//	for (int r = 0; r < size; ++r) {
+	//		for (int c = 0; c < size; ++c) {
+	//			Block block(l, r, c);
+	//			for (int i = 0; i < 6; i++) {
+	//				// set the default color
 
-					//block.faceColors[i][0] = rand() % 100 / (GLfloat) (sid[0] + r);
-               //block.faceColors[i][1] = rand() % 100 / (GLfloat) (sid[1] + l);
-					//block.faceColors[i][2] = rand() % 100 / (GLfloat) (sid[2] + c);
-				}
-				block.translate_by(
-					(GLfloat) sid[0] + (GLfloat) r,
-					(GLfloat) sid[1] + (GLfloat) l,
-					(GLfloat) sid[2] + (GLfloat) c);
+   //            // blue-green world
+	//				block.faceColors[i][0] = 0.3;
+   //            block.faceColors[i][1] = rand() % 8 / 8.0;
+	//				block.faceColors[i][2] = rand() % 8 / 8.0;
 
-				block.type = 1;
+	//				//block.faceColors[i][0] = rand() % 100 / (GLfloat) (sid[0] + r);
+   //            //block.faceColors[i][1] = rand() % 100 / (GLfloat) (sid[1] + l);
+	//				//block.faceColors[i][2] = rand() % 100 / (GLfloat) (sid[2] + c);
+	//			}
+	//			block.translate_by(
+	//				(GLfloat) sid[0] + (GLfloat) r,
+	//				(GLfloat) sid[1] + (GLfloat) l,
+	//				(GLfloat) sid[2] + (GLfloat) c);
 
-            // more empty blocks the higher you get
-				//if (sid[1] + l > -5 && rand() % 20 - 10 < sid[1] + l)
-            //if (rand() % 1000 < sid[1] + l + 900)
-            if (rand() % 70 < r || rand() % 200 < sid[1] + l + 150)
-					block.type = 0;
+	//			block.type = 1;
+
+   //         // more empty blocks the higher you get
+	//			//if (sid[1] + l > -5 && rand() % 20 - 10 < sid[1] + l)
+   //         //if (rand() % 1000 < sid[1] + l + 900)
+   //         if (rand() % 70 < r || rand() % 200 < sid[1] + l + 150)
+	//				block.type = 0;
 
 
-				blocks[l][r][c] = block;
-			}
-		}
-	}
+	//			blocks[l][r][c] = block;
+	//		}
+	//	}
+	//}
 }
 
 void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
@@ -68,6 +76,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
             //cout << l << " " << r << " " << c << ")\n";
 				if (blocks[l][r][c].type == 0)
 					continue;
+
             // skip blocks that are further than size from the camera
             //GLfloat section_pos[3];
             //section_pos[0] = (GLfloat) sid[0] + (GLfloat) r;
@@ -92,7 +101,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
 				if (l+1 >= 0 && l+1 < size) {
 					// check adjacent block's type
 					if (blocks[l+1][r][c].type == 0) {
-						Side s(l, r, c, up, s_index);
+						Side s(l, r, c, up);
 
                   // assign the correct vertices to the pointers in the points
                   // array
@@ -105,7 +114,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
 				}
 				else {
 					// edge of section always gets drawn
-					Side s(l, r, c, up, s_index);
+					Side s(l, r, c, up);
                for (int p = 0; p < 4; ++p) {
                   s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[up][p] ];
                }
@@ -117,7 +126,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
 				if (l-1 >= 0 && l-1 < size) {
 					// check adjacent block's type
 					if (blocks[l-1][r][c].type == 0) {
-						Side s(l, r, c, down, s_index);
+						Side s(l, r, c, down);
                   for (int p = 0; p < 4; ++p) {
                      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[down][p] ];
                   }
@@ -126,7 +135,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
 				}
 				else {
 					// edge of section always gets drawn
-					Side s(l, r, c, down, s_index);
+					Side s(l, r, c, down);
                for (int p = 0; p < 4; ++p) {
                   s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[down][p] ];
                }
@@ -138,7 +147,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
 				if (r+1 >= 0 && r+1 < size) {
 					// check adjacent block's type
 					if (blocks[l][r+1][c].type == 0) {
-						Side s(l, r, c, north, s_index);
+						Side s(l, r, c, north);
                   for (int p = 0; p < 4; ++p) {
                      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[north][p] ];
                   }
@@ -148,7 +157,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
 				}
 				else {
 					// edge of section always gets drawn
-					Side s(l, r, c, north, s_index);
+					Side s(l, r, c, north);
                for (int p = 0; p < 4; ++p) {
                   s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[north][p] ];
                }
@@ -160,7 +169,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
 				if (r-1 >= 0 && r-1 < size) {
 					// check adjacent block's type
 					if (blocks[l][r-1][c].type == 0) {
-						Side s(l, r, c, south, s_index);
+						Side s(l, r, c, south);
                   for (int p = 0; p < 4; ++p) {
                      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[south][p] ];
                   }
@@ -170,7 +179,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
 				}
 				else {
 					// edge of section always gets drawn
-					Side s(l, r, c, south, s_index);
+					Side s(l, r, c, south);
                for (int p = 0; p < 4; ++p) {
                   s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[south][p] ];
                }
@@ -182,7 +191,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
 				if (c+1 >= 0 && c+1 < size) {
 					// check adjacent block's type
 					if (blocks[l][r][c+1].type == 0) {
-						Side s(l, r, c, east, s_index);
+						Side s(l, r, c, east);
                   for (int p = 0; p < 4; ++p) {
                      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[east][p] ];
                   }
@@ -192,7 +201,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
 				}
 				else {
 					// edge of section always gets drawn
-					Side s(l, r, c, east, s_index);
+					Side s(l, r, c, east);
                for (int p = 0; p < 4; ++p) {
                   s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[east][p] ];
                }
@@ -204,7 +213,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
 				if (c-1 >= 0 && c-1 < size) {
 					// check adjacent block's type
 					if (blocks[l][r][c-1].type == 0) {
-						Side s(l, r, c, west, s_index);
+						Side s(l, r, c, west);
                   for (int p = 0; p < 4; ++p) {
                      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[west][p] ];
                   }
@@ -214,7 +223,7 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
 				}
 				else {
 					// edge of section always gets drawn
-					Side s(l, r, c, west, s_index);
+					Side s(l, r, c, west);
                for (int p = 0; p < 4; ++p) {
                   s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[west][p] ];
                }

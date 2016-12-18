@@ -20,7 +20,6 @@ class Side {
    public:
       int id[3];
       int index;
-      int s_index;
 
       // this way we don't have to know what mapsection
       GLfloat* points[4]; // array of pointers to the 4 points within cube
@@ -28,10 +27,9 @@ class Side {
 
 // sides are defined by their id (layer, row, column, within the map_section),
 // their side index (the index to be used for faceIndex and faceColor),
-// and their section_id (the id of the map_section
 //                       pointer to the map_section?)
 //
-      Side(int layer, int row, int column, int side_index, int section_index);
+      Side(int layer, int row, int column, int side_index);
 };
 
 #endif
