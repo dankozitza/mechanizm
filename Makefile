@@ -1,10 +1,10 @@
-# 974a7f7e2dfedd7b6b8599a2391df6ac
+# a9cbeee2e8567ba3d7792777d382ec9a
 # Generated with vfnmkmc by the mc program.
 PREFIX=/usr/local
 CFLAGS=-O$(O)  -std=c++11
 O=2
 LFLAGS= -l pcre++ -l GL -l GLU -l glut
-OBJS=objs/options.o objs/Side.o objs/Block.o objs/mechanizm.o objs/Map.o objs/client.o objs/Camera.o objs/Object.o objs/MapSection.o objs/pcre_utils.o objs/utils.o objs/vectors.o objs/doubles.o objs/system.o objs/strings.o objs/radix.o
+OBJS=objs/options.o objs/Side.o objs/Block.o objs/mechanizm.o objs/Map.o objs/client.o objs/Camera.o objs/Object.o objs/MapSection.o objs/radix.o objs/pcre_utils.o objs/utils.o objs/vectors.o objs/doubles.o objs/system.o objs/strings.o
 
 
 .PHONY: all
@@ -46,28 +46,28 @@ objs/MapSection.o: src/MapSection.cpp src/MapSection.hpp src/tools.hpp \
  src/Side.hpp src/Block.hpp src/Camera.hpp
 	@ echo "    CXX  src/MapSection.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/MapSection.cpp" -o $@
-objs/pcre_utils.o: src/tmp_tools/pcre_utils.cpp src/tmp_tools/../tools.hpp
-	@ echo "    CXX  src/tmp_tools/pcre_utils.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/tmp_tools/pcre_utils.cpp" -o $@
-objs/utils.o: src/tmp_tools/utils.cpp src/tmp_tools/../sorters.hpp \
- src/tmp_tools/../tools.hpp
-	@ echo "    CXX  src/tmp_tools/utils.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/tmp_tools/utils.cpp" -o $@
-objs/vectors.o: src/tmp_tools/vectors.cpp src/tmp_tools/../tools.hpp
-	@ echo "    CXX  src/tmp_tools/vectors.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/tmp_tools/vectors.cpp" -o $@
-objs/doubles.o: src/tmp_tools/doubles.cpp src/tmp_tools/../tools.hpp
-	@ echo "    CXX  src/tmp_tools/doubles.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/tmp_tools/doubles.cpp" -o $@
-objs/system.o: src/tmp_tools/system.cpp src/tmp_tools/../tools.hpp
-	@ echo "    CXX  src/tmp_tools/system.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/tmp_tools/system.cpp" -o $@
-objs/strings.o: src/tmp_tools/strings.cpp src/tmp_tools/../tools.hpp
-	@ echo "    CXX  src/tmp_tools/strings.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/tmp_tools/strings.cpp" -o $@
 objs/radix.o: src/sorters/radix.cpp src/sorters/../sorters.hpp
 	@ echo "    CXX  src/sorters/radix.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/sorters/radix.cpp" -o $@
+objs/pcre_utils.o: src/tools/pcre_utils.cpp src/tools/../tools.hpp
+	@ echo "    CXX  src/tools/pcre_utils.cpp"
+	@ $(CXX) $(CFLAGS) -c "src/tools/pcre_utils.cpp" -o $@
+objs/utils.o: src/tools/utils.cpp src/tools/../sorters.hpp \
+ src/tools/../tools.hpp
+	@ echo "    CXX  src/tools/utils.cpp"
+	@ $(CXX) $(CFLAGS) -c "src/tools/utils.cpp" -o $@
+objs/vectors.o: src/tools/vectors.cpp src/tools/../tools.hpp
+	@ echo "    CXX  src/tools/vectors.cpp"
+	@ $(CXX) $(CFLAGS) -c "src/tools/vectors.cpp" -o $@
+objs/doubles.o: src/tools/doubles.cpp src/tools/../tools.hpp
+	@ echo "    CXX  src/tools/doubles.cpp"
+	@ $(CXX) $(CFLAGS) -c "src/tools/doubles.cpp" -o $@
+objs/system.o: src/tools/system.cpp src/tools/../tools.hpp
+	@ echo "    CXX  src/tools/system.cpp"
+	@ $(CXX) $(CFLAGS) -c "src/tools/system.cpp" -o $@
+objs/strings.o: src/tools/strings.cpp src/tools/../tools.hpp
+	@ echo "    CXX  src/tools/strings.cpp"
+	@ $(CXX) $(CFLAGS) -c "src/tools/strings.cpp" -o $@
 
 objs:
 	@ mkdir "objs"

@@ -532,7 +532,7 @@ setMatrix(int w, int h)
 //
 
    // set the perspective (angle of sight, width/height ratio, clip near, depth)
-   gluPerspective(60, (GLfloat)w / (GLfloat)h, 0.1, 200.0);
+   gluPerspective(60, (GLfloat)w / (GLfloat)h, 0.1, 100.0);
 
 //   gluLookAt(cam.getX(), cam.getY(), cam.getZ(), 0, 0, 0, 0, 1, 0);
 
@@ -812,13 +812,13 @@ keyboard(unsigned char c, int x, int y)
       glutPostRedisplay();
       break;
    case 'i':
-      objs[selected_object].translate_by(0, 0, 0.1);
+      objs[selected_object].translate_by(0, 0, -0.1);
       break;
    case 'j':
       objs[selected_object].translate_by(-0.1, 0, 0);
       break;
    case 'k':
-      objs[selected_object].translate_by(0, 0, -0.1);
+      objs[selected_object].translate_by(0, 0, 0.1);
       break;
    case 'l':
       objs[selected_object].translate_by(0.1, 0, 0);

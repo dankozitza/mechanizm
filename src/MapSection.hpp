@@ -20,7 +20,7 @@ using namespace tools;
 class MapSection {
 
    public:
-		static const int size = 24;
+		static const int size = 14;
 		Block blocks[size][size][size];
 		int sid[3];
 		int s_index;

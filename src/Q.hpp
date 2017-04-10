@@ -30,10 +30,9 @@ class Q {
       Node*  first;
       Node*  last;
       size_t q_size;
+      Node* pub_ptr;
 
       Node* get_node(const T& item, Node* next);
-
-      Node* pub_ptr;
 
    	// keep track of node and index for [] access assuming it will be
      	// integral. Don't increment the access ptr if the requested index
@@ -59,6 +58,7 @@ class Q {
       T deq();
       void deq_discard();
       void delete_item(size_t i);
+      void transfer_item(size_t i, Q& q2);
 
       // set the item pointer to the first item
       void reset_item_ptr();
@@ -215,6 +215,7 @@ void Q<T>::delete_item(size_t i) {
 
    if (i == 0) {
       deq_discard();
+
       return;
    }
 
@@ -252,6 +253,83 @@ void Q<T>::delete_item(size_t i) {
    }
    if (access_i > i)
       access_i--;
+}
+
+// transfer_item
+//
+// Copy the pointer of the selected node to the second Q then remove it from
+// this Q. This leaves the second Q responsible for deleting the node.
+//
+template<class T>
+void Q<T>::transfer_item(size_t i, Q& q2) {
+   assert(q_size > i);
+
+   Node* t_node = NULL;
+
+   if (i == 0) {
+      t_node = first;
+
+      // patch the list
+      first = first->next;
+      if (first == NULL)
+         last = NULL;
+   
+      // handle public and access pointers
+      pub_ptr = first;
+      if (access_i == 0)
+         access_ptr = first;
+   
+      if (access_i > 0)
+         access_i--;
+   }
+   else {
+      // get t_node to node i
+      Node* prev_node = first;
+      for (size_t z = 1; z < q_size; ++z) {
+         if (z == i) {
+            break;
+         }
+         prev_node = t_node;
+         t_node = t_node->next;
+      }
+
+      // patch the list
+      prev_node->next = t_node->next;
+
+      // in case we deleted the last node
+      if (prev_node->next == NULL)
+         last = prev_node;
+
+      // if current access pointer is deleted replace it with the following
+      if (access_i == i) {
+         if (prev_node->next != NULL) {
+            access_ptr = prev_node->next;
+         }
+         else { // we deleted the last index
+          access_ptr = first;
+          access_i = 0;
+         }
+      }
+      if (access_i > i)
+         access_i--;
+   }
+   q_size--;
+
+   // remove any link to this Q
+   t_node->next = NULL;
+
+   // enque t_node in q2 without copying it
+   if (q2.last == NULL) {
+      q2.first = t_node;
+      q2.last = q2.first;
+      q2.pub_ptr = q2.first;
+      q2.access_ptr = q2.first;
+   }
+   else {
+      q2.last->next = t_node;
+      q2.last = q2.last->next;
+   }
+   q2.q_size++;
 }
 
 template<class T>

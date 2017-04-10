@@ -155,9 +155,9 @@ void Camera::translation() {
 
 	if(_keyboard[119]) { // w
 	 
-      _X += (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift;
-	   _Y += sin(-_AY) * _translationSpeed * t * _shift;
-      _Z += (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift;
+      _X += (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift * 2;
+	   _Y += sin(-_AY) * _translationSpeed * t * _shift * 2;
+      _Z += (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift * 2;
 	}
 
  
