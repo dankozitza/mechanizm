@@ -58,7 +58,7 @@ class Q {
       T deq();
       void deq_discard();
       void delete_item(size_t i);
-      void transfer_item(size_t i, Q& q2);
+      void transfer_item(size_t i, Q<T>& q2);
 
       // set the item pointer to the first item
       void reset_item_ptr();
@@ -257,15 +257,17 @@ void Q<T>::delete_item(size_t i) {
 
 // transfer_item
 //
-// Copy the pointer of the selected node to the second Q then remove it from
-// this Q. This leaves the second Q responsible for deleting the node.
+// Copy the pointer of the selected node to the second Q and remove it from
+// this Q. This does not copy the item and leaves the second Q responsible
+// for deleting the node.
 //
 template<class T>
-void Q<T>::transfer_item(size_t i, Q& q2) {
+void Q<T>::transfer_item(size_t i, Q<T>& q2) {
    assert(q_size > i);
 
    Node* t_node = NULL;
 
+   // remove node i from this queue
    if (i == 0) {
       t_node = first;
 
@@ -283,7 +285,9 @@ void Q<T>::transfer_item(size_t i, Q& q2) {
          access_i--;
    }
    else {
+
       // get t_node to node i
+      t_node = first->next;
       Node* prev_node = first;
       for (size_t z = 1; z < q_size; ++z) {
          if (z == i) {

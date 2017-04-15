@@ -20,18 +20,24 @@ using namespace tools;
 class MapSection {
 
    public:
-		static const int size = 14;
-		Block blocks[size][size][size];
-		int sid[3];
-		int s_index;
+      static const int size = 14;
+      Block blocks[size][size][size];
+      int sid[3];
+      int s_index;
+      int pid;
+      int fid = -1; // file id
 
       tools::Error (*func_gen)(MapSection&);
 
-		MapSection();
+      MapSection();
       MapSection(int x, int y, int z, tools::Error (*func)(MapSection&));
 
-		void generate_blocks();
-		void populate_visible_sides(vector<Side>& vsides, Camera& cam);
+      void save(string map_name) const;
+      tools::Error load(string map_name);
+		string str_sid() const;
+      string get_file_name(string map_name) const;
+      void generate_blocks();
+      void populate_visible_sides(vector<Side>& vsides, Camera& cam);
 };
 
 #endif

@@ -33,6 +33,7 @@ namespace tools {
    bool require(int sys_exit_val, string msg = "");
    bool require(bool func_return_val, string msg = "");
    bool dir_exists(string dir_name);
+   bool pid_exists(int pid);
    bool list_dir(string dir_name, vector<string>& contents);
    bool list_dir_r(string dir_name, vector<string>& contents);
    bool list_dir_r(

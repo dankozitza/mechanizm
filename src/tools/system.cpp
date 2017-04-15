@@ -221,6 +221,21 @@ bool tools::dir_exists(string dir_name) {
    }
 }
 
+// pid_exists
+//
+// Check to see if a process is running.
+//
+bool tools::pid_exists(int pid) {
+   string dir_name = "/proc/";
+
+   char buff[20];
+   buff[0] = '\0';
+   sprintf(buff, "%i", pid);
+   dir_name += buff;
+
+   return dir_exists(dir_name);
+}
+
 // list_dir
 //
 // Takes a directory name and a reference to a vector of strings. adds file

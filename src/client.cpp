@@ -12,6 +12,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <sys/wait.h>
 //#include "commands.hpp"
 #include "mechanizm.hpp"
 #include "options.hpp"
@@ -64,6 +65,8 @@ int count = 1; // cycles through 1/60th of a second
 
 Map MAP;
 vector<Side> visible_sides;
+Q<MapSection> CMSQ;
+Q<Map::PidSid> PIDSIDQ;
 
 bool animation_on = false;
 
@@ -125,9 +128,9 @@ int main(int argc, char *argv[]) {
    Object test_object_1("test_object_1", 1, NULL);
    objs.push_back(test_object_1);
 
-
    // build the map around origin
-   MAP.update(0.0, 0.0, 0.0);
+	MAP.load_section_list();
+   MAP.update(0.0, 0.0, 0.0, CMSQ, PIDSIDQ);
 
    cout << "MAP.ms.size(): " << MAP.ms.size() << "\n";
    MapSection* ms = MAP.ms.get_item_ptr();
@@ -569,10 +572,11 @@ animation(void)
       return;
    }
 
-   if (count == 15 || count == 30 || count == 45 || count == 60) {
+   //if (count % 13 == 0) {
+   if (count % 7 == 0) {
 		
       visible_sides.clear();
-      MAP.update(cam.getX(), cam.getY(), cam.getZ());
+      MAP.update(cam.getX(), cam.getY(), cam.getZ(), CMSQ, PIDSIDQ);
 //
 ////		if (visible_sides.size() > 25000)
 //
@@ -587,6 +591,48 @@ animation(void)
       glutPostRedisplay();
    }
 
+   // check if any child process is done and remove from cache
+   if (PIDSIDQ.size() > 0) {
+      for (int z = 0; z < PIDSIDQ.size();) {
+         int exit_status;
+
+         pid_t ws = waitpid(PIDSIDQ[z].pid, &exit_status, WNOHANG);
+
+         if( WIFEXITED(exit_status) ) {
+            cout << "waitpid() exited with signal: Status= "
+                 << WEXITSTATUS(exit_status)
+                 << endl;
+            // a process exited, delete the map section and pidsid
+
+            bool br = false;
+            for (int x = 0; x < CMSQ.size();) {
+               if (  PIDSIDQ[z].sid[0] == CMSQ[x].sid[0] &&
+                     PIDSIDQ[z].sid[1] == CMSQ[x].sid[1] &&
+                     PIDSIDQ[z].sid[2] == CMSQ[x].sid[2]) {
+//                  cout << "client::animation: discarding data from saver";
+//                  cout << " pid: " << PIDSIDQ[z].pid;
+//                  cout << " sid: (" << PIDSIDQ[z].sid[0] << ", ";
+//                  cout << PIDSIDQ[z].sid[1] << ", " << PIDSIDQ[z].sid[2];
+//                  cout << ") z: " << z << " x: " << x << endl;
+                  
+                  CMSQ.delete_item(x);
+                  PIDSIDQ.delete_item(z);
+                  br = true;
+                  break;
+               }
+               else {
+                  x++;
+               }
+            }
+            if (br) {
+               break;
+            }
+         }
+         else {
+            z++;
+         }
+      }
+   }
 
    count++;
    if (count >= 61) {
