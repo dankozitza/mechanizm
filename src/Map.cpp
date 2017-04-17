@@ -220,6 +220,19 @@ bool Map::section_loaded(int x, int y, int z) {
    return false;
 }
 
+bool Map::section_cached(Q<MapSection>& cmsq, int& i,
+      int x, int y, int z) {
+   for (int z = 0; z < cmsq.size(); z++) {
+      if (cmsq[z].sid[0] == x &&
+          cmsq[z].sid[1] == y &&
+          cmsq[z].sid[2] == z) {
+         i = z;
+         return true;
+      }
+   }
+   return false;
+}
+
 bool Map::section_near_center(
       int cx, int cy, int cz,
       int sx, int sy, int sz,
@@ -273,9 +286,7 @@ void Map::load_section_list() {
    }
 
    int idir;
-   cout << "Map::load_section_list: found idirs: ";
    for (int i = 0; i < idirs.size(); ++i) {
-
       if (pmatches(idirs[i], "^\\d+$")) {
          cout << "`" << idirs[i] << "` ";
          sscanf(idirs[i].c_str(), "%i", &idir);
@@ -287,9 +298,7 @@ void Map::load_section_list() {
    vector<string> msfiles;
    tools::list_dir(idirname, msfiles);
 
-   //cout << "Map::load_section_list: found data files: ";
    for (int j = 0; j < msfiles.size(); ++j) {
-      //cout << "`" << msfiles[j] << "` ";
 
       // get the fid and sid from the file name
       string m[4];
@@ -299,8 +308,6 @@ void Map::load_section_list() {
          EsmV tmp;
 
          sscanf(m[1].c_str(), "%i", &tmp.fid);
-         //cout << "fid: " << tmp.fid << " ";
-         //cout << "sid: (" << m[2] << ") ";
          esm[m[2]] = tmp;
 
          if (tmp.fid >= sections) {
@@ -308,7 +315,6 @@ void Map::load_section_list() {
          }
       }
    }
-   //cout << endl;
 
       } // end of idir match
    }
@@ -402,7 +408,7 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z,
             // Sleep so that cached map sections' have a longer time to be
             // transfered back into the main ms queue.
             cout << "CHILD: sleeping...\n";
-            sleep(1 + rand() % 3);
+            sleep(2 + rand() % 3);
             cout << "CHILD: Map::update: saving map section!!!!\n";
             msp->save(map_name);
             cout << "CHILD: Map::update: Done!\n";
@@ -446,24 +452,36 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z,
 
                MapSection nms(c, l, r, MapGen_random);
 
-               // if this section exists on the file system load it
-               auto it = esm.find(nms.str_sid());
-               if (it != esm.end()) {
-                  cout << "Map::update: test loading map section ("
-                       << c << ", " << l << ", " << r << ") fid: `"
-                       << esm[nms.str_sid()].fid << "`\n";
-
-                  nms.fid = esm[nms.str_sid()].fid;
-                  
-                  tools::Error e = nms.load(map_name);
-                  if (e != NULL) {
-                     cerr << "Map::update: got error: `" << e << "`.\n";
-                  }
+               // check the cache queue
+               int i;
+               if (section_cached(cmsq, i, c, l, r)) {
+                  cout << "Map::update: Transfering cached section " << sections
+                       << " (" << cmsq[i].sid[0] << ", " << cmsq[i].sid[1]
+                       << ", " << cmsq[i].sid[2] << ") into main queue.\n";
+         
+                  cmsq.transfer_item(i, ms);
                }
-               else { // generate a new section
-                  cout << "Map::update: test building map section ("
-                       << c << ", " << l << ", " << r << ")\n";
-                  nms.generate_blocks();
+               else {
+
+                  // check if this section exists on the file system
+                  auto it = esm.find(nms.str_sid());
+                  if (it != esm.end()) {
+                     cout << "Map::update: test loading map section ("
+                          << c << ", " << l << ", " << r << ") fid: `"
+                          << esm[nms.str_sid()].fid << "`\n";
+
+                     nms.fid = esm[nms.str_sid()].fid;
+                     
+                     tools::Error e = nms.load(map_name);
+                     if (e != NULL) {
+                        cerr << "Map::update: got error: `" << e << "`.\n";
+                     }
+                  }
+                  else { // generate a new section
+                     cout << "Map::update: test building map section ("
+                          << c << ", " << l << ", " << r << ")\n";
+                     nms.generate_blocks();
+                  }
                }
 
                ms.enq(nms);

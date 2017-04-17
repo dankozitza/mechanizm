@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
    objs.push_back(test_object_1);
 
    // build the map around origin
-	MAP.load_section_list();
+   MAP.load_section_list();
    MAP.update(0.0, 0.0, 0.0, CMSQ, PIDSIDQ);
 
    cout << "MAP.ms.size(): " << MAP.ms.size() << "\n";
@@ -357,7 +357,7 @@ void drawSides() {
 
       glBegin(GL_POLYGON);
 
-		glColor3fv(s.color);
+      glColor3fv(s.color);
       for (int point = 0; point < 4; ++point) {
          glVertex3fv(s.points[point]);
       }
@@ -446,9 +446,9 @@ void drawScene(void) {
       glEnd();
    }
 
-	// this was count = 60 which stops the seg faults
-	if (count == 60)
-   	cout << "DrawScene: visible_sides has " << visible_sides.size() << " elements\n";
+   // this was count = 60 which stops the seg faults
+   if (count == 60)
+      cout << "DrawScene: visible_sides has " << visible_sides.size() << " elements\n";
    drawSides();
 
    glBegin(GL_TRIANGLE_STRIP);
@@ -574,11 +574,11 @@ animation(void)
 
    //if (count % 13 == 0) {
    if (count % 7 == 0) {
-		
+      
       visible_sides.clear();
       MAP.update(cam.getX(), cam.getY(), cam.getZ(), CMSQ, PIDSIDQ);
 //
-////		if (visible_sides.size() > 25000)
+////      if (visible_sides.size() > 25000)
 //
 //// removing this causes a segmentation fault?
 //if (count == 60) {
@@ -604,6 +604,7 @@ animation(void)
                  << endl;
             // a process exited, delete the map section and pidsid
 
+            bool found_data = false;
             bool br = false;
             for (int x = 0; x < CMSQ.size();) {
                if (  PIDSIDQ[z].sid[0] == CMSQ[x].sid[0] &&
@@ -615,6 +616,7 @@ animation(void)
 //                  cout << PIDSIDQ[z].sid[1] << ", " << PIDSIDQ[z].sid[2];
 //                  cout << ") z: " << z << " x: " << x << endl;
                   
+                  found_data = true;
                   CMSQ.delete_item(x);
                   PIDSIDQ.delete_item(z);
                   br = true;
@@ -624,6 +626,10 @@ animation(void)
                   x++;
                }
             }
+				if (!found_data) {
+					cout << "client::animate::child recovery: did not find data in cached map section queue for child " << PIDSIDQ[z].pid << "was it reloaded?\n";
+            	PIDSIDQ.delete_item(z);
+				}
             if (br) {
                break;
             }

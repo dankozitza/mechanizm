@@ -31,10 +31,14 @@ class Map {
       };
       map<string, EsmV> esm;
 
-      // check to see if the section is already loaded into the Q
+      // check the map section queue for a section
       bool section_loaded(int x, int y, int z);
+      // check the cached map section queue for a section
+      bool section_cached(Q<MapSection>& cmsq, int& i,
+            int x, int y, int z);
       // check the filesystem for an existing map section
       bool section_exists(int x, int y, int z);
+      // check if a section is within 2 * size blocks from center
       bool section_near_center(int, int, int, int, int, int, int);
 
    public:
