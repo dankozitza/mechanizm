@@ -7,7 +7,6 @@
 
 #include "Map.hpp"
 #include <math.h>
-#include <unistd.h>
 
 // used by all MapGen functions to get the general height
 int height = 0;
@@ -222,11 +221,11 @@ bool Map::section_loaded(int x, int y, int z) {
 
 bool Map::section_cached(Q<MapSection>& cmsq, int& i,
       int x, int y, int z) {
-   for (int z = 0; z < cmsq.size(); z++) {
-      if (cmsq[z].sid[0] == x &&
-          cmsq[z].sid[1] == y &&
-          cmsq[z].sid[2] == z) {
-         i = z;
+   for (int o = 0; o < cmsq.size(); o++) {
+      if (cmsq[o].sid[0] == x &&
+          cmsq[o].sid[1] == y &&
+          cmsq[o].sid[2] == z) {
+         i = o;
          return true;
       }
    }
@@ -248,6 +247,10 @@ bool Map::section_near_center(
       return false;
    }
    return true;
+}
+
+void Map::add_esm_entry(MapSection& ms) {
+   esm[ms.str_sid()].fid = ms.fid;
 }
 
 void Map::load_section_list() {
@@ -288,9 +291,9 @@ void Map::load_section_list() {
    int idir;
    for (int i = 0; i < idirs.size(); ++i) {
       if (pmatches(idirs[i], "^\\d+$")) {
-         cout << "`" << idirs[i] << "` ";
-         sscanf(idirs[i].c_str(), "%i", &idir);
-         cout << "idir: `" << idir << "`\n";
+         //cout << "`" << idirs[i] << "` ";
+         //sscanf(idirs[i].c_str(), "%i", &idir);
+         //cout << "idir: `" << idir << "`\n";
 
    string idirname = dname;
    idirname += "/";
@@ -306,7 +309,6 @@ void Map::load_section_list() {
                "^ms_(\\d+)_(\\-?\\d+_\\-?\\d+_\\-?\\d+)\\.data$")) {
 
          EsmV tmp;
-
          sscanf(m[1].c_str(), "%i", &tmp.fid);
          esm[m[2]] = tmp;
 
@@ -320,9 +322,7 @@ void Map::load_section_list() {
    }
 }
 
-void Map::update(GLfloat x, GLfloat y, GLfloat z,
-      Q<MapSection>& cmsq,
-      Q<PidSid>& ps) {
+void Map::update(GLfloat x, GLfloat y, GLfloat z, Q<MapSection>& cmsq) {
 
    MapSection emss; // empty section used only for the size (number of blocks
                     // in x, y, and z directions)
@@ -330,9 +330,8 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z,
    int ny = roundf(y / (GLfloat) emss.size) * emss.size;
    int nz = roundf(z / (GLfloat) emss.size) * emss.size;
 
-   cout << "position: (" << x << ", " << y << ", " << z << "):\n";
-   cout << "center of map (" << nx << ", " << ny << ", " << nz;
-   cout << ")\n";
+   cout << "position: (" << x << ", " << y << ", " << z << ") center of map ("
+        << nx << ", " << ny << ", " << nz << ")\n";
 
    // ensure only one child makes the idir directory
    bool make_dir = false;
@@ -345,8 +344,7 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z,
    }
 
    int i;
-
-   // delete any sections that are not the 64 sections surrounding nx, ny, nz
+   // remove any sections that are not the 64 sections surrounding nx, ny, nz
    for (i = 0; i < ms.size();) {
       if (section_near_center(
             nx, ny, nz,
@@ -366,66 +364,34 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z,
 
          // every 100 sections make a new directory
          if (sections == idir * 100 + 100) {
-            make_dir = true;
-         }
+            string dname = "maps/";
+            dname += map_name;
+            dname += "/";
+            char buff[100];
+            sprintf(buff, "%i", idir + 1);
+            dname += buff;
 
-         cmsq[cmsq.size()-1].fid = sections++;
-
-         MapSection* msp = &cmsq[cmsq.size()-1];
-
-         pid_t pID = fork();
-         if (pID < 0) {
-            cerr << "Map::update: failed to fork!\n";
-            exit(1);
-         }
-         else if (pID == 0) { // child
-
-            if (make_dir) {
-               string dname = "maps/";
-               dname += map_name;
-               dname += "/";
-               char buff[100];
-               sprintf(buff, "%i", idir + 1);
-               dname += buff;
-
-               cout << "CHILD: Map::update: Number of map sections: `"
-                    << sections << "` idir: `" << idir << "`\n"
-                    << "CHILD: Map::update: checking for dir `"
-                    << dname << "`.\n";
-               if (!dir_exists(dname)) {
-                  cout << "CHILD: Map::update: Dir not found. Running system "
-                       << "call: `";
-                  string syscall = "mkdir ";
-                  syscall += dname;
-                  cout << syscall << "`.\n";
-                  system(syscall.c_str());
-               }
-               else {
-                  cout << "CHILD: MAP::update: dir `" << dname << "` was already made.\n";
-               }
+            cout << "Map::update: Number of map sections: `"
+                 << sections << "` idir: `" << idir << "`\n"
+                 << "Map::update: checking for dir `"
+                 << dname << "`.\n";
+            if (!dir_exists(dname)) {
+               cout << "Map::update: Dir not found. Running system "
+                    << "call: `";
+               string syscall = "mkdir ";
+               syscall += dname;
+               cout << syscall << "`.\n";
+               system(syscall.c_str());
             }
-
-            // Sleep so that cached map sections' have a longer time to be
-            // transfered back into the main ms queue.
-            cout << "CHILD: sleeping...\n";
-            sleep(2 + rand() % 3);
-            cout << "CHILD: Map::update: saving map section!!!!\n";
-            msp->save(map_name);
-            cout << "CHILD: Map::update: Done!\n";
-            exit(0);
-         }
-         else { // parent
-            if (make_dir) {
-               break;
+            else {
+               cout << "MAP::update: dir `" << dname
+                    << "` was already made.\n";
             }
+         }
 
-            // store the process id of the child and the section id
-            PidSid tps;
-            tps.pid = pID;
-            tps.sid[0] = cmsq[cmsq.size()-1].sid[0];
-            tps.sid[1] = cmsq[cmsq.size()-1].sid[1];
-            tps.sid[2] = cmsq[cmsq.size()-1].sid[2];
-            ps.enq(tps);
+         // set the fid if this section doesn't have one
+         if (cmsq[cmsq.size()-1].fid == -1) {
+            cmsq[cmsq.size()-1].fid = sections++;
          }
       }
    }
@@ -450,18 +416,19 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z,
 
             if (!section_loaded(c, l, r)) {
 
-               MapSection nms(c, l, r, MapGen_random);
-
                // check the cache queue
                int i;
                if (section_cached(cmsq, i, c, l, r)) {
-                  cout << "Map::update: Transfering cached section " << sections
-                       << " (" << cmsq[i].sid[0] << ", " << cmsq[i].sid[1]
-                       << ", " << cmsq[i].sid[2] << ") into main queue.\n";
+                  cout << "Map::update: Transfering cached section "
+                       << cmsq[i].fid << " (" << cmsq[i].sid[0] << ", "
+                       << cmsq[i].sid[1] << ", " << cmsq[i].sid[2]
+                       << ") into main queue.\n";
          
                   cmsq.transfer_item(i, ms);
                }
                else {
+
+                  MapSection nms(c, l, r, MapGen_random);
 
                   // check if this section exists on the file system
                   auto it = esm.find(nms.str_sid());
@@ -482,9 +449,9 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z,
                           << c << ", " << l << ", " << r << ")\n";
                      nms.generate_blocks();
                   }
-               }
 
-               ms.enq(nms);
+                  ms.enq(nms);
+               }
 
                load_cnt++;
                if (load_cnt > 8) {

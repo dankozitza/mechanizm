@@ -19,7 +19,6 @@ using namespace tools;
 class Map {
    private:
       int sections = 0;
-      string map_name = "default";
 
       // esm - existing sections map is a map with keys set to string sid's
       //       and values as a struct of the file id for the files within
@@ -42,22 +41,29 @@ class Map {
       bool section_near_center(int, int, int, int, int, int, int);
 
    public:
-		Q<MapSection> ms;
+      Q<MapSection> ms;
+      string map_name = "default";
 
       struct PidSid {
          int pid;
          int sid[3];
       };
 
-		Map();
+      Map();
 
       // load_section_list
       // 
-      // Load the list of map sections found on the file system.
+      // Load the list of existing map sections found on the file system.
       //
       void load_section_list();
 
-		// update
+      // add_esm_entry
+      //
+      // Add a single map section to the existing sections map.
+      //
+      void add_esm_entry(MapSection& ms);
+
+      // update
       //
       // Generate, load, and unload the proper map sections based on the 
       // new position of the camera. cmsq is a reference to a cached map
@@ -69,9 +75,7 @@ class Map {
       // iterates the ps queue periodically to retrieve the child pid and
       // delete the proper map section from cmsq.
       //
-		void update(GLfloat x, GLfloat y, GLfloat z,
-            Q<MapSection>& cmsq,
-            Q<PidSid>& ps);
+      void update(GLfloat x, GLfloat y, GLfloat z, Q<MapSection>& cmsq);
 };
 
 #endif

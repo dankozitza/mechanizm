@@ -13,6 +13,7 @@
 #include <iomanip>
 #include <iostream>
 #include <sys/wait.h>
+#include <unistd.h>
 //#include "commands.hpp"
 #include "mechanizm.hpp"
 #include "options.hpp"
@@ -35,11 +36,17 @@ using namespace tools;
 void help(string prog_name);
 
 void
-   drawScene(void), setMatrix(int w, int h), animation(void), hot_pause(void),
+   drawScene(void),
+   setMatrix(int w, int h),
+   map_generation(void),
+   animation(void),
+   hot_pause(void),
+   setup_glut_menu(),
+   menu(int choice),
    resize(int w, int h),
    mouse(int button, int state, int x, int y),
    mouse_passive(int x, int y),
-   keyboard(unsigned char c, int x, int y), menu(int choice), 
+   keyboard(unsigned char c, int x, int y),
    keyboard_up(unsigned char c, int x, int y),
    motion(int x, int y),
    drawWireframe(int objs_index, int face),
@@ -68,7 +75,9 @@ vector<Side> visible_sides;
 Q<MapSection> CMSQ;
 Q<Map::PidSid> PIDSIDQ;
 
-bool animation_on = false;
+// menu options
+bool MAP_GEN = false;
+bool ANIMATION = false;
 
 // commands for the in-game cli
 void cmd_select(vector<string>& argv);
@@ -130,7 +139,7 @@ int main(int argc, char *argv[]) {
 
    // build the map around origin
    MAP.load_section_list();
-   MAP.update(0.0, 0.0, 0.0, CMSQ, PIDSIDQ);
+   //MAP.update(0.0, 0.0, 0.0, CMSQ);
 
    cout << "MAP.ms.size(): " << MAP.ms.size() << "\n";
    MapSection* ms = MAP.ms.get_item_ptr();
@@ -156,9 +165,7 @@ int main(int argc, char *argv[]) {
    glutPassiveMotionFunc(mouse_passive);
    glutReshapeFunc(resize);
    glutCreateMenu(menu);
-   glutAddMenuEntry("Motion", 3);
-   glutAddMenuEntry("Stencil on", 1);
-   glutAddMenuEntry("Reset", 2);
+   setup_glut_menu();
    glutAttachMenu(GLUT_RIGHT_BUTTON);
    glutKeyboardFunc(keyboard);
    glutKeyboardUpFunc(keyboard_up);
@@ -446,9 +453,9 @@ void drawScene(void) {
       glEnd();
    }
 
-   // this was count = 60 which stops the seg faults
-   if (count == 60)
+   if (count == 60) {
       cout << "DrawScene: visible_sides has " << visible_sides.size() << " elements\n";
+   }
    drawSides();
 
    glBegin(GL_TRIANGLE_STRIP);
@@ -548,10 +555,150 @@ setMatrix(int w, int h)
    glLoadIdentity();
 }
 
+void map_generation(void) {
 
-void
-animation(void)
-{
+   if (count % 7 == 0) {
+      
+      visible_sides.clear();
+      MAP.update(cam.getX(), cam.getY(), cam.getZ(), CMSQ);
+
+      for (int z = 0; z < MAP.ms.size(); ++z)
+         MAP.ms[z].populate_visible_sides(visible_sides, cam);
+
+      glutPostRedisplay();
+   }
+
+   if (count == 60) {
+      cout << "client::animation: cached map section queue has " << CMSQ.size()
+           << " sections.\n";
+   }
+
+   int fcount = 0;
+   // fork and save the map sections with no PIDSID entry
+   if (CMSQ.size() >= 128 && PIDSIDQ.size() < 4) {
+      for (int u = 0; u < CMSQ.size(); ++u) {
+
+         if (fcount == 16) {
+            break;
+         }
+
+         int idir;
+         for (idir = 0; idir >= 0; ++idir) {
+            if (CMSQ[u].fid < idir * 100 + 100) {
+               break;
+            }
+         }
+
+         bool has_pid = false;
+         for (int o = PIDSIDQ.size()-1; o >= 0; --o) {
+            if (  PIDSIDQ[o].sid[0] == CMSQ[u].sid[0] &&
+                  PIDSIDQ[o].sid[1] == CMSQ[u].sid[1] &&
+                  PIDSIDQ[o].sid[2] == CMSQ[u].sid[2]    ) {
+               has_pid = true;
+               break;
+            }
+         }
+
+         // if no process is saving this map section: fork
+         if (!has_pid) {
+
+            MapSection* msp = &CMSQ[u];
+
+            pid_t pID = fork();
+            if (pID < 0) {
+               cerr << "Map::update: failed to fork!\n";
+               exit(1);
+            }
+            else if (pID == 0) { // child
+               msp->save(MAP.map_name);
+               _exit(0);
+            }
+            else { // parent
+
+               // store the process id of the child and the section id
+               Map::PidSid tps;
+               tps.pid = pID;
+               tps.sid[0] = CMSQ[u].sid[0];
+               tps.sid[1] = CMSQ[u].sid[1];
+               tps.sid[2] = CMSQ[u].sid[2];
+               PIDSIDQ.enq(tps);
+               fcount++;
+            }
+         }
+      }
+   }
+
+   if (PIDSIDQ.size() > 40) {
+      cout << "client::map_generation: PIDSIDQ size has reached `"
+           << PIDSIDQ.size() << "`! There should not be that many child "
+           << "processes!\n";
+   }
+
+   // check if any child process is done and remove from cache
+   // waiting for more than 4 of these at a time seems to break some and cause
+   // the proc/pid dir to remain after waitpid gets an exit status 0 from the
+   // child process.
+   int ret_cnt = 0;
+   if (PIDSIDQ.size() > 0) {
+      for (int z = 0; z < PIDSIDQ.size() && ret_cnt < 4;) {
+         int exit_status;
+
+         pid_t ws = waitpid(PIDSIDQ[z].pid, &exit_status, WNOHANG);
+
+         if( WIFEXITED(exit_status) ) {
+            //cout << "waitpid() exited with signal: Status= "
+            //     << WEXITSTATUS(exit_status)
+            //     << endl;
+
+            // a process exited, delete the map section and pidsid
+            ret_cnt++;
+
+            bool found_data = false;
+            for (int x = 0; x < CMSQ.size();) {
+
+               if (  PIDSIDQ[z].sid[0] == CMSQ[x].sid[0] &&
+                     PIDSIDQ[z].sid[1] == CMSQ[x].sid[1] &&
+                     PIDSIDQ[z].sid[2] == CMSQ[x].sid[2]) {
+
+                  found_data = true;
+
+                  // add this map section to the esm
+                  MAP.add_esm_entry(CMSQ[x]);
+
+                  CMSQ.delete_item(x);
+                  if (tools::pid_exists(PIDSIDQ[z].pid)) {
+                     cout << "client::map_generation: child process `"
+                          << PIDSIDQ[z].pid << "` was retrieved but it still "
+                          << "exists! Returned exit status: `" << exit_status
+                          << "`.\n";
+                  }
+                  else {
+                     PIDSIDQ.delete_item(z);
+                  }
+                  break;
+               }
+               else {
+                  x++;
+               }
+            }
+            if (!found_data) {
+               cout << "client::map_generation: did not find map "
+                    << "section (" << PIDSIDQ[z].sid[0] << ", "
+                    << PIDSIDQ[z].sid[1] << ", " << PIDSIDQ[z].sid[2]
+                    << ") in cached map section queue. process "
+                    << PIDSIDQ[z].pid << " was supposed to be using it.\n";
+               PIDSIDQ.delete_item(z);
+            }
+         }
+         else {
+            z++;
+         }
+      }
+   }
+}
+
+void animation(void) {
+
    tools::Error e = NULL;
    // 1/64th of a second
    e = mech.run(0.015625, 0, 0.015625);
@@ -560,7 +707,7 @@ animation(void)
       return;
    }
    //cout << "count: " << count << " t: " << mech.current_time << "\n";
-   glutPostRedisplay();
+   //glutPostRedisplay();
 
    if (count == 60) { // make up for the time lost
       e = mech.run(0.046875, 0, 0.046875);
@@ -572,98 +719,66 @@ animation(void)
       return;
    }
 
-   //if (count % 13 == 0) {
-   if (count % 7 == 0) {
-      
-      visible_sides.clear();
-      MAP.update(cam.getX(), cam.getY(), cam.getZ(), CMSQ, PIDSIDQ);
-//
-////      if (visible_sides.size() > 25000)
-//
-//// removing this causes a segmentation fault?
-//if (count == 60) {
-//cout << "map section locations:\n" << MAP.ms << "\n";
-//}
-//
-      for (int z = 0; z < MAP.ms.size(); ++z)
-         MAP.ms[z].populate_visible_sides(visible_sides, cam);
 
-      glutPostRedisplay();
-   }
 
-   // check if any child process is done and remove from cache
-   if (PIDSIDQ.size() > 0) {
-      for (int z = 0; z < PIDSIDQ.size();) {
-         int exit_status;
-
-         pid_t ws = waitpid(PIDSIDQ[z].pid, &exit_status, WNOHANG);
-
-         if( WIFEXITED(exit_status) ) {
-            cout << "waitpid() exited with signal: Status= "
-                 << WEXITSTATUS(exit_status)
-                 << endl;
-            // a process exited, delete the map section and pidsid
-
-            bool found_data = false;
-            bool br = false;
-            for (int x = 0; x < CMSQ.size();) {
-               if (  PIDSIDQ[z].sid[0] == CMSQ[x].sid[0] &&
-                     PIDSIDQ[z].sid[1] == CMSQ[x].sid[1] &&
-                     PIDSIDQ[z].sid[2] == CMSQ[x].sid[2]) {
-//                  cout << "client::animation: discarding data from saver";
-//                  cout << " pid: " << PIDSIDQ[z].pid;
-//                  cout << " sid: (" << PIDSIDQ[z].sid[0] << ", ";
-//                  cout << PIDSIDQ[z].sid[1] << ", " << PIDSIDQ[z].sid[2];
-//                  cout << ") z: " << z << " x: " << x << endl;
-                  
-                  found_data = true;
-                  CMSQ.delete_item(x);
-                  PIDSIDQ.delete_item(z);
-                  br = true;
-                  break;
-               }
-               else {
-                  x++;
-               }
-            }
-				if (!found_data) {
-					cout << "client::animate::child recovery: did not find data in cached map section queue for child " << PIDSIDQ[z].pid << "was it reloaded?\n";
-            	PIDSIDQ.delete_item(z);
-				}
-            if (br) {
-               break;
-            }
-         }
-         else {
-            z++;
-         }
-      }
-   }
-
-   count++;
-   if (count >= 61) {
-      count = 0;
-   }
 }
 
 void hot_pause(void) {
+   if (MAP_GEN) {
+      map_generation();
+   }
+   if (ANIMATION) {
+      animation();
+   }
+
    glutPostRedisplay();
+
+   count++;
+   if (count > 60) {
+      count = 0;
+   }
+}
+
+void setup_glut_menu() {
+   while (glutGet(GLUT_MENU_NUM_ITEMS) > 0) {
+      glutRemoveMenuItem(1);
+   }
+   if (MAP_GEN) {
+      glutAddMenuEntry("1 - Map Generation", 4);
+   }
+   else {
+      glutAddMenuEntry("0 - Map Generation", 4);
+   }
+   if (ANIMATION) {
+      glutAddMenuEntry("1 - Animation", 3);
+   }
+   else {
+      glutAddMenuEntry("0 - Animation", 3);
+   }
+//   glutAddMenuEntry("Stencil", 1);
+   glutAddMenuEntry("Reset", 2);
 }
 
 // mouse right click menu
-void
-menu(int choice)
-{
+void menu(int choice) {
+
    switch (choice) {
-   case 3: // Menu
-      count = 0;
-      if (animation_on) {
-         glutIdleFunc(hot_pause);
-         animation_on = false;
+   case 4: // Map Generation
+      if (MAP_GEN) {
+         MAP_GEN = false;
       }
       else {
-         glutIdleFunc(animation);
-         animation_on = true;
+         MAP_GEN = true;
+      }
+      //setup_glut_menu();
+      break;
+   case 3: // Animation
+      count = 0;
+      if (ANIMATION) {
+         ANIMATION = false;
+      }
+      else {
+         ANIMATION = true;
       }
       break;
    case 2: // Reset
@@ -686,7 +801,9 @@ menu(int choice)
       glutSetWindowTitle("Stencil Enabled");
       glutPostRedisplay();
       break;
-  }
+   }
+
+   setup_glut_menu();
 }
 
 void menu_1_help() {
@@ -928,3 +1045,4 @@ resize(int w, int h)
   glViewport(0, 0, w, h);
   setMatrix(w, h);
 }
+      
