@@ -163,7 +163,19 @@ void MapSection::generate_blocks() {
       cerr << "MapSection::generate_blocks: Error: " << e << "\n";
 }
 
+void MapSection::mark_invalid_block_sides() {
+   has_sides = false;
+   for (int l = 0; l < size; ++l) {
+      for (int r = 0; r < size; ++r) {
+         for (int c = 0; c < size; ++c) {
+            blocks[l][r][c].mark_invalid_sides();
+         }
+      }
+   }
+}
+
 void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
+   has_sides = true;
    for (int l = 0; l < size; ++l) {
       for (int r = 0; r < size; ++r) {
          for (int c = 0; c < size; ++c) {
@@ -175,10 +187,17 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
 
             int up    = 2;
             int down  = 0;
-            int north = 1;
-            int south = 3;
+            int north = 3;
+            int south = 1;
             int east  = 4;
             int west  = 5;
+
+            // set pointer to side to last element in visual sides vector
+            Side* tmpsp = vsides.data();
+            cout << "MapSection::pop...: tmpsp->valid `" << tmpsp->valid << "`" << endl;
+            for (int i = 0; i < vsides.size()-1; ++i) {
+               tmpsp++;
+            }
 
             // up    -> l+1 r   c
             if (l+1 >= 0 && l+1 < size) {
@@ -193,6 +212,10 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
                   }
                   s.color = (GLfloat *) blocks[l][r][c].faceColors[up];
                   vsides.push_back(s);
+                  //blocks[l][r][c].sp_up = &vsides[vsides.size()-1];
+                  if (vsides.size() != 0)
+                     tmpsp++;
+                  blocks[l][r][c].sp_up = tmpsp;
                }
             }
             else {
@@ -203,6 +226,10 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
                }
                s.color = (GLfloat *) blocks[l][r][c].faceColors[up];
                vsides.push_back(s);
+               //blocks[l][r][c].sp_up = &vsides[vsides.size()-1];
+               if (vsides.size() != 0)
+                  tmpsp++;
+               blocks[l][r][c].sp_up = tmpsp;
             }
 
             // down  -> l-1 r   c
@@ -214,6 +241,11 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
                      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[down][p] ];
                   }
                   vsides.push_back(s);
+                  //blocks[l][r][c].sp_down = &vsides[vsides.size()-1];
+                  if (vsides.size() != 0)
+                     tmpsp++;
+                  blocks[l][r][c].sp_down = tmpsp;
+
                }
             }
             else {
@@ -224,18 +256,26 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
                }
                s.color = (GLfloat *) blocks[l][r][c].faceColors[down];
                vsides.push_back(s);
+               //blocks[l][r][c].sp_down = &vsides[vsides.size()-1];
+               if (vsides.size() != 0)
+                  tmpsp++;
+               blocks[l][r][c].sp_down = tmpsp;
             }
             
-            // north -> l   r+1   c
-            if (r+1 >= 0 && r+1 < size) {
+            // north -> l   r-1   c
+            if (r-1 >= 0 && r-1 < size) {
                // check adjacent block's type
-               if (blocks[l][r+1][c].type == 0) {
+               if (blocks[l][r-1][c].type == 0) {
                   Side s(l, r, c, north);
                   for (int p = 0; p < 4; ++p) {
                      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[north][p] ];
                   }
                   s.color = (GLfloat *) blocks[l][r][c].faceColors[north];
                   vsides.push_back(s);
+                  //blocks[l][r][c].sp_north = &vsides[vsides.size()-1];
+                  if (vsides.size() != 0)
+                     tmpsp++;
+                  blocks[l][r][c].sp_north = tmpsp;
                }
             }
             else {
@@ -246,18 +286,26 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
                }
                s.color = (GLfloat *) blocks[l][r][c].faceColors[north];
                vsides.push_back(s);
+               //blocks[l][r][c].sp_north = &vsides[vsides.size()-1];
+               if (vsides.size() != 0)
+                  tmpsp++;
+               blocks[l][r][c].sp_north = tmpsp;
             }
 
-            // south -> l   r-1   c
-            if (r-1 >= 0 && r-1 < size) {
+            // south -> l   r+1   c
+            if (r+1 >= 0 && r+1 < size) {
                // check adjacent block's type
-               if (blocks[l][r-1][c].type == 0) {
+               if (blocks[l][r+1][c].type == 0) {
                   Side s(l, r, c, south);
                   for (int p = 0; p < 4; ++p) {
                      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[south][p] ];
                   }
                   s.color = (GLfloat *) blocks[l][r][c].faceColors[south];
                   vsides.push_back(s);
+                  //blocks[l][r][c].sp_south = &vsides[vsides.size()-1];
+                  if (vsides.size() != 0)
+                     tmpsp++;
+                  blocks[l][r][c].sp_south = tmpsp;
                }
             }
             else {
@@ -268,6 +316,10 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
                }
                s.color = (GLfloat *) blocks[l][r][c].faceColors[south];
                vsides.push_back(s);
+               //blocks[l][r][c].sp_south = &vsides[vsides.size()-1];
+               if (vsides.size() != 0)
+                  tmpsp++;
+               blocks[l][r][c].sp_south = tmpsp;
             }
 
             // east  -> l   r   c+1
@@ -280,6 +332,10 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
                   }
                   s.color = (GLfloat *) blocks[l][r][c].faceColors[east];
                   vsides.push_back(s);
+                  //blocks[l][r][c].sp_east = &vsides[vsides.size()-1];
+                  if (vsides.size() != 0)
+                     tmpsp++;
+                  blocks[l][r][c].sp_east = tmpsp;
                }
             }
             else {
@@ -290,6 +346,10 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
                }
                s.color = (GLfloat *) blocks[l][r][c].faceColors[east];
                vsides.push_back(s);
+               //blocks[l][r][c].sp_east = &vsides[vsides.size()-1];
+               if (vsides.size() != 0)
+                  tmpsp++;
+               blocks[l][r][c].sp_east = tmpsp;
             }
 
             // west  -> l   r  c-1
@@ -302,6 +362,10 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
                   }
                   s.color = (GLfloat *) blocks[l][r][c].faceColors[west];
                   vsides.push_back(s);
+                  //blocks[l][r][c].sp_west = &vsides[vsides.size()-1];
+                  if (vsides.size() != 0)
+                     tmpsp++;
+                  blocks[l][r][c].sp_west = tmpsp;
                }
             }
             else {
@@ -312,6 +376,10 @@ void MapSection::populate_visible_sides(vector<Side> &vsides, Camera &cam) {
                }
                s.color = (GLfloat *) blocks[l][r][c].faceColors[west];
                vsides.push_back(s);
+               //blocks[l][r][c].sp_west = &vsides[vsides.size()-1];
+               if (vsides.size() != 0)
+                  tmpsp++;
+               blocks[l][r][c].sp_west = tmpsp;
             }
          } // c
       } // r

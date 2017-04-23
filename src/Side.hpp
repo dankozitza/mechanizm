@@ -20,6 +20,7 @@ class Side {
    public:
       int id[3];
       int index;
+      bool valid = true;
 
       // this way we don't have to know what mapsection
       GLfloat* points[4]; // array of pointers to the 4 points within cube

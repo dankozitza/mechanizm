@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
    cout << "MAP.ms.size(): " << MAP.ms.size() << "\n";
    MapSection* ms = MAP.ms.get_item_ptr();
 
-   for (int z = 0; z < MAP.ms.size(); ++z) { // loop through 8 map sections
+   for (int z = 0; z < MAP.ms.size(); ++z) { // loop through map sections
       cout << ms->sid[0] << " " << ms->sid[1] << " " << ms->sid[2] << "\n";
       ms->populate_visible_sides(visible_sides, cam);
       MAP.ms.increment_item_ptr();
@@ -359,16 +359,24 @@ drawFilled(int objs_index, int face)
 }
 
 void drawSides() {
-   for (int vsi = 0; vsi < visible_sides.size(); ++vsi) {
-      Side s = visible_sides[vsi];
+   for (int vsi = 0; vsi < visible_sides.size();) {
 
-      glBegin(GL_POLYGON);
+//      cout << "drawSides(): HERE\n";
 
-      glColor3fv(s.color);
-      for (int point = 0; point < 4; ++point) {
-         glVertex3fv(s.points[point]);
+      if (visible_sides[vsi].valid) {
+         glBegin(GL_POLYGON);
+         glColor3fv(visible_sides[vsi].color);
+         for (int point = 0; point < 4; ++point) {
+            glVertex3fv(visible_sides[vsi].points[point]);
+         }
+         glEnd();
+
+         vsi++;
       }
-      glEnd();
+      else {
+         cout << "removing invalid side!!!\n";
+         visible_sides.erase(visible_sides.begin() + vsi);
+      }
    }
 }
 
@@ -559,13 +567,14 @@ void map_generation(void) {
 
    if (count % 7 == 0) {
       
-      visible_sides.clear();
+      //visible_sides.clear();
       MAP.update(cam.getX(), cam.getY(), cam.getZ(), CMSQ);
 
-      for (int z = 0; z < MAP.ms.size(); ++z)
-         MAP.ms[z].populate_visible_sides(visible_sides, cam);
+      for (int z = 0; z < MAP.ms.size(); ++z) {
+         if (!MAP.ms[z].has_sides)
+            MAP.ms[z].populate_visible_sides(visible_sides, cam);
+      }
 
-      glutPostRedisplay();
    }
 
    if (count == 60) {

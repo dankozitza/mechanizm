@@ -359,6 +359,8 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z, Q<MapSection>& cmsq) {
               << ms[i].sid[0] << ", " << ms[i].sid[1] << ", " << ms[i].sid[2]
               << ") to cache...\n";
 
+         ms[i].mark_invalid_block_sides();
+
          // transfer the item from the map section queue to the cache queue
          ms.transfer_item(i, cmsq);
 

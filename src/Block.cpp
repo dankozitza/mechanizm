@@ -6,6 +6,9 @@
 
 #include <cmath>
 #include "Block.hpp"
+#include "tools.hpp"
+
+using namespace tools;
 
 static GLfloat init_cube[8][3] = {
       0.0, 0.0, 0.0,
@@ -44,6 +47,36 @@ Block::Block(int layer, int row, int column) {
 	id[0] = layer;
 	id[1] = row;
 	id[2] = column;
+}
+
+void Block::mark_invalid_sides() {
+   if (sp_up != NULL) {
+      //cout << "Block::mark_invalid_sides: GOT UP! sp_up->valid: " << sp_up->valid << "\n";
+      //sp_up->valid = false;
+      sp_up = NULL;
+   }
+   if (sp_down != NULL) {
+//      sp_down->valid = false;
+      sp_down = NULL;
+   }
+   if (sp_north != NULL) {
+//      sp_north->valid = false;
+      sp_north = NULL;
+   }
+   if (sp_south != NULL) {
+//      sp_south->valid = false;
+      sp_south = NULL;
+   }
+   if (sp_east != NULL) {
+//      sp_east->valid = false;
+      sp_east = NULL;
+   }
+   if (sp_west != NULL) {
+//      sp_west->valid = false;
+      sp_west = NULL;
+   }
+
+   //cout << "Block::mark_invalid_sides: GOT HERE!!!!!!!!!!!!!!!!!!!!\n";
 }
 
 void Block::set_cube(GLfloat new_cube[][3]) {
