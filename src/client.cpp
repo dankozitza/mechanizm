@@ -71,7 +71,7 @@ static mechanizm mech;
 int count = 1; // cycles through 1/60th of a second
 
 Map MAP;
-vector<Side> visible_sides;
+//Q<Side> visible_sides;
 Q<MapSection> CMSQ;
 Q<Map::PidSid> PIDSIDQ;
 
@@ -144,12 +144,12 @@ int main(int argc, char *argv[]) {
    cout << "MAP.ms.size(): " << MAP.ms.size() << "\n";
    MapSection* ms = MAP.ms.get_item_ptr();
 
-   for (int z = 0; z < MAP.ms.size(); ++z) { // loop through map sections
-      cout << ms->sid[0] << " " << ms->sid[1] << " " << ms->sid[2] << "\n";
-      ms->populate_visible_sides(visible_sides, cam);
-      MAP.ms.increment_item_ptr();
-      ms = MAP.ms.get_item_ptr();
-   }
+   //for (int z = 0; z < MAP.ms.size(); ++z) { // loop through map sections
+   //   cout << ms->sid[0] << " " << ms->sid[1] << " " << ms->sid[2] << "\n";
+   //   ms->populate_visible_sides(visible_sides, cam);
+   //   MAP.ms.increment_item_ptr();
+   //   ms = MAP.ms.get_item_ptr();
+   //}
 
    int fake = 0;
    char** fake2;
@@ -359,24 +359,23 @@ drawFilled(int objs_index, int face)
 }
 
 void drawSides() {
-   for (int vsi = 0; vsi < visible_sides.size();) {
+   int sidecnt = 0;
+   for (int msi = 0; msi < MAP.ms.size(); msi++) {
+      for (int vsi = 0; vsi < MAP.ms[msi].visible_sides.size(); vsi++) {
 
-//      cout << "drawSides(): HERE\n";
-
-      if (visible_sides[vsi].valid) {
          glBegin(GL_POLYGON);
-         glColor3fv(visible_sides[vsi].color);
+         glColor3fv(MAP.ms[msi].visible_sides[vsi].color);
          for (int point = 0; point < 4; ++point) {
-            glVertex3fv(visible_sides[vsi].points[point]);
+            glVertex3fv(MAP.ms[msi].visible_sides[vsi].points[point]);
          }
          glEnd();
 
-         vsi++;
+         sidecnt++;
       }
-      else {
-         cout << "removing invalid side!!!\n";
-         visible_sides.erase(visible_sides.begin() + vsi);
-      }
+   }
+   if (count == 60) {
+      cout << "client::drawSides: Total visible sides rendered: `"
+           << sidecnt << "`.\n";
    }
 }
 
@@ -461,9 +460,6 @@ void drawScene(void) {
       glEnd();
    }
 
-   if (count == 60) {
-      cout << "DrawScene: visible_sides has " << visible_sides.size() << " elements\n";
-   }
    drawSides();
 
    glBegin(GL_TRIANGLE_STRIP);
@@ -566,20 +562,19 @@ setMatrix(int w, int h)
 void map_generation(void) {
 
    if (count % 7 == 0) {
-      
-      //visible_sides.clear();
       MAP.update(cam.getX(), cam.getY(), cam.getZ(), CMSQ);
-
+      //MAP.update_nearby_ms_pointers();
       for (int z = 0; z < MAP.ms.size(); ++z) {
          if (!MAP.ms[z].has_sides)
-            MAP.ms[z].populate_visible_sides(visible_sides, cam);
-      }
+            MAP.ms[z].generate_visible_sides(cam);
 
+       //  MAP.ms[z].generate_visible_edge_sides(cam);
+      }
    }
 
    if (count == 60) {
-      cout << "client::animation: cached map section queue has " << CMSQ.size()
-           << " sections.\n";
+      cout << "client::map_generation: cached map section queue has "
+           << CMSQ.size() << " sections.\n";
    }
 
    int fcount = 0;

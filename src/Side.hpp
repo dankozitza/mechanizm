@@ -30,6 +30,7 @@ class Side {
 // their side index (the index to be used for faceIndex and faceColor),
 //                       pointer to the map_section?)
 //
+      Side() {};
       Side(int layer, int row, int column, int side_index);
 };
 

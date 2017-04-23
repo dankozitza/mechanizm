@@ -11,9 +11,10 @@
 
 #include <GL/glut.h>
 #include <glm/core/type_vec.hpp>
-#include "Side.hpp"
 #include "Block.hpp"
 #include "Camera.hpp"
+#include "Q.hpp"
+#include "Side.hpp"
 
 using namespace tools;
 
@@ -27,6 +28,7 @@ class MapSection {
       int pid;
       int fid = -1; // file id
       bool has_sides = false;
+      Q<Side> visible_sides;
 
       tools::Error (*func_gen)(MapSection&);
 
@@ -38,9 +40,9 @@ class MapSection {
 		string str_sid() const;
       string get_file_name(string map_name) const;
       void generate_blocks();
-      // this generates sides and sets has_sides to true
-      void populate_visible_sides(vector<Side>& vsides, Camera& cam);
-      void mark_invalid_block_sides();
+      // generates sides and sets has_sides to true. This must be called
+      // after blocks are generated.
+      void generate_visible_sides(Camera& cam);
 };
 
 #endif

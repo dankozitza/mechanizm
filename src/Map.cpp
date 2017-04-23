@@ -355,11 +355,16 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z, Q<MapSection>& cmsq) {
          i++;
       }
       else {
-         cout << "Map::update: transfering section " << sections << " ("
-              << ms[i].sid[0] << ", " << ms[i].sid[1] << ", " << ms[i].sid[2]
-              << ") to cache...\n";
 
-         ms[i].mark_invalid_block_sides();
+         cout << "Map::update: transfering section ";
+
+         if (ms[i].fid != -1)
+            cout << ms[i].fid << " (";
+         else
+            cout << sections << " (";
+
+         cout << ms[i].sid[0] << ", " << ms[i].sid[1] << ", " << ms[i].sid[2]
+              << ") to cache...\n";
 
          // transfer the item from the map section queue to the cache queue
          ms.transfer_item(i, cmsq);
@@ -440,7 +445,7 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z, Q<MapSection>& cmsq) {
                           << esm[nms.str_sid()].fid << "`\n";
 
                      nms.fid = esm[nms.str_sid()].fid;
-                     
+
                      tools::Error e = nms.load(map_name);
                      if (e != NULL) {
                         cerr << "Map::update: got error: `" << e << "`.\n";
@@ -449,6 +454,7 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z, Q<MapSection>& cmsq) {
                   else { // generate a new section
                      cout << "Map::update: test building map section ("
                           << c << ", " << l << ", " << r << ")\n";
+
                      nms.generate_blocks();
                   }
 
@@ -468,3 +474,7 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z, Q<MapSection>& cmsq) {
       if (br_l) {break;}
    } // end of l loop
 }
+
+//set_near_ms_pointers(MapSection& nms,
+//      nx, ny, nz, // center
+//      c, l, r);

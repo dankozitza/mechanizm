@@ -13,7 +13,6 @@
 
 using namespace std;
 
-
 class Block {
 
    public:
@@ -38,19 +37,9 @@ class Block {
 
       int id[3];
 
-      // pointers to each side (used by destructor to mark sides for removal)
-      Side* sp_up    = NULL;
-      Side* sp_down  = NULL;
-      Side* sp_north = NULL;
-      Side* sp_south = NULL;
-      Side* sp_east  = NULL;
-      Side* sp_west  = NULL;
-
       Block();
 		Block(int identity[3]);
 		Block(int layer, int row, int column);
-
-      void mark_invalid_sides();
 
       void set_cube(GLfloat new_cube[][3]);
       void set_faceIndex(GLfloat new_faceIndex[][4]);
