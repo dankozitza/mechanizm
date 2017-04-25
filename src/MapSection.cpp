@@ -188,6 +188,7 @@ void MapSection::generate_visible_sides(Camera &cam) {
             if (blocks[l][r][c].type == 0)
                continue;
 
+            // north and west directions are swapped in this func
             int up    = 2;
             int down  = 0;
             int north = 3;

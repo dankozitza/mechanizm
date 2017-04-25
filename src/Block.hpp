@@ -21,11 +21,11 @@ class Block {
       GLfloat cube[8][3];
 
 		// 0 - down
-		// 1 - north
+		// 3 - north 5
 		// 2 - up
-		// 3 - south
+		// 1 - south
 		// 4 - east
-		// 5 - west
+		// 5 - west 3
       int faceIndex[6][4];
 		GLfloat faceColors[6][3];
 
@@ -35,6 +35,7 @@ class Block {
 		int total_types = 2;
 		int type = 1;
 
+      // y, x, z ?
       int id[3];
 
       Block();

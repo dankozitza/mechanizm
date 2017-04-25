@@ -563,13 +563,15 @@ void map_generation(void) {
 
    if (count % 7 == 0) {
       MAP.update(cam.getX(), cam.getY(), cam.getZ(), CMSQ);
-      //MAP.update_nearby_ms_pointers();
       for (int z = 0; z < MAP.ms.size(); ++z) {
          if (!MAP.ms[z].has_sides)
             MAP.ms[z].generate_visible_sides(cam);
 
-       //  MAP.ms[z].generate_visible_edge_sides(cam);
       }
+   }
+
+   if (count % 15 == 0) {
+      MAP.generate_visible_edges();
    }
 
    if (count == 60) {

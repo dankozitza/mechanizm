@@ -31,6 +31,8 @@ class Map {
       map<string, EsmV> esm;
 
       // check the map section queue for a section
+      // returns index or -1 for none
+      int section_i_loaded(int x, int y, int z);
       bool section_loaded(int x, int y, int z);
       // check the cached map section queue for a section
       bool section_cached(Q<MapSection>& cmsq, int& i,
@@ -76,6 +78,13 @@ class Map {
       // delete the proper map section from cmsq.
       //
       void update(GLfloat x, GLfloat y, GLfloat z, Q<MapSection>& cmsq);
+
+      // generate_visible_edges
+      //
+      // Generate sides using the types of adjacent edge blocks throughout
+      // the map sections.
+      //
+      void generate_visible_edges();
 };
 
 #endif

@@ -208,15 +208,22 @@ tools::Error MapGen_random(MapSection& ms) {
    }
 }
 
-bool Map::section_loaded(int x, int y, int z) {
+int Map::section_i_loaded(int x, int y, int z) {
    for (int i = 0; i < ms.size(); i++) {
       if (ms[i].sid[0] == x &&
           ms[i].sid[1] == y &&
           ms[i].sid[2] == z) {
-         return true;
+         return i;
       }
    }
-   return false;
+   return -1;
+}
+
+bool Map::section_loaded(int x, int y, int z) {
+   if (section_i_loaded(x, y, z) == -1)
+      return false;
+   else
+      return true;
 }
 
 bool Map::section_cached(Q<MapSection>& cmsq, int& i,
@@ -330,8 +337,8 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z, Q<MapSection>& cmsq) {
    int ny = roundf(y / (GLfloat) emss.size) * emss.size;
    int nz = roundf(z / (GLfloat) emss.size) * emss.size;
 
-   cout << "position: (" << x << ", " << y << ", " << z << ") center of map ("
-        << nx << ", " << ny << ", " << nz << ")\n";
+   cout << "Map::update: position: (" << x << ", " << y << ", " << z
+        << ") center of map (" << nx << ", " << ny << ", " << nz << ")\n";
 
    // ensure only one child makes the idir directory
    bool make_dir = false;
@@ -475,6 +482,379 @@ void Map::update(GLfloat x, GLfloat y, GLfloat z, Q<MapSection>& cmsq) {
    } // end of l loop
 }
 
-//set_near_ms_pointers(MapSection& nms,
-//      nx, ny, nz, // center
-//      c, l, r);
+void Map::generate_visible_edges() {
+
+
+   for (int i = 0; i < ms.size(); ++i) {
+
+      // used to determine the vertices of each side
+      int up    = 2;
+      int down  = 0;
+      int north = 5;
+      int south = 4;
+      int east  = 1;
+      int west  = 3;
+
+      // up
+      int nbr_i = -1;
+      if (ms[i].has_edge_sides.up == false) {
+         nbr_i = section_i_loaded(
+               ms[i].sid[0],
+               ms[i].sid[1] + ms[i].size,
+               ms[i].sid[2]);
+//         cout << "Map::generate_visible_edges: \n\n\n   i: " << i << " sid: ("
+//              << ms[i].sid[0] << ", " << ms[i].sid[1] << ", " << ms[i].sid[2]
+//              << ") nbr_i: "
+//              << nbr_i << "\n\n\n";
+      }
+      if (nbr_i != -1) {
+
+         ms[i].has_edge_sides.up = true;
+
+         // iterate over all blocks in the top layer of the map section
+         for (int xi = 0; xi < ms[i].size; ++xi) {
+            for (int zi = 0; zi < ms[i].size; ++zi) {
+
+               int yi = ms[i].size - 1;
+
+               // blocks are indexed y, x, z
+               if (ms[i].blocks[yi][xi][zi].type == 0)
+                  continue;
+
+               // check the type of the adjacent block
+               if (ms[nbr_i].blocks[0][xi][zi].type == 0) {
+                  Side s(7, 7, 7, up);
+
+                  // assign the correct vertices to the pointers in the points
+                  // array
+                  for (int p = 0; p < 4; ++p) {
+                     s.points[p] = (GLfloat *) ms[i].blocks[yi][xi][zi].cube[ ms[i].blocks[yi][xi][zi].faceIndex[up][p] ];
+                  }
+                  s.color = (GLfloat *) ms[i].blocks[yi][xi][zi].faceColors[up];
+                  ms[i].visible_sides.enq(s);
+               }
+            }
+         }
+
+         // reset neighbor index
+         nbr_i = -1;
+      }
+
+      // down
+      if (ms[i].has_edge_sides.down == false) {
+         nbr_i = section_i_loaded(
+               ms[i].sid[0],
+               ms[i].sid[1] - ms[i].size,
+               ms[i].sid[2]);
+      }
+      if (nbr_i != -1) {
+         ms[i].has_edge_sides.down = true;
+
+         // iterate over all blocks in the top layer of the map section
+         for (int xi = 0; xi < ms[i].size; ++xi) {
+            for (int zi = 0; zi < ms[i].size; ++zi) {
+
+               int yi = 0;
+
+               // blocks are indexed y, x, z
+               if (ms[i].blocks[yi][xi][zi].type == 0)
+                  continue;
+
+               // check the type of the adjacent block
+               if (ms[nbr_i].blocks[ms[nbr_i].size - 1][xi][zi].type == 0) {
+                  Side s(7, 7, 7, down);
+
+                  // assign the correct vertices to the pointers in the points
+                  // array
+                  for (int p = 0; p < 4; ++p) {
+                     s.points[p] = (GLfloat *) ms[i].blocks[yi][xi][zi].cube[ ms[i].blocks[yi][xi][zi].faceIndex[down][p] ];
+                  }
+                  s.color =
+                     (GLfloat *) ms[i].blocks[yi][xi][zi].faceColors[down];
+
+                  ms[i].visible_sides.enq(s);
+               }
+            }
+         }
+
+         // reset neighbor index
+         nbr_i = -1;
+      }
+
+      // north (-z)
+      if (ms[i].has_edge_sides.north == false) {
+         nbr_i = section_i_loaded(
+               ms[i].sid[0],
+               ms[i].sid[1],
+               ms[i].sid[2] - ms[i].size);
+      }
+      if (nbr_i != -1) {
+         ms[i].has_edge_sides.north = true;
+
+         // iterate over all blocks in the top layer of the map section
+         for (int xi = 0; xi < ms[i].size; ++xi) {
+            for (int yi = 0; yi < ms[i].size; ++yi) {
+
+               int zi = 0;
+
+               // blocks are indexed y, x, z
+               if (ms[i].blocks[yi][xi][zi].type == 0)
+                  continue;
+
+               // check the type of the adjacent block
+               if (ms[nbr_i].blocks[yi][xi][ms[nbr_i].size - 1].type == 0) {
+                  Side s(7, 7, 7, north);
+
+                  // assign the correct vertices to the pointers in the points
+                  // array
+                  for (int p = 0; p < 4; ++p) {
+                     s.points[p] = (GLfloat *) ms[i].blocks[yi][xi][zi].cube[ ms[i].blocks[yi][xi][zi].faceIndex[north][p] ];
+                  }
+                  s.color =
+                     (GLfloat *) ms[i].blocks[yi][xi][zi].faceColors[north];
+
+                  ms[i].visible_sides.enq(s);
+               }
+            }
+         }
+
+         // reset neighbor index
+         nbr_i = -1;
+      }
+
+      // south
+      if (ms[i].has_edge_sides.south == false) {
+         nbr_i = section_i_loaded(
+               ms[i].sid[0],
+               ms[i].sid[1],
+               ms[i].sid[2] + ms[i].size);
+      }
+      if (nbr_i != -1) {
+         ms[i].has_edge_sides.south = true;
+
+         // iterate over all blocks in the top layer of the map section
+         for (int xi = 0; xi < ms[i].size; ++xi) {
+            for (int yi = 0; yi < ms[i].size; ++yi) {
+
+               int zi = ms[i].size - 1;
+
+               // blocks are indexed y, x, z
+               if (ms[i].blocks[yi][xi][zi].type == 0)
+                  continue;
+
+               // check the type of the adjacent block
+               if (ms[nbr_i].blocks[yi][xi][0].type == 0) {
+                  Side s(7, 7, 7, south);
+
+                  // assign the correct vertices to the pointers in the points
+                  // array
+                  for (int p = 0; p < 4; ++p) {
+                     s.points[p] = (GLfloat *) ms[i].blocks[yi][xi][zi].cube[ ms[i].blocks[yi][xi][zi].faceIndex[south][p] ];
+                  }
+                  s.color =
+                     (GLfloat *) ms[i].blocks[yi][xi][zi].faceColors[south];
+
+                  ms[i].visible_sides.enq(s);
+               }
+            }
+         }
+
+         // reset neighbor index
+         nbr_i = -1;
+      }
+
+      // east
+      if (ms[i].has_edge_sides.east == false) {
+         nbr_i = section_i_loaded(
+               ms[i].sid[0] + ms[i].size,
+               ms[i].sid[1],
+               ms[i].sid[2]);
+      }
+      if (nbr_i != -1) {
+         ms[i].has_edge_sides.east = true;
+
+         // iterate over all blocks in the top layer of the map section
+         for (int zi = 0; zi < ms[i].size; ++zi) {
+            for (int yi = 0; yi < ms[i].size; ++yi) {
+
+               int xi = ms[i].size - 1;
+
+               // blocks are indexed y, x, z
+               if (ms[i].blocks[yi][xi][zi].type == 0)
+                  continue;
+
+               // check the type of the adjacent block
+               if (ms[nbr_i].blocks[yi][0][zi].type == 0) {
+                  Side s(7, 7, 7, east);
+
+                  // assign the correct vertices to the pointers in the points
+                  // array
+                  for (int p = 0; p < 4; ++p) {
+                     s.points[p] = (GLfloat *) ms[i].blocks[yi][xi][zi].cube[ ms[i].blocks[yi][xi][zi].faceIndex[east][p] ];
+                  }
+                  s.color =
+                     (GLfloat *) ms[i].blocks[yi][xi][zi].faceColors[east];
+
+                  ms[i].visible_sides.enq(s);
+               }
+            }
+         }
+
+         // reset neighbor index
+         nbr_i = -1;
+      }
+
+      // west
+      if (ms[i].has_edge_sides.west == false) {
+         nbr_i = section_i_loaded(
+               ms[i].sid[0] - ms[i].size,
+               ms[i].sid[1],
+               ms[i].sid[2]);
+      }
+      if (nbr_i != -1) {
+         ms[i].has_edge_sides.west = true;
+
+         // iterate over all blocks in the top layer of the map section
+         for (int zi = 0; zi < ms[i].size; ++zi) {
+            for (int yi = 0; yi < ms[i].size; ++yi) {
+
+               int xi = 0;
+
+               // blocks are indexed y, x, z
+               if (ms[i].blocks[yi][xi][zi].type == 0)
+                  continue;
+
+               // check the type of the adjacent block
+               if (ms[nbr_i].blocks[yi][ms[nbr_i].size - 1][zi].type == 0) {
+                  Side s(7, 7, 7, west);
+
+                  // assign the correct vertices to the pointers in the points
+                  // array
+                  for (int p = 0; p < 4; ++p) {
+                     s.points[p] = (GLfloat *) ms[i].blocks[yi][xi][zi].cube[ ms[i].blocks[yi][xi][zi].faceIndex[west][p] ];
+                  }
+                  s.color =
+                     (GLfloat *) ms[i].blocks[yi][xi][zi].faceColors[west];
+
+                  ms[i].visible_sides.enq(s);
+               }
+            }
+         }
+
+         // reset neighbor index
+         nbr_i = -1;
+      }
+   }
+}
+
+//            // down  -> l-1 r   c
+//            if (l-1 >= 0 && l-1 < size) {
+//               // check adjacent block's type
+//               if (blocks[l-1][r][c].type == 0) {
+//                  Side s(l, r, c, down);
+//                  for (int p = 0; p < 4; ++p) {
+//                     s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[down][p] ];
+//                  }
+//                  visible_sides.enq(s);
+//               }
+//            }
+//            //else {
+//            //   // edge of section always gets drawn
+//            //   Side s(l, r, c, down);
+//            //   for (int p = 0; p < 4; ++p) {
+//            //      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[down][p] ];
+//            //   }
+//            //   s.color = (GLfloat *) blocks[l][r][c].faceColors[down];
+//            //   visible_sides.enq(s);
+//            //}
+//            
+//            // north -> l   r-1   c
+//            if (r-1 >= 0 && r-1 < size) {
+//               // check adjacent block's type
+//               if (blocks[l][r-1][c].type == 0) {
+//                  Side s(l, r, c, north);
+//                  for (int p = 0; p < 4; ++p) {
+//                     s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[north][p] ];
+//                  }
+//                  s.color = (GLfloat *) blocks[l][r][c].faceColors[north];
+//                  visible_sides.enq(s);
+//               }
+//            }
+//            //else {
+//            //   // edge of section always gets drawn
+//            //   Side s(l, r, c, north);
+//            //   for (int p = 0; p < 4; ++p) {
+//            //      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[north][p] ];
+//            //   }
+//            //   s.color = (GLfloat *) blocks[l][r][c].faceColors[north];
+//            //   visible_sides.enq(s);
+//            //}
+//
+//            // south -> l   r+1   c
+//            if (r+1 >= 0 && r+1 < size) {
+//               // check adjacent block's type
+//               if (blocks[l][r+1][c].type == 0) {
+//                  Side s(l, r, c, south);
+//                  for (int p = 0; p < 4; ++p) {
+//                     s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[south][p] ];
+//                  }
+//                  s.color = (GLfloat *) blocks[l][r][c].faceColors[south];
+//                  visible_sides.enq(s);
+//               }
+//            }
+//            //else {
+//            //   // edge of section always gets drawn
+//            //   Side s(l, r, c, south);
+//            //   for (int p = 0; p < 4; ++p) {
+//            //      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[south][p] ];
+//            //   }
+//            //   s.color = (GLfloat *) blocks[l][r][c].faceColors[south];
+//            //   visible_sides.enq(s);
+//            //}
+//
+//            // east  -> l   r   c+1
+//            if (c+1 >= 0 && c+1 < size) {
+//               // check adjacent block's type
+//               if (blocks[l][r][c+1].type == 0) {
+//                  Side s(l, r, c, east);
+//                  for (int p = 0; p < 4; ++p) {
+//                     s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[east][p] ];
+//                  }
+//                  s.color = (GLfloat *) blocks[l][r][c].faceColors[east];
+//                  visible_sides.enq(s);
+//               }
+//            }
+//            //else {
+//            //   // edge of section always gets drawn
+//            //   Side s(l, r, c, east);
+//            //   for (int p = 0; p < 4; ++p) {
+//            //      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[east][p] ];
+//            //   }
+//            //   s.color = (GLfloat *) blocks[l][r][c].faceColors[east];
+//            //   visible_sides.enq(s);
+//            //}
+//
+//            // west  -> l   r  c-1
+//            if (c-1 >= 0 && c-1 < size) {
+//               // check adjacent block's type
+//               if (blocks[l][r][c-1].type == 0) {
+//                  Side s(l, r, c, west);
+//                  for (int p = 0; p < 4; ++p) {
+//                     s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[west][p] ];
+//                  }
+//                  s.color = (GLfloat *) blocks[l][r][c].faceColors[west];
+//                  visible_sides.enq(s);
+//               }
+//            }
+//            //else {
+//            //   // edge of section always gets drawn
+//            //   Side s(l, r, c, west);
+//            //   for (int p = 0; p < 4; ++p) {
+//            //      s.points[p] = (GLfloat *) blocks[l][r][c].cube[ blocks[l][r][c].faceIndex[west][p] ];
+//            //   }
+//            //   s.color = (GLfloat *) blocks[l][r][c].faceColors[west];
+//            //   visible_sides.enq(s);
+//            //}
+//         } // c
+//      } // r
+//   } // l

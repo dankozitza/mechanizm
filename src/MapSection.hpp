@@ -21,6 +21,21 @@ using namespace tools;
 class MapSection {
 
    public:
+
+      // pointer to center held within map?
+
+      // used to tell when the edge sides in each direction have been
+      // generated.
+      struct EdgeSideIndicator {
+         bool up;
+         bool down;
+         bool north;
+         bool south;
+         bool east;
+         bool west;
+      };
+      EdgeSideIndicator has_edge_sides;
+
       static const int size = 14;
       Block blocks[size][size][size];
       int sid[3];
@@ -37,7 +52,7 @@ class MapSection {
 
       void save(string map_name) const;
       tools::Error load(string map_name);
-		string str_sid() const;
+      string str_sid() const;
       string get_file_name(string map_name) const;
       void generate_blocks();
       // generates sides and sets has_sides to true. This must be called
