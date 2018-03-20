@@ -40,6 +40,7 @@ void
    setMatrix(int w, int h),
    map_generation(void),
    animation(void),
+   pricion(void),
    hot_pause(void),
    setup_glut_menu(),
    menu(int choice),
@@ -78,6 +79,7 @@ Q<Map::PidSid> PIDSIDQ;
 // menu options
 bool MAP_GEN = false;
 bool ANIMATION = false;
+bool PRICION = false;
 
 // commands for the in-game cli
 void cmd_select(vector<string>& argv);
@@ -373,10 +375,10 @@ void drawSides() {
          sidecnt++;
       }
    }
-   if (count == 60) {
-      cout << "client::drawSides: Total visible sides rendered: `"
-           << sidecnt << "`.\n";
-   }
+   //if (count == 60) {
+   //   cout << "client::drawSides: Total visible sides rendered: `"
+   //        << sidecnt << "`.\n";
+   //}
 }
 
 void drawFilledTStrip() {
@@ -724,9 +726,27 @@ void animation(void) {
       cout << e;
       return;
    }
+}
 
-
-
+bool once = false;
+Json::Value JVAL;
+void pricion(void) {
+   Error e = NULL;
+   string jsonfile = "data/pricion_hist.json";
+   if (!once) {
+      once = true;
+      e = tools::load_json_value_from_file(JVAL, jsonfile);
+      if (e != NULL) {
+         cout << "client::pricion: " <<  e << "\n";
+      }
+      if (JVAL.isArray()) {
+         cout << "client::pricion: JVAL is an array!!!\n";
+         cout << "client::pricion: there are " << JVAL.size() << " elements\n";
+      }
+      else {
+         cout << "SHIT!!!!!!!!!!!!!!!\n";
+      }
+   }
 }
 
 void hot_pause(void) {
@@ -735,6 +755,9 @@ void hot_pause(void) {
    }
    if (ANIMATION) {
       animation();
+   }
+   if (PRICION) {
+      pricion();
    }
 
    glutPostRedisplay();
@@ -760,6 +783,12 @@ void setup_glut_menu() {
    }
    else {
       glutAddMenuEntry("0 - Animation", 3);
+   }
+   if (PRICION) {
+      glutAddMenuEntry("1 - Pricion", 1);
+   }
+   else {
+      glutAddMenuEntry("0 - Pricion", 1);
    }
 //   glutAddMenuEntry("Stencil", 1);
    glutAddMenuEntry("Reset", 2);
@@ -803,9 +832,15 @@ void menu(int choice) {
 
       glutPostRedisplay();
       break;
-   case 1:
-      glutSetWindowTitle("Stencil Enabled");
-      glutPostRedisplay();
+   case 1: // Pricion
+//      glutSetWindowTitle("Stencil Enabled");
+//      glutPostRedisplay();
+      if (PRICION) {
+         PRICION = false;
+      }
+      else {
+         PRICION = true;
+      }
       break;
    }
 

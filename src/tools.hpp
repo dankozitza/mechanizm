@@ -14,6 +14,9 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <vector>
+#include <jsoncpp/json/json.h>
+#include <jsoncpp/json/value.h>
+#include <jsoncpp/json/reader.h>
 
 using namespace std;
 
@@ -68,8 +71,8 @@ namespace tools {
          string str_re,
          bool get_res);
    void test_pmatches();
-   bool replace_first(string &s, string str_re, string rpl);
-   size_t replace_all(string &s, string str_re, string rpl);
+   bool replace_first(string& s, string str_re, string rpl);
+   size_t replace_all(string& s, string str_re, string rpl);
 
    // vectors.cpp
    istream& operator>>(istream& is, vector<string>& v);
@@ -77,7 +80,10 @@ namespace tools {
    void vectors_test();
 
    // doubles.cpp
-   bool equal(double const &d1, double const &d2, double epsilon = 0.0001);
+   bool equal(double const& d1, double const& d2, double epsilon = 0.0001);
+
+   // json_utils.cpp
+   Error load_json_value_from_file(Json::Value& jv, string fname);
 }
 
 #endif
