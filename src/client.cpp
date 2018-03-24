@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
    char** fake2;
    glutInit(&fake, fake2);
 
-   glutInitWindowSize(1080, 800);
+   glutInitWindowSize(300, 250);
    glutInitDisplayMode(GLUT_RGB | GLUT_STENCIL | GLUT_DOUBLE | GLUT_DEPTH);
    glutCreateWindow("Mechanizm");
 
@@ -734,7 +734,6 @@ void pricion(void) {
    Error e = NULL;
    string jsonfile = "data/pricion_hist.json";
    if (!once) {
-      once = true;
       e = tools::load_json_value_from_file(JVAL, jsonfile);
       if (e != NULL) {
          cout << "client::pricion: " <<  e << "\n";
@@ -742,10 +741,39 @@ void pricion(void) {
       if (JVAL.isArray()) {
          cout << "client::pricion: JVAL is an array!!!\n";
          cout << "client::pricion: there are " << JVAL.size() << " elements\n";
+
+         GLfloat c1 = 0.5;//rand() % 100 / 100.0;
+         GLfloat c2 = 0.1;//rand() % 100 / 100.0;
+         GLfloat c3 = 0.5;//rand() % 100 / 100.0;
+
+         for (int i = 0; i < JVAL.size(); i++) {
+            //Json::Members mv;
+            cout << i << ": date: "
+                 << JVAL[i]["date"].asInt64() << " weightedAverage: "
+                 << JVAL[i]["weightedAverage"].asDouble() << "\n";
+            Object tmpcube;
+
+            c2 += 0.009;
+
+            for (int i2 = 0; i2 < 6; i2++) {
+               // set the default color
+               tmpcube.faceColors[i2][0] = c1;
+               tmpcube.faceColors[i2][1] = c2;
+               tmpcube.faceColors[i2][2] = c3;
+            }
+
+            tmpcube.translate_by(
+                  (GLfloat) i,
+                  (GLfloat) JVAL[i]["weightedAverage"].asDouble() - 500.000,
+                  0.0);
+            objs.push_back(tmpcube);
+         }
+
       }
       else {
          cout << "SHIT!!!!!!!!!!!!!!!\n";
       }
+      once = true;
    }
 }
 
