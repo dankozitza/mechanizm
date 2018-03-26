@@ -75,6 +75,7 @@ namespace tools {
    size_t replace_all(string& s, string str_re, string rpl);
 
    // vectors.cpp
+   void newlines_to_indices(vector<string>& v);
    istream& operator>>(istream& is, vector<string>& v);
    ostream& operator<<(ostream& os, vector<string>& v);
    void vectors_test();

@@ -14,7 +14,7 @@
 #include <iostream>
 #include <sys/wait.h>
 #include <unistd.h>
-//#include "commands.hpp"
+#include "commands.hpp"
 #include "mechanizm.hpp"
 #include "options.hpp"
 #include "tools.hpp"
@@ -62,6 +62,7 @@ static vector<Object> objs;
 static int selected_object = 0;
 static int menu_depth = 0;
 static string menu_input;
+static vector<string> menu_output;
 static vector<GLfloat*> terrain;
 int block_count = 1;
 
@@ -70,6 +71,8 @@ static Camera cam(2.0, 2.0, 3.5, 0.0, 0.0, 0.6, 0.0022);
 
 static mechanizm mech;
 int count = 1; // cycles through 1/60th of a second
+
+commands IN_GAME_CMDS;
 
 Map MAP;
 //Q<Side> visible_sides;
@@ -82,7 +85,10 @@ bool ANIMATION = false;
 bool PRICION = false;
 
 // commands for the in-game cli
+void cmd_help(vector<string>& argv);
 void cmd_select(vector<string>& argv);
+void cmd_q(vector<string>& argv);
+void cmd_exit(vector<string>& argv);
 
 int main(int argc, char *argv[]) {
 
@@ -125,16 +131,31 @@ int main(int argc, char *argv[]) {
 
    // set up the in game command line
    vector<string> cmd_argv = {"help"};
-   //commands cmds;
 
-   //cmds.set_max_line_width(80);
-   //cmds.set_cmds_help("\nThis is the in-game command line interface.\n\n");
+   IN_GAME_CMDS.handle(
+         "help",
+         cmd_help,
+         "\nThis is the in-game command line interface.\n",
+         "help [command]");
 
-   //cmds.handle(
-   //      "select",
-   //      cmd_select,
-   //      "Select an object by index.",
-   //      "select [index]");
+   IN_GAME_CMDS.handle(
+         "select",
+         cmd_select,
+         "Select an object by index.",
+         "select [index]");
+
+   IN_GAME_CMDS.handle(
+         "q",
+         cmd_q,
+         "Quit to menu.",
+         "q");
+
+   IN_GAME_CMDS.handle(
+         "exit",
+         cmd_exit,
+         "Exit the command line.",
+         "exit");
+
 
    Object test_object_1("test_object_1", 1, NULL);
    objs.push_back(test_object_1);
@@ -157,7 +178,7 @@ int main(int argc, char *argv[]) {
    char** fake2;
    glutInit(&fake, fake2);
 
-   glutInitWindowSize(300, 250);
+   glutInitWindowSize(700, 500);
    glutInitDisplayMode(GLUT_RGB | GLUT_STENCIL | GLUT_DOUBLE | GLUT_DEPTH);
    glutCreateWindow("Mechanizm");
 
@@ -176,8 +197,26 @@ int main(int argc, char *argv[]) {
    return 0;
 }
 
+void cmd_help(vector<string>& argv) {
+   IN_GAME_CMDS.better_default_help(argv);
+   for (int i = 0; i < argv.size(); i++) {;
+      menu_output.push_back(argv[i]);
+   }
+}
+
 void cmd_select(vector<string>& argv) {
-   cout << "you ran select!\n";
+   menu_output.push_back("you ran select!");
+   for (int z = 0; z < argv.size(); z++) {
+      menu_output.push_back(argv[z]);
+   }
+}
+
+void cmd_q(vector<string>& argv) {
+   menu_depth = 1;
+}
+
+void cmd_exit(vector<string>& argv) {
+   menu_depth = 0;
 }
 
 // a pointer to this function placed in the test_object_1 object. It sets the
@@ -404,14 +443,27 @@ void mouse_passive(int x, int y) {
    glutPostRedisplay();
 }
 
-void renderBitmapString(float x, float y, float z, void *font) {
+void render_bitmap_string(
+      float x, float y, float z, void *font, string& str) {
    glRasterPos3f(x, y, z);
-   for (int i = 0; i < menu_input.size(); ++i) {
+   for (int i = 0; i < str.size(); ++i) {
       glColor3f(1.0, 1.0, 1.0);
-      glutBitmapCharacter(font, menu_input[i]);
+      glutBitmapCharacter(font, str[i]);
    }
 }
 
+void render_menu_output(float x, float y, float z, void *font) {
+   for (int i = menu_output.size() - 1; i >= 0; i--) {
+      y += 0.0369;
+      glRasterPos3f(x, y, z);
+      for (int j = 0; j < menu_output[i].size(); ++j) {
+         glColor3f(0.1, 0.1, 0.1);
+         glutBitmapCharacter(font, menu_output[i][j]);
+      }
+   }
+}
+
+   
 void drawScene(void) {
    int i;
 
@@ -516,16 +568,33 @@ void drawScene(void) {
    }
 
    if (menu_depth != 0) {
-      // write character bitmaps into the menu_input raster
-      renderBitmapString(
+      // write character bitmaps
+      render_bitmap_string(
          // these calculate the location in front of the face
-         cam.getX() + (cos(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*1.3,
-         //cam.getY() + sin(-cam.getAY()) - 0.5,
-         (GLfloat) (cam.getY() + sin(-cam.getAY())*1.3 - 0.33),
-         cam.getZ() + (sin(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*1.3,
-         GLUT_BITMAP_9_BY_15);
+         cam.getX() + (cos(cam.getAX() - 2*(M_PI/3)) * cos(-cam.getAY()))*1.3,
+         //cam.getY() + sin(-cam.getAY())*1.3 - 0.5,
+         cam.getY() - 0.5,
+         cam.getZ() + (sin(cam.getAX() - 2*(M_PI/3)) * cos(-cam.getAY()))*1.3,
+         GLUT_BITMAP_9_BY_15,
+         menu_input);
 
       // render the output next
+      render_menu_output(
+         // these calculate the location in front of the face
+         cam.getX() + (cos(cam.getAX() - 2*(M_PI/3)) * cos(-cam.getAY()))*1.3,
+         //cam.getY() + sin(-cam.getAY())*1.3 - 0.5,
+         cam.getY() - 0.5,
+         cam.getZ() + (sin(cam.getAX() - 2*(M_PI/3)) * cos(-cam.getAY()))*1.3,
+         GLUT_BITMAP_9_BY_15);
+
+//         cam.getX() + (cos(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*1.3,
+//         (GLfloat) (cam.getY() + sin(-cam.getAY())*1.3 - 0.33),
+//         cam.getZ() + (sin(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*1.3,
+
+   }
+
+   if (PRICION) { // write date and time tags on objects
+      
    }
 
 
@@ -767,6 +836,19 @@ void pricion(void) {
                   (GLfloat) JVAL[i]["weightedAverage"].asDouble() - 500.000,
                   0.0);
             objs.push_back(tmpcube);
+
+            // write the time and price
+            // must be done inside draw block
+            //string tag = "date: ";
+            //tag += JVAL[i]["date"].asInt64();
+            //tag += " weightedAverage: $";
+            //tag += JVAL[i]["weightedAverage"].asDouble();
+            //render_bitmap_string(
+            //      (GLfloat) i,
+            //      (GLfloat) JVAL[i]["weightedAverage"].asDouble() - 499.250,
+            //      0.0,
+            //      GLUT_BITMAP_9_BY_15,
+            //      tag);
          }
 
       }
@@ -910,15 +992,55 @@ keyboard(unsigned char c, int x, int y)
             //glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, c);
          }
          else if (c == 8) { // backspace
-            if (menu_input.size() > 0) {
+            if (menu_input.size() > 3) {
                menu_input.resize(menu_input.size()-1);
             }
          }
          else  {
             cout << selected_object << "# " << menu_input << "\n";
-            menu_depth = 1;
-            //vector<string> cmd_argv;
-            //cmds.run(menu_input, cmd_argv);
+            //menu_depth = 1;
+
+            menu_input[0] = ' ';
+            menu_input[1] = ' ';
+
+            // get the command and arguments from the menu_input
+            // space characters can be escaped with forwardslash
+            string cmd;
+            vector<string> cmd_argv;
+            string word;
+            menu_input += " "; // laziness
+            for (int z = 0; z < menu_input.size(); z++) {
+               if (menu_input[z] == '\\') {
+                  word += ' ';
+                  z++;
+                  continue;
+               }
+               if (menu_input[z] == ' ') {
+                  if (word.size() > 0) {
+                     if (cmd.size() > 0) {
+                        cmd_argv.push_back(word);
+                     }
+                     else {
+                        cmd = word;
+                     }
+                     word.clear();
+                  }
+                  continue;
+               }
+               word += menu_input[z];
+            }
+            menu_input[0] = '\\';
+            menu_input[1] = '>';
+            menu_output.push_back(menu_input);
+            menu_input = "^> ";
+
+            string msg = "CMDS: Unknown command: `";
+            IN_GAME_CMDS.run(cmd, cmd_argv);
+            if (cmd != "help" && cmd != "" && !IN_GAME_CMDS.resolved()) {
+               msg += cmd;
+               msg += "`";
+               menu_output.push_back(msg);
+            }
          }
          return;
       }
@@ -954,7 +1076,7 @@ keyboard(unsigned char c, int x, int y)
       }
       if (c == 'e') {
          menu_depth = 37;
-         menu_input = "";
+         menu_input = "^> ";
          cout << prefix << "entering command mode:\n";
       }
       if (c == 'h') {
@@ -967,8 +1089,9 @@ keyboard(unsigned char c, int x, int y)
       return;
    }
 
+   Object spawned_test_object; // may need incase player presses b
+
    // gameplay level controls
-   Object spawned_test_object;
    if (c == 'h' | c == '?') {
       cout << "\n   Controls:\n";
       cout << "      b -             spawn a cube\n";
@@ -977,6 +1100,10 @@ keyboard(unsigned char c, int x, int y)
       cout << "      u o -           stretch selected cube\n";
       cout << "      0-9 -           select cube\n";
       cout << "      m -             open menu\n";
+   }
+   if (c == 'e') {
+      menu_input = "^> ";
+      menu_depth = 37;
    }
    if (c == 'b') {
       string id = "spawned_object_";

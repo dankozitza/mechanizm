@@ -6,6 +6,40 @@
 
 #include "../tools.hpp"
 
+void tools::newlines_to_indices(vector<string>& v) {
+   for (int i = 0; i < v.size(); i++) {
+      // v.insert(v.begin()+i, s); // places item BEFORE i. makes a new i-1.
+
+      // any time there's a newline replace v[i] with the previous string,
+      // insert the remaining string at v[i+1], continue.
+      string pstr;
+      string fullstr = v[i];
+      bool append = false;
+      for (int z = 0; z < fullstr.size(); z++) {
+         if (!append) {
+            if (fullstr[z] == '\n') {
+               // replace v[i]
+               v[i] = pstr;
+               // insert after i or append to v a new string
+               if (v.size() > i+1) {
+                  v.insert(v.begin()+i+1, "");
+               }
+               else {
+                  v.push_back("");
+               }
+               append = true;
+            }
+            else {
+               pstr += fullstr[z];
+            }
+         }
+         else {// add the rest of the string to v[i+1]
+            v[i+1] += fullstr[z];
+         }
+      }
+   }
+}
+
 istream& tools::operator>>(istream& is, vector<string>& v) {
    char c, last = ' ';
    int cnt = 0;

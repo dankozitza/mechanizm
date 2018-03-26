@@ -1,10 +1,10 @@
-# 4291a594a0b25d6896d04352b2a566aa
+# 97d7745d0549b64c38da76b9fb38d4fb
 # Generated with vfnmkmc by the mc program.
 PREFIX=/usr/local
 CFLAGS=-O$(O)  -std=c++11
 O=2
 LFLAGS= -l pcre++ -l GL -l GLU -l glut -l jsoncpp
-OBJS=objs/Block.o objs/Camera.o objs/client.o objs/Map.o objs/MapSection.o objs/mechanizm.o objs/Object.o objs/options.o objs/Side.o objs/radix.o objs/doubles.o objs/json_utils.o objs/pcre_utils.o objs/strings.o objs/system.o objs/utils.o objs/vectors.o
+OBJS=objs/Block.o objs/Camera.o objs/client.o objs/commands.o objs/Map.o objs/MapSection.o objs/mechanizm.o objs/Object.o objs/options.o objs/Side.o objs/radix.o objs/doubles.o objs/json_utils.o objs/pcre_utils.o objs/strings.o objs/system.o objs/utils.o objs/vectors.o
 
 
 .PHONY: all
@@ -25,6 +25,9 @@ objs/client.o: src/client.cpp src/mechanizm.hpp src/tools.hpp src/Object.hpp \
  src/MapSection.hpp src/Q.hpp src/Map.hpp
 	@ echo "    CXX  src/client.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/client.cpp" -o $@
+objs/commands.o: src/commands.cpp src/commands.hpp src/tools.hpp
+	@ echo "    CXX  src/commands.cpp"
+	@ $(CXX) $(CFLAGS) -c "src/commands.cpp" -o $@
 objs/Map.o: src/Map.cpp src/Map.hpp src/tools.hpp src/MapSection.hpp \
  src/Block.hpp src/Side.hpp src/Camera.hpp src/Q.hpp
 	@ echo "    CXX  src/Map.cpp"
