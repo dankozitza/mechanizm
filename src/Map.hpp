@@ -30,6 +30,17 @@ class Map {
       };
       map<string, EsmV> esm;
 
+   public:
+      Q<MapSection> ms;
+      string map_name = "default";
+
+      struct PidSid {
+         int pid;
+         int sid[3];
+      };
+
+      Map();
+
       // check the map section queue for a section
       // returns index or -1 for none
       int section_i_loaded(int x, int y, int z);
@@ -41,17 +52,6 @@ class Map {
       bool section_exists(int x, int y, int z);
       // check if a section is within 2 * size blocks from center
       bool section_near_center(int, int, int, int, int, int, int);
-
-   public:
-      Q<MapSection> ms;
-      string map_name = "default";
-
-      struct PidSid {
-         int pid;
-         int sid[3];
-      };
-
-      Map();
 
       // load_section_list
       // 

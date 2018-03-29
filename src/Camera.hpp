@@ -22,13 +22,14 @@ class Camera {
 		float getZ()						{ return _Z; }
       float getAX()                 { return _AX; }
       float getAY()                 { return _AY; }
-		void  rotation(int, int);
-		void  setKeyboard(int i, bool etat);
-		void  setX(float X)					{ _X = X; }
-		void  setY(float Y)					{ _Y = Y; }
-		void  setZ(float Z)					{ _Z = Z; }
-		void  translation();	
-      void  pressKey(unsigned char c);
+		void rotation(int, int);
+		void setKeyboard(int i, bool etat);
+		void setX(float X)					{ _X = X; }
+		void setY(float Y)					{ _Y = Y; }
+		void setZ(float Z)					{ _Z = Z; }
+		void translation();	
+      void pressKey(unsigned char c);
+      void pos_in_los(float distance, float& x, float& y, float& z);
 
 	private :
 	

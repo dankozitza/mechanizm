@@ -132,6 +132,18 @@ void Camera::pressKey(unsigned char c) {
 
 }
 
+// pos_in_los
+//
+// Calculate the position in the camera's line of site that is distance units
+// from the camera.
+//
+void Camera::pos_in_los(float distance, float& x, float& y, float& z) {
+   x = _X + (cos(_AX - M_PI/2) * cos(-_AY)) * distance;
+   y = _Y + sin(-_AY) * distance;
+   z = _Z + (sin(_AX - M_PI/2) * cos(-_AY)) * distance;
+}
+
+
 // computes the right speeds to give to the given directions using trigonometric formulas
 void Camera::translation() {
 

@@ -47,6 +47,8 @@ namespace tools {
 
    // strings.cpp
    string fold(int indent_width, int max_line_width, string s);
+   int as_int(string& str);
+   double as_double(string& str);
    //bool matches(string s, string str_re);
    //bool matches(string results[], string s, string str_re);
    //bool matches(vector<string>& results, string s, string str_re);
@@ -84,6 +86,7 @@ namespace tools {
    bool equal(double const& d1, double const& d2, double epsilon = 0.0001);
 
    // json_utils.cpp
+   Error load_json_value_from_string(Json::Value& jv, string s);
    Error load_json_value_from_file(Json::Value& jv, string fname);
 }
 

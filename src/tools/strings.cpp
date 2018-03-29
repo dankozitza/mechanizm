@@ -73,6 +73,41 @@ string tools::fold(int indent_width, int max_line_width, string s) {
    return new_s;
 }
 
+int tools::as_int(string& str) {
+   Json::Value jv;
+   Error e = load_json_value_from_string(jv, str);
+   if (e != NULL) {
+      cout << "tools::as_int: PARSING ERROR: " << e << endl;
+      return -1;
+   }
+   if (!jv.isInt()) {
+      cout << "tools::as_int: NOT AN INT: " << str << endl;
+      return -1;
+   }
+   return jv.asInt();
+}
+
+double tools::as_double(string& str) {
+   Json::Value jv;
+   Error e = load_json_value_from_string(jv, str);
+   if (e != NULL) {
+      cout << "tools::as_double: PARSING ERROR: " << e << endl;
+      return -1;
+   }
+   if (!jv.isDouble()) {
+      cout << "tools::as_double: WARNING json value is not a double. adding .0";
+      cout << endl;
+      str += ".0";
+      e = load_json_value_from_string(jv, str);
+      if (e != NULL) {
+         cout << "tools::as_double: PARSING ERROR: " << e << endl;
+         return -1;
+      }
+   }
+   return jv.asDouble();
+}
+
+
 //
 //// matches
 ////

@@ -170,21 +170,21 @@ void commands::better_default_help(vector<string>& argv) {
 
       // print the list of available commands
       if (cmds.size() > 0) {
-         vout.push_back("Commands:\n\n");
+         vout.push_back("Commands:\n");
          string tmp;
          //for (const auto c : cmds) {
          for (cmds_iter it = cmds.begin(); it != cmds.end(); it++) {
             if (it->first == "help") continue;
             tmp = "   ";
             tmp += it->first;
-            tmp += "\n\n      ";
+            tmp += "  -  ";
             tmp += it->second.synopsis;
             tmp += "\n";
             vout.push_back(tmp);
          }
 
          tmp = "Use \"help [command]\" for more information about a command.";
-         tmp += "\n\n";
+         tmp += "\n";
          vout.push_back(tmp);
       }
    }
@@ -196,10 +196,8 @@ void commands::better_default_help(vector<string>& argv) {
             vout[vout.size()-1] += cmds[argv[i]].usage; vout.push_back("");
             vout.push_back(cmds[argv[i]].synopsis); vout.push_back("");
             if (cmds[argv[i]].description != "") {
-               vout.push_back("\n"); vout.push_back(cmds[argv[i]].description);
-               vout.push_back("");
+               vout.push_back(cmds[argv[i]].description); vout.push_back("");
             }
-
          }
          else {
             // if the user calls help help

@@ -25,6 +25,7 @@
 
 #include "Camera.hpp"
 #include "Object.hpp"
+#include "Sphere.hpp"
 #include "Side.hpp"
 #include "Block.hpp"
 #include "MapSection.hpp"
@@ -51,7 +52,10 @@ void
    keyboard_up(unsigned char c, int x, int y),
    motion(int x, int y),
    drawWireframe(int objs_index, int face),
-   drawFilled(int objs_index, int face);
+   drawFilled(int objs_index, int face),
+   draw_circle(float cx, float cy, float r, int num_segments),
+   draw_cam_spheres(),
+   draw_spheres();
 
 tools::Error random_motion(double t, Object &self);
 tools::Error random_motion_2(double t, Object &self);
@@ -59,6 +63,7 @@ tools::Error spawned_motion(double t, Object &self);
 tools::Error tryhard_motion(double t, Object &self);
 
 static vector<Object> objs;
+static vector<Sphere> sphrs;
 static int selected_object = 0;
 static int menu_depth = 0;
 static string menu_input;
@@ -73,6 +78,9 @@ static mechanizm mech;
 int count = 1; // cycles through 1/60th of a second
 
 commands IN_GAME_CMDS;
+map<string, string> CMDS_STORE; // values that can be set in-game
+GLfloat SD; // current distance of the selection sphere
+bool SD_DONE = true; // tells draw_cam_spheres when to move selector
 
 Map MAP;
 //Q<Side> visible_sides;
@@ -86,6 +94,8 @@ bool PRICION = false;
 
 // commands for the in-game cli
 void cmd_help(vector<string>& argv);
+void cmd_tp(vector<string>& argv);
+void cmd_set(vector<string>& argv);
 void cmd_select(vector<string>& argv);
 void cmd_q(vector<string>& argv);
 void cmd_exit(vector<string>& argv);
@@ -130,13 +140,34 @@ int main(int argc, char *argv[]) {
    }
 
    // set up the in game command line
-   vector<string> cmd_argv = {"help"};
+   vector<string> cmd_argv;
+
+   CMDS_STORE["n_click_speed"] = "0.06";
+   CMDS_STORE["n_click_max_distance"] = "3.0";
+   CMDS_STORE["n_click_distance"] = "1.0";
+   SD = 1.0;
+
+   Sphere selector_sphere_1(0.0, 0.0, 0.0, 0.0369, 0.4, 0.8, 0.6);
+   sphrs.push_back(selector_sphere_1);
 
    IN_GAME_CMDS.handle(
          "help",
          cmd_help,
-         "\nThis is the in-game command line interface.\n",
+         "\nThis is the in-game command line interface.",
          "help [command]");
+
+   IN_GAME_CMDS.handle(
+         "mo",
+         cmd_tp,
+         "Teleport to the given coordinates.",
+         "mo x y z");
+
+IN_GAME_CMDS.handle(
+         "set",
+         cmd_set,
+         "Set a value in CMDS_STORE.",
+         "set [key [value]]",
+         "Set called alone will print all values in the map. Called with \nonly a key argument it will display the value for that key. Called \nwith both key and value arguments will write the value to the map.");
 
    IN_GAME_CMDS.handle(
          "select",
@@ -151,14 +182,16 @@ int main(int argc, char *argv[]) {
          "q");
 
    IN_GAME_CMDS.handle(
-         "exit",
+         "e",
          cmd_exit,
          "Exit the command line.",
-         "exit");
+         "e");
 
 
    Object test_object_1("test_object_1", 1, NULL);
    objs.push_back(test_object_1);
+
+
 
    // build the map around origin
    MAP.load_section_list();
@@ -174,6 +207,9 @@ int main(int argc, char *argv[]) {
    //   ms = MAP.ms.get_item_ptr();
    //}
 
+   glEnable(GL_BLEND);
+   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
    int fake = 0;
    char** fake2;
    glutInit(&fake, fake2);
@@ -184,7 +220,7 @@ int main(int argc, char *argv[]) {
 
    glutIdleFunc(hot_pause);
    glutDisplayFunc(drawScene);
-   //glutMouseFunc(mouse);
+   glutMouseFunc(mouse);
    glutPassiveMotionFunc(mouse_passive);
    glutReshapeFunc(resize);
    glutCreateMenu(menu);
@@ -201,6 +237,42 @@ void cmd_help(vector<string>& argv) {
    IN_GAME_CMDS.better_default_help(argv);
    for (int i = 0; i < argv.size(); i++) {;
       menu_output.push_back(argv[i]);
+   }
+}
+
+void cmd_tp(vector<string>& argv) {
+   cam.setX(as_double(argv[0]));
+   cam.setY(as_double(argv[1]));
+   cam.setZ(as_double(argv[2]));
+}
+
+void cmd_set(vector<string>& argv) {
+   string msg;
+   map<string, string>::iterator it;
+   if (argv.size() == 0) {
+      for (it = CMDS_STORE.begin(); it != CMDS_STORE.end(); it++) {
+         msg = it->first;
+         msg += ": ";
+         msg += it->second;
+         menu_output.push_back(msg);
+      }
+   }
+   else if (argv.size() == 1) {
+      it = CMDS_STORE.find(argv[0]);
+      if (it != CMDS_STORE.end()) {
+         msg = it->first;
+         msg += ": ";
+         msg += it->second;
+         menu_output.push_back(msg);
+      }
+   }
+   else if (argv.size() == 2) {
+      CMDS_STORE[argv[0]] = argv[1];
+      msg = "setting ";
+      msg += argv[0];
+      msg += ": ";
+      msg += CMDS_STORE[argv[0]];
+      menu_output.push_back(msg);
    }
 }
 
@@ -399,6 +471,100 @@ drawFilled(int objs_index, int face)
    glEnd();
 }
 
+void draw_circle(float cx, float cy, float r, int num_segments) {
+   glBegin(GL_LINE_LOOP);
+   for (int ii = 0; ii < num_segments; ii++)   {
+      //get the current angle 
+      float theta = 2.0f * 3.1415926f * float(ii) / float(num_segments);
+      float x = r * cosf(theta);//calculate the x component 
+      float y = r * sinf(theta);//calculate the y component 
+      glVertex2f(x + cx, y + cy);//output vertex 
+   }
+   glEnd();
+}
+
+void draw_cam_spheres() {
+   Error e = NULL;
+
+   // if left click is pressed calculate the distance
+   if (SD_DONE == false) {
+
+      GLfloat n_d = as_double(CMDS_STORE["n_click_distance"]);
+      GLfloat n_s = as_double(CMDS_STORE["n_click_speed"]);
+      GLfloat n_m_d = as_double(CMDS_STORE["n_click_max_distance"]);
+
+      GLfloat nsx, nsy, nsz;
+
+      if (SD > n_m_d) {
+         SD = n_d;
+         SD_DONE = true;
+      }
+      else {
+         SD += n_s;
+      }
+
+      // get the new position in front of the camera
+      cam.pos_in_los(SD, nsx, nsy, nsz);
+
+      // set the sphere position
+      sphrs[0].center[0] = nsx;
+      sphrs[0].center[1] = nsy;
+      sphrs[0].center[2] = nsz;
+
+      // select non-empty blocks from the map
+      // find map section
+      int sidx = floorf(nsx / (float) MAP.ms[0].size) * MAP.ms[0].size;
+      int sidy = floorf(nsy / (float) MAP.ms[0].size) * MAP.ms[0].size;
+      int sidz = floorf(nsz / (float) MAP.ms[0].size) * MAP.ms[0].size;
+      int i = MAP.section_i_loaded(sidx, sidy, sidz);
+
+//cout << "MAP SECTION " << sidx << "," << sidy << "," << sidz << "\n";
+
+      if (i != -1) { // check the block array
+         int bidx = floorf(nsx) - sidx;
+         int bidy = floorf(nsy) - sidy;
+         int bidz = floorf(nsz) - sidz;
+         if (bidx < 0) {bidx *= -1;}
+         if (bidy < 0) {bidy *= -1;}
+         if (bidz < 0) {bidz *= -1;}
+
+         if (MAP.ms[i].blocks[bidy][bidx][bidz].type == 1) {
+    
+            //MAP.ms[i].blocks[bidy][bidx][bidz].type = 0;
+            cout << "TYPE 1: block: " << sidx + bidx << " " << sidy + bidy << " " << sidz + bidz << " " << endl;
+
+            SD = as_double(CMDS_STORE["n_click_distance"]);
+            SD_DONE = true;
+         }
+
+      }
+   }
+   else {
+      cam.pos_in_los(SD,
+            sphrs[0].center[0], sphrs[0].center[1], sphrs[0].center[2]);
+   }
+
+
+   // draw the first and best sphere
+   glColor3f(sphrs[0].color[0], sphrs[0].color[1], sphrs[0].color[2]);
+   glPushMatrix();
+   glTranslatef(sphrs[0].center[0], sphrs[0].center[1], sphrs[0].center[2]);
+   glutWireSphere(sphrs[0].r, 9, 9);
+   glPopMatrix();
+
+}
+
+void draw_spheres() {
+   for (int i = 1; i < sphrs.size(); i++) {
+      glColor3f(sphrs[i].color[0], sphrs[i].color[1], sphrs[i].color[2]);
+
+      glPushMatrix();
+      glTranslatef(sphrs[i].center[0], sphrs[i].center[1], sphrs[i].center[2]);
+      glutWireSphere(sphrs[i].r, 36, 36);
+      glPopMatrix();
+   }
+}
+
 void drawSides() {
    int sidecnt = 0;
    for (int msi = 0; msi < MAP.ms.size(); msi++) {
@@ -415,7 +581,7 @@ void drawSides() {
       }
    }
    //if (count == 60) {
-   //   cout << "client::drawSides: Total visible sides rendered: `"
+   //   cout << "client::drawSides: Total visible sides drawed: `"
    //        << sidecnt << "`.\n";
    //}
 }
@@ -429,12 +595,24 @@ void drawFilledTStrip() {
    glEnd();
 }
 
-//void mouse(int button, int state, int x, int y) {
-//   //cam.rotation(x, y);
-//   //cout << "here! ";
-////   SDL_SetRelativeMouseMode((SDL_bool) 1);
-//   //glutPostRedisplay();
-//}
+void mouse(int button, int state, int x, int y) {
+   //cam.rotation(x, y);
+   //cout << "here! ";
+//   SDL_SetRelativeMouseMode((SDL_bool) 1);
+   //glutPostRedisplay();
+
+   // left button down
+   if (button == 0 && state == 0) {
+      if (SD_DONE) {
+         SD_DONE = false;
+      }
+      else {
+         SD = as_double(CMDS_STORE["n_click_distance"]);
+      }
+      menu_output.push_back("CLICK");
+   }
+
+}
 
 void mouse_passive(int x, int y) {
    cam.rotation(x, y);
@@ -443,21 +621,22 @@ void mouse_passive(int x, int y) {
    glutPostRedisplay();
 }
 
-void render_bitmap_string(
+void draw_bitmap_string(
       float x, float y, float z, void *font, string& str) {
+   glColor3f(0.1, 0.99, 0.69);
    glRasterPos3f(x, y, z);
    for (int i = 0; i < str.size(); ++i) {
-      glColor3f(1.0, 1.0, 1.0);
       glutBitmapCharacter(font, str[i]);
    }
 }
 
-void render_menu_output(float x, float y, float z, void *font) {
+void draw_menu_output(float x, float y, float z, void *font) {
+   newlines_to_indices(menu_output);
    for (int i = menu_output.size() - 1; i >= 0; i--) {
       y += 0.0369;
+      glColor3f(0.1, 0.69, 0.99);
       glRasterPos3f(x, y, z);
       for (int j = 0; j < menu_output[i].size(); ++j) {
-         glColor3f(0.1, 0.1, 0.1);
          glutBitmapCharacter(font, menu_output[i][j]);
       }
    }
@@ -522,6 +701,12 @@ void drawScene(void) {
    glColor3f(0, 0, 1); glVertex3f(1, 0, 1);
    glEnd();
 
+   draw_circle(3.0, 1.0, -3.0, 36);
+
+   draw_spheres();
+
+   draw_cam_spheres();
+
 //   // draw a simple grid
 //   glColor3f(1.0, 1.0, 1.0);
 //   glBegin(GL_LINES);
@@ -557,7 +742,7 @@ void drawScene(void) {
          //objs[j].faceColors[i][0] = rand() % 100 / 100.0;//0.7;
          //objs[j].faceColors[i][1] = rand() % 100 / 100.0;//0.7;
          //objs[j].faceColors[i][2] = rand() % 100 / 100.0;//0.7;
-         glColor3fv(objs[j].faceColors[i]); // box color
+         glColor4f(objs[j].faceColors[i][0], objs[j].faceColors[i][1], objs[j].faceColors[i][2], 0.1); // box color
          drawFilled(j, i);
 
 //         glStencilFunc(GL_ALWAYS, 0, 1);
@@ -569,7 +754,7 @@ void drawScene(void) {
 
    if (menu_depth != 0) {
       // write character bitmaps
-      render_bitmap_string(
+      draw_bitmap_string(
          // these calculate the location in front of the face
          cam.getX() + (cos(cam.getAX() - 2*(M_PI/3)) * cos(-cam.getAY()))*1.3,
          //cam.getY() + sin(-cam.getAY())*1.3 - 0.5,
@@ -578,8 +763,8 @@ void drawScene(void) {
          GLUT_BITMAP_9_BY_15,
          menu_input);
 
-      // render the output next
-      render_menu_output(
+      // draw the output next
+      draw_menu_output(
          // these calculate the location in front of the face
          cam.getX() + (cos(cam.getAX() - 2*(M_PI/3)) * cos(-cam.getAY()))*1.3,
          //cam.getY() + sin(-cam.getAY())*1.3 - 0.5,
@@ -843,7 +1028,7 @@ void pricion(void) {
             //tag += JVAL[i]["date"].asInt64();
             //tag += " weightedAverage: $";
             //tag += JVAL[i]["weightedAverage"].asDouble();
-            //render_bitmap_string(
+            //draw_bitmap_string(
             //      (GLfloat) i,
             //      (GLfloat) JVAL[i]["weightedAverage"].asDouble() - 499.250,
             //      0.0,
