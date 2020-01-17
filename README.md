@@ -4,4 +4,4 @@ A motion simulator.
 
 ### Dependencies
 
-c++11, pcre++, glut, glm
+c++11, glut, glm

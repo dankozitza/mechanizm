@@ -1,10 +1,10 @@
-# a8ae93db67fdf82ceff133f01db062b9
+# 85db1c8a808242f7d6b5fa8cd72c6d8a
 # Generated with vfnmkmc by the mc program.
 PREFIX=/usr/local
 CFLAGS=-O$(O)  -std=c++11
 O=2
-LFLAGS= -l pcre++ -l GL -l GLU -l glut -l jsoncpp
-OBJS=objs/Block.o objs/Camera.o objs/client.o objs/commands.o objs/Map.o objs/MapSection.o objs/mechanizm.o objs/Object.o objs/options.o objs/Side.o objs/Sphere.o objs/radix.o objs/doubles.o objs/json_utils.o objs/pcre_utils.o objs/strings.o objs/system.o objs/utils.o objs/vectors.o
+LFLAGS= -l GL -l GLU -l glut -l jsoncpp
+OBJS=objs/Block.o objs/Camera.o objs/Map.o objs/MapSection.o objs/Object.o objs/Side.o objs/Sphere.o objs/client.o objs/commands.o objs/mechanizm.o objs/options.o objs/radix.o objs/doubles.o objs/json_utils.o objs/pcre_utils.o objs/strings.o objs/system.o objs/utils.o objs/vectors.o
 
 
 .PHONY: all
@@ -20,14 +20,6 @@ objs/Block.o: src/Block.cpp src/Block.hpp src/Side.hpp src/tools.hpp
 objs/Camera.o: src/Camera.cpp src/Camera.hpp
 	@ echo "    CXX  src/Camera.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Camera.cpp" -o $@
-objs/client.o: src/client.cpp src/commands.hpp src/tools.hpp src/mechanizm.hpp \
- src/Object.hpp src/options.hpp src/Camera.hpp src/Side.hpp src/Block.hpp \
- src/MapSection.hpp src/Q.hpp src/Map.hpp
-	@ echo "    CXX  src/client.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/client.cpp" -o $@
-objs/commands.o: src/commands.cpp src/commands.hpp src/tools.hpp
-	@ echo "    CXX  src/commands.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/commands.cpp" -o $@
 objs/Map.o: src/Map.cpp src/Map.hpp src/tools.hpp src/MapSection.hpp \
  src/Block.hpp src/Side.hpp src/Camera.hpp src/Q.hpp
 	@ echo "    CXX  src/Map.cpp"
@@ -36,22 +28,30 @@ objs/MapSection.o: src/MapSection.cpp src/MapSection.hpp src/tools.hpp \
  src/Block.hpp src/Side.hpp src/Camera.hpp src/Q.hpp
 	@ echo "    CXX  src/MapSection.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/MapSection.cpp" -o $@
-objs/mechanizm.o: src/mechanizm.cpp src/mechanizm.hpp src/tools.hpp \
- src/Object.hpp
-	@ echo "    CXX  src/mechanizm.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/mechanizm.cpp" -o $@
 objs/Object.o: src/Object.cpp src/Object.hpp src/tools.hpp
 	@ echo "    CXX  src/Object.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Object.cpp" -o $@
-objs/options.o: src/options.cpp src/options.hpp src/tools.hpp
-	@ echo "    CXX  src/options.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/options.cpp" -o $@
 objs/Side.o: src/Side.cpp src/Side.hpp
 	@ echo "    CXX  src/Side.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Side.cpp" -o $@
 objs/Sphere.o: src/Sphere.cpp src/Sphere.hpp
 	@ echo "    CXX  src/Sphere.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Sphere.cpp" -o $@
+objs/client.o: src/client.cpp src/commands.hpp src/tools.hpp src/mechanizm.hpp \
+ src/Object.hpp src/options.hpp src/Camera.hpp src/Sphere.hpp \
+ src/Side.hpp src/Block.hpp src/MapSection.hpp src/Q.hpp src/Map.hpp
+	@ echo "    CXX  src/client.cpp"
+	@ $(CXX) $(CFLAGS) -c "src/client.cpp" -o $@
+objs/commands.o: src/commands.cpp src/commands.hpp src/tools.hpp
+	@ echo "    CXX  src/commands.cpp"
+	@ $(CXX) $(CFLAGS) -c "src/commands.cpp" -o $@
+objs/mechanizm.o: src/mechanizm.cpp src/mechanizm.hpp src/tools.hpp \
+ src/Object.hpp
+	@ echo "    CXX  src/mechanizm.cpp"
+	@ $(CXX) $(CFLAGS) -c "src/mechanizm.cpp" -o $@
+objs/options.o: src/options.cpp src/options.hpp src/tools.hpp
+	@ echo "    CXX  src/options.cpp"
+	@ $(CXX) $(CFLAGS) -c "src/options.cpp" -o $@
 objs/radix.o: src/sorters/radix.cpp src/sorters/../sorters.hpp
 	@ echo "    CXX  src/sorters/radix.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/sorters/radix.cpp" -o $@
