@@ -17,6 +17,7 @@
 #include <jsoncpp/json/json.h>
 #include <jsoncpp/json/value.h>
 #include <jsoncpp/json/reader.h>
+#include "Vertex.hpp"
 
 using namespace std;
 
@@ -88,6 +89,10 @@ namespace tools {
    // json_utils.cpp
    Error load_json_value_from_string(Json::Value& jv, string s);
    Error load_json_value_from_file(Json::Value& jv, string fname);
+
+   // ogl_utils.cpp
+   bool line_intersects_triangle(
+         Vertex line[2], Vertex tri[3], Vertex* point);
 }
 
 #endif

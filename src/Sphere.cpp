@@ -6,7 +6,6 @@
 
 #include "Sphere.hpp"
 
-
 Sphere::Sphere() {
    center[0] = 0.0; center[1] = 0.0; center[2] = 0.0;
    color[0] = 0.5; color[1] =  0.5; color[2] = 0.5;

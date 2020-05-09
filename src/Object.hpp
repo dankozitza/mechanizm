@@ -13,9 +13,9 @@
 #include <vector>
 #include "tools.hpp"
 #include "Object.hpp"
+#include "Tetrahedron.hpp"
 
 using namespace std;
-
 
 class Object {
 
@@ -23,10 +23,14 @@ class Object {
 
       typedef tools::Error (*Function)(double, Object&);
 
+      string shape = "tetrahedron";
+
       int vertices = 8;
       GLfloat cube[8][3];
       int faceIndex[6][4];
 		GLfloat faceColors[6][3];
+
+      Tetrahedron tetra;
 
       GLfloat ax;
       GLfloat ay;
@@ -40,7 +44,7 @@ class Object {
       // this function describes the objects motion as a function of time.
       // It will be used by mechanizm to get the objects position.
       // the reference passed to it is a reference to this very object.
-      Function func_motion;
+      Function function;
 
       Object();
       Object(string identity);
@@ -53,7 +57,7 @@ class Object {
 
       // cube transformations
       void translate_by(GLfloat x, GLfloat y, GLfloat z);
-      void translate_by(GLfloat add_cube[][3]);
+      void translate_by(GLfloat add_point[3]);
       void multiply_by(GLfloat x, GLfloat y, GLfloat z);
       void multiply_vert_by(int vertex_index, GLfloat x, GLfloat y, GLfloat z);
       void scale_by(GLfloat x, GLfloat y, GLfloat z);

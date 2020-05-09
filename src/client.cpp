@@ -21,12 +21,15 @@
 
 #include <GL/glu.h>
 #include <GL/glut.h>
-#include <glm/core/type_vec.hpp>
+//#include <glm/detail/type_vec4.hpp>
 
 #include "Camera.hpp"
+#include "Glob.hpp"
 #include "Object.hpp"
 #include "Sphere.hpp"
 #include "Side.hpp"
+#include "Tetrahedron.hpp"
+#include "Vertex.hpp"
 #include "Block.hpp"
 #include "MapSection.hpp"
 #include "Map.hpp"
@@ -43,7 +46,7 @@ void
    animation(void),
    pricion(void),
    hot_pause(void),
-   setup_glut_menu(),
+   draw_glut_menu(),
    menu(int choice),
    resize(int w, int h),
    mouse(int button, int state, int x, int y),
@@ -53,23 +56,37 @@ void
    motion(int x, int y),
    drawWireframe(int objs_index, int face),
    drawFilled(int objs_index, int face),
+   drawFilledTetrahedron(int objs_index),
+   drawVisibleTriangles(Tetrahedron& tetra),
    draw_circle(float cx, float cy, float r, int num_segments),
    draw_cam_spheres(),
-   draw_spheres();
+   draw_sphere(Sphere& s),
+   draw_spheres(),
+
+   reset_sphere_distance();
 
 tools::Error random_motion(double t, Object &self);
 tools::Error random_motion_2(double t, Object &self);
 tools::Error spawned_motion(double t, Object &self);
 tools::Error tryhard_motion(double t, Object &self);
 
+Tetrahedron generate_tetra_from_side(Tetrahedron& source, int source_face);
+
 static vector<Object> objs;
+static unordered_map<string, Glob> gs;
 static vector<Sphere> sphrs;
 static int selected_object = 0;
+static string selected_glob;
+static long unsigned int gen_obj_cnt = 0;
+static string selector_function = "select";
+static int draw_x_vertices = 18;
 static int menu_depth = 0;
+static int timed_menu_display = 0;
+static int draw_menu_lines = 10;
 static string menu_input;
 static vector<string> menu_output;
-static vector<GLfloat*> terrain;
 int block_count = 1;
+int mouse_left_state = 1;
 
 // X Y Z theta (ax) psi (ay) rotationSpeed translationSpeed
 static Camera cam(2.0, 2.0, 3.5, 0.0, 0.0, 0.6, 0.0022);
@@ -87,6 +104,7 @@ Map MAP;
 Q<MapSection> CMSQ;
 Q<Map::PidSid> PIDSIDQ;
 
+bool DRAW_GLUT_MENU = false;
 // menu options
 bool MAP_GEN = false;
 bool ANIMATION = false;
@@ -97,6 +115,7 @@ void cmd_help(vector<string>& argv);
 void cmd_tp(vector<string>& argv);
 void cmd_set(vector<string>& argv);
 void cmd_select(vector<string>& argv);
+void cmd_grow(vector<string>& argv);
 void cmd_q(vector<string>& argv);
 void cmd_exit(vector<string>& argv);
 
@@ -116,7 +135,7 @@ int main(int argc, char *argv[]) {
    Error e = NULL;
 
    mech.set_objects(objs);
-   mech.current_time = 1000.0;
+   mech.current_time = 0.0;
 
    signal(SIGINT, signals_callback_handler);
 
@@ -142,10 +161,10 @@ int main(int argc, char *argv[]) {
    // set up the in game command line
    vector<string> cmd_argv;
 
-   CMDS_STORE["n_click_speed"] = "0.06";
-   CMDS_STORE["n_click_max_distance"] = "3.0";
-   CMDS_STORE["n_click_distance"] = "1.0";
-   SD = 1.0;
+   CMDS_STORE["n_click_speed"]         = "0.075";
+   CMDS_STORE["n_click_max_distance"]  = "3.8";
+   CMDS_STORE["n_click_distance"]      = "1.25";
+   SD = 2.0;
 
    Sphere selector_sphere_1(0.0, 0.0, 0.0, 0.0369, 0.4, 0.8, 0.6);
    sphrs.push_back(selector_sphere_1);
@@ -162,7 +181,7 @@ int main(int argc, char *argv[]) {
          "Teleport to the given coordinates.",
          "mo x y z");
 
-IN_GAME_CMDS.handle(
+   IN_GAME_CMDS.handle(
          "set",
          cmd_set,
          "Set a value in CMDS_STORE.",
@@ -174,6 +193,12 @@ IN_GAME_CMDS.handle(
          cmd_select,
          "Select an object by index.",
          "select [index]");
+
+   IN_GAME_CMDS.handle(
+         "grow",
+         cmd_grow,
+         "Generate x tetrahedrons from selected object.",
+         "grow [x]");
 
    IN_GAME_CMDS.handle(
          "q",
@@ -189,9 +214,13 @@ IN_GAME_CMDS.handle(
 
 
    Object test_object_1("test_object_1", 1, NULL);
+   Vertex center;
+   test_object_1.tetra.center(center);
+   test_object_1.tetra.translate_by(-center.x, -center.y, -center.z);
+   test_object_1.tetra.center(center);
+   cout << "Spawning block " << test_object_1.id << ". center: "
+        << center.x << ", " << center.y << ", " << center.z << "\n";
    objs.push_back(test_object_1);
-
-
 
    // build the map around origin
    MAP.load_section_list();
@@ -224,7 +253,7 @@ IN_GAME_CMDS.handle(
    glutPassiveMotionFunc(mouse_passive);
    glutReshapeFunc(resize);
    glutCreateMenu(menu);
-   setup_glut_menu();
+   draw_glut_menu();
    glutAttachMenu(GLUT_RIGHT_BUTTON);
    glutKeyboardFunc(keyboard);
    glutKeyboardUpFunc(keyboard_up);
@@ -283,6 +312,41 @@ void cmd_select(vector<string>& argv) {
    }
 }
 
+void cmd_grow(vector<string>& argv) {
+   if (argv.size() != 1) {
+      menu_output.push_back("invalid arguments: try 'help grow'");
+      return;
+   }
+   int arg = as_int(argv[0]);
+
+   while (arg-- > 0) {
+      string gi = selected_glob;
+
+     // generate_tetra_from_side(objs[selected_object].tetra, rand() % 4);
+      char buffer[100];
+      sprintf(buffer, "generated_object_%i", gen_obj_cnt);
+      gen_obj_cnt++;
+      string id = buffer;
+      Object o(id);
+
+      auto oit = gs[gi].objs.begin();
+      int robji = rand() % gs[gi].objs.size() - 1;
+      while (robji > 0) {robji--; oit++;}
+      string robjkey = oit->first;
+
+      string msg = "growing object: " + robjkey;
+      menu_output.push_back(msg);
+
+      int rvfacei = rand() % gs[gi].objs[robjkey].tetra.vis_faces.size() - 1;
+      int rfacei = gs[gi].objs[robjkey].tetra.vis_faces[rvfacei];
+      o.tetra = generate_tetra_from_side(
+                     oit->second.tetra, rfacei);
+
+      gs[gi].attach(robjkey, rfacei, o);
+   }
+   //timed_menu_display = 60;
+}
+
 void cmd_q(vector<string>& argv) {
    menu_depth = 1;
 }
@@ -320,68 +384,47 @@ tools::Error random_motion_2(double t, Object &self) {
 
    if (self.c_qs["a"].size() != 3)
       self.setConstQ("a", {
-            (GLfloat) (rand() % 7 - 3) / (GLfloat) 220,
-            (GLfloat) (rand() % 7 - 3) / (GLfloat) 220,
-            (GLfloat) (rand() % 7 - 3) / (GLfloat) 220});
-
+            (GLfloat) (rand() % 7 - 3) / (GLfloat) 300,
+            (GLfloat) (rand() % 7 - 3) / (GLfloat) 300,
+            (GLfloat) (rand() % 7 - 3) / (GLfloat) 300});
 
    Object tmp;
    if (self.c_qs.count("vi"))
       tmp.setConstQ("vi", self.c_qs["vi"]);
    else
       tmp.setConstQ("vi", 0.0);
-   tmp.setConstQ("a", {
-      self.c_qs["a"][0] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190,
-      self.c_qs["a"][1] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190,
-      self.c_qs["a"][2] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190});
 
-//            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
-//            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
-//            (GLfloat) (rand() % 3 - 1) / (GLfloat) 10});
+   tmp.set_cube(self.cube);
 
-   Object tmp_2 = tmp;
+   tmp.setConstQ("a", self.getConstQ("a"));
+
+   //tmp.setConstQ("a", {
+   //   self.c_qs["a"][0] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190,
+   //   self.c_qs["a"][1] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190,
+   //   self.c_qs["a"][2] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190});
+
+   //tmp.setConstQ("a", {
+   //   self.c_qs["a"][0] + (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
+   //   self.c_qs["a"][0] + (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
+   //   self.c_qs["a"][1] + (GLfloat) (rand() % 3 - 1) / (GLfloat) 10});
+   //
+   //
+   //Object tmp_2 = tmp;
+
    tryhard_motion(t, tmp);
-   tryhard_motion(self.last_t, tmp_2);
 
-   tmp_2.multiply_by(-1, -1, -1);
-   tmp.translate_by(tmp_2.cube[0][0], tmp_2.cube[0][1], tmp_2.cube[0][2]);
+   //tryhard_motion(self.last_t, tmp_2);
 
-   self.translate_by(tmp.cube[0][0], tmp.cube[0][1], tmp.cube[0][2]);
+   //tmp_2.multiply_by(-1, -1, -1);
+   //tmp.translate_by(tmp_2.cube[0][0], tmp_2.cube[0][1], tmp_2.cube[0][2]);
 
+   //self.translate_by(tmp.cube[0][0], tmp.cube[0][1], tmp.cube[0][2]);
+
+   self.set_cube(tmp.cube);
    self.last_t = t;
-}
 
-//tools::Error random_motion_3(double t, Object &self) {
-//   if (self.c_qs["v"].size() != 3)
-//      self.setConstQ("v", {
-//            (GLfloat) (rand() % 17 - 8) / (GLfloat) 180,
-//            (GLfloat) (rand() % 17 - 8) / (GLfloat) 180,
-//            (GLfloat) (rand() % 17 - 8) / (GLfloat) 180});
-//
-//
-//   Object tmp;
-//   tmp.setConstQ("v", {
-//            self.c_qs["v"][0] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 150,
-//            self.c_qs["v"][1] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 150,
-//            self.c_qs["v"][2] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 150});
-//
-//   Object tmp_2 = tmp;
-//   tryhard_motion(t, tmp);
-//   tryhard_motion(self.last_t, tmp_2);
-//
-//   tmp_2.multiply_by(-1, -1, -1);
-//   tmp.translate_by(tmp_2.cube[0][0], tmp_2.cube[0][1], tmp_2.cube[0][2]);
-//
-//   self.translate_by(tmp.cube[0][0], tmp.cube[0][1], tmp.cube[0][2]);
-//
-////   cout << "t: " << t << "\n   ";
-////   cout << self.id << ": x: " << self.cube[0][0];
-////   cout << " y: " << self.cube[0][1];
-////   cout << " z: " << self.cube[0][2] << endl;
-//
-//   self.last_t = t;
-//   return NULL;
-//}
+   return NULL;
+}
 
 tools::Error spawned_motion(double t, Object &self) {
 
@@ -464,10 +507,81 @@ drawWireframe(int objs_index, int face)
 void
 drawFilled(int objs_index, int face)
 {
-   int i, j = objs_index;
+   int dfi, j = objs_index;
    glBegin(GL_POLYGON);
-   for (i = 0; i < 4; i++)
-      glVertex3fv((GLfloat *) objs[j].cube[ objs[j].faceIndex[face][i] ]);
+   for (dfi = 0; dfi < 4; dfi++) {
+      glVertex3fv((GLfloat *) objs[j].cube[ objs[j].faceIndex[face][dfi] ]);
+   }
+   glEnd();
+}
+
+
+void drawFilledTetrahedron(int objs_index) {
+
+   if (draw_x_vertices > 0) {
+      int j = objs_index;
+      int drawn = 0;
+
+      glBegin(GL_TRIANGLES);
+      for (int fi = 0; fi < 4; fi++) {
+         glColor3fv(objs[j].tetra.faceColors[fi]);
+         for (int pi = 0; pi < 3; pi++) {
+
+            glVertex3f(
+               *objs[j].tetra.face[fi].pnts[pi][0],
+               *objs[j].tetra.face[fi].pnts[pi][1],
+               *objs[j].tetra.face[fi].pnts[pi][2]);
+
+            drawn++;
+            if (drawn > draw_x_vertices) {
+               glEnd();
+               return;
+            }
+         }
+      }
+      glEnd();
+   }
+}
+
+void drawVisibleTriangles(Tetrahedron& tetra) {
+
+   int drawn = 0;
+
+   if (draw_x_vertices < 0) {
+      for (int pi = 0; pi < 4; pi++) {
+         Sphere new_sphere(tetra.points[pi].x,
+                           tetra.points[pi].y,
+                           tetra.points[pi].z,
+                           0.0369, 0.4, 0.8, 0.6);
+         draw_sphere(new_sphere);
+      }
+      return;
+   } 
+   glBegin(GL_TRIANGLES);
+
+   for (int vfi = 0; vfi < tetra.vis_faces.size(); vfi++) {
+      int fi = tetra.vis_faces[vfi];
+
+      glColor3fv(tetra.faceColors[fi]);
+
+      for (int pi = 0; pi < 3; pi++) {
+         Vertex tmpv;
+         tmpv.x = *tetra.face[fi].pnts[pi][0];
+         tmpv.y = *tetra.face[fi].pnts[pi][1];
+         tmpv.z = *tetra.face[fi].pnts[pi][2];
+
+         glVertex3f(
+            tmpv.x,
+            tmpv.y,
+            tmpv.z);
+
+         drawn++;
+         if (drawn > draw_x_vertices) {
+            glEnd();
+            return;
+         }
+      }
+   }
    glEnd();
 }
 
@@ -497,7 +611,7 @@ void draw_cam_spheres() {
 
       if (SD > n_m_d) {
          SD = n_d;
-         SD_DONE = true;
+         if (mouse_left_state == 1) SD_DONE = true;
       }
       else {
          SD += n_s;
@@ -511,12 +625,114 @@ void draw_cam_spheres() {
       sphrs[0].center[1] = nsy;
       sphrs[0].center[2] = nsz;
 
-      // select non-empty blocks from the map
-      // find map section
-      int sidx = floorf(nsx / (float) MAP.ms[0].size) * MAP.ms[0].size;
-      int sidy = floorf(nsy / (float) MAP.ms[0].size) * MAP.ms[0].size;
-      int sidz = floorf(nsz / (float) MAP.ms[0].size) * MAP.ms[0].size;
-      int i = MAP.section_i_loaded(sidx, sidy, sidz);
+      int i = -1;
+      int sidx;
+      int sidy;
+      int sidz;
+
+      // check for collision with glob
+      for (auto git = gs.begin(); git != gs.end(); git++) {
+
+      string gi = git->first;
+
+      // check each object within glob gs[gi]
+      for (auto jit = gs[gi].objs.begin(); jit != gs[gi].objs.end(); jit++) {
+
+         string j = jit->first;
+
+         if (gs[gi].objs[j].shape == "tetrahedron") {
+
+            // get line segment points
+            Vertex line[2];
+            line[0].x = nsx;
+            line[0].y = nsy;
+            line[0].z = nsz;
+
+            GLfloat tx, ty, tz;
+            cam.pos_in_los(SD+0.08f, tx, ty, tz);
+            line[1].x = tx;
+            line[1].y = ty;
+            line[1].z = tz;
+
+            // get triangle points of each face
+            for (int fi = 0; fi < 4; fi++) {
+               Vertex tripnts[3];
+
+               for (int tripti = 0; tripti < 3; tripti++) {
+                  tripnts[tripti].x =
+                     *gs[gi].objs[j].tetra.face[fi].pnts[tripti][0];
+                  tripnts[tripti].y =
+                     *gs[gi].objs[j].tetra.face[fi].pnts[tripti][1];
+                  tripnts[tripti].z =
+                     *gs[gi].objs[j].tetra.face[fi].pnts[tripti][2];
+               }
+
+               if (tools::line_intersects_triangle(
+                        line,
+                        tripnts,
+                        NULL)) {
+
+                  // glob: ji object: j
+                  if (selector_function == "select") {
+                     selected_glob = gi;
+
+                     string msg("selected glob: " + gi + "\nobject: " + j);
+                     char buffer[100];
+                     sprintf(buffer, ", face %i", fi);
+                     msg += buffer;
+                     menu_output.push_back(msg);
+                     timed_menu_display = 150;
+                     draw_menu_lines = 2;
+
+                     reset_sphere_distance();
+                     return;
+                  }
+                  else if (selector_function == "remove") {
+
+                     auto it = gs[gi].objs.find(j);
+                     gs[gi].objs.erase(it);
+
+                     SD = as_double(CMDS_STORE["n_click_distance"]);
+                     SD_DONE = true;
+
+                     menu_output.push_back(
+                           "glob: " + gi + ": removed object " + j);
+                     timed_menu_display = 150;
+                     draw_menu_lines = 1;
+
+                     return;
+                  }
+                  else if (selector_function == "build") {
+                     selected_glob = gi;
+
+                     char buffer[100];
+                     sprintf(buffer, "generated_object_%i", gen_obj_cnt++);
+
+                     Object o(buffer);
+                     o.tetra = generate_tetra_from_side(
+                                    gs[gi].objs[j].tetra, fi);
+
+                     gs[gi].attach(j, fi, o);
+
+                     SD = as_double(CMDS_STORE["n_click_distance"]);
+                     SD_DONE = true;
+                     return;
+                  }
+               }
+            }
+
+         } // end of tetrahedron loop
+      } // end of obect loop
+      } // end of glob collision loop
+
+      if (MAP.ms.size() > 0) {
+         // select non-empty blocks from the map
+         // find map section
+         sidx = floorf(nsx / (float) MAP.ms[0].size) * MAP.ms[0].size;
+         sidy = floorf(nsy / (float) MAP.ms[0].size) * MAP.ms[0].size;
+         sidz = floorf(nsz / (float) MAP.ms[0].size) * MAP.ms[0].size;
+         i = MAP.section_i_loaded(sidx, sidy, sidz);
+      }
 
 //cout << "MAP SECTION " << sidx << "," << sidy << "," << sidz << "\n";
 
@@ -530,11 +746,11 @@ void draw_cam_spheres() {
 
          if (MAP.ms[i].blocks[bidy][bidx][bidz].type == 1) {
     
-            //MAP.ms[i].blocks[bidy][bidx][bidz].type = 0;
+            MAP.ms[i].blocks[bidy][bidx][bidz].type = 0;
             cout << "TYPE 1: block: " << sidx + bidx << " " << sidy + bidy << " " << sidz + bidz << " " << endl;
 
             SD = as_double(CMDS_STORE["n_click_distance"]);
-            SD_DONE = true;
+            if (mouse_left_state == 1) SD_DONE = true;
          }
 
       }
@@ -556,13 +772,22 @@ void draw_cam_spheres() {
 
 void draw_spheres() {
    for (int i = 1; i < sphrs.size(); i++) {
-      glColor3f(sphrs[i].color[0], sphrs[i].color[1], sphrs[i].color[2]);
+      draw_sphere(sphrs[i]);
+   }
+}
+
+void draw_sphere(Sphere& s) {
+      glColor3f(s.color[0], s.color[1], s.color[2]);
 
       glPushMatrix();
-      glTranslatef(sphrs[i].center[0], sphrs[i].center[1], sphrs[i].center[2]);
-      glutWireSphere(sphrs[i].r, 36, 36);
+      glTranslatef(s.center[0], s.center[1], s.center[2]);
+      glutWireSphere(s.r, 36, 36);
       glPopMatrix();
-   }
+}
+
+void reset_sphere_distance() {
+   SD = as_double(CMDS_STORE["n_click_distance"]);
+   if (mouse_left_state == 1) SD_DONE = true;
 }
 
 void drawSides() {
@@ -588,7 +813,6 @@ void drawSides() {
 
 void drawFilledTStrip() {
    glBegin(GL_TRIANGLE_STRIP);
-//   for (GLFloat i = -10; i <= 10; ++i) {
    glColor3f(1, 0, 0); glVertex3f(0, 2, 0);
    glColor3f(0, 1, 0); glVertex3f(-1, 0, 1);
    glColor3f(0, 0, 1); glVertex3f(1, 0, 1);
@@ -596,27 +820,26 @@ void drawFilledTStrip() {
 }
 
 void mouse(int button, int state, int x, int y) {
-   //cam.rotation(x, y);
-   //cout << "here! ";
-//   SDL_SetRelativeMouseMode((SDL_bool) 1);
-   //glutPostRedisplay();
 
    // left button down
    if (button == 0 && state == 0) {
+      mouse_left_state = 0;
+
       if (SD_DONE) {
          SD_DONE = false;
       }
       else {
          SD = as_double(CMDS_STORE["n_click_distance"]);
       }
-      menu_output.push_back("CLICK");
+   }
+   else if (button == 0 && state == 1) {
+      mouse_left_state = 1;
    }
 
 }
 
 void mouse_passive(int x, int y) {
    cam.rotation(x, y);
-
 //   SDL_SetRelativeMouseMode((SDL_bool) 1);
    glutPostRedisplay();
 }
@@ -631,8 +854,15 @@ void draw_bitmap_string(
 }
 
 void draw_menu_output(float x, float y, float z, void *font) {
+   while (menu_output.size() > 20) {
+      menu_output.erase(menu_output.begin());
+   }
+
+   int dmli = menu_output.size() - draw_menu_lines;
+   while (dmli < 0) { dmli++; }
+
    newlines_to_indices(menu_output);
-   for (int i = menu_output.size() - 1; i >= 0; i--) {
+   for (int i = menu_output.size() - 1; i >= dmli; i--) {
       y += 0.0369;
       glColor3f(0.1, 0.69, 0.99);
       glRasterPos3f(x, y, z);
@@ -654,49 +884,20 @@ void drawScene(void) {
    //// set up camera
    //glViewport(0, 0, 500, 500);
 
-   //cout << "here!\n";
-   
    glLoadIdentity();
    cam.translation();
    glRotatef(180 * cam.getAY() / 3.141592653, 1.0, 0.0, 0.0);
    glRotatef(180 * cam.getAX() / 3.141592653, 0.0, 1.0, 0.0);
    glTranslated(-cam.getX(), -cam.getY(), -cam.getZ());
 
-   //glRotatef(cam.getTheta(), 1.0, 0.0, 0.0);
-   //glRotatef(cam.getPsi(), 0.0, 1.0, 0.0);
-   //glTranslated(-cam.getX(), -cam.getY(), -cam.getZ());
-
-   //gluLookAt(cam.getX(), cam.getY(), cam.getZ(), cam.getSightX(),
-         //cam.getSightY(), cam.getSightZ(), 0, 1, 0);
-   //gluLookAt(cam.getX(), cam.getY(), cam.getZ(), 0.0, 0.0, 0.0, 0, 1, 0);
-   //cout << " SX: " << cam.getSightX() << " SY: " << cam.getSightY();
-   //cout << " SZ: " << cam.getSightZ() << endl;
-   //
-  //cout << "X: " << cam.getX() << " Y: " << cam.getY() << " Z: " << cam.getZ();
-   //cout << " _AX: " << cam.getAX() << " _AY: " << -cam.getAY() << endl;
-
    // draw stuff
    glEnable(GL_DEPTH_TEST);
    glDepthFunc(GL_LEQUAL);
 
-   // testing terrain draw
-   if (terrain.size() > 2) {
-      //glFrontFace(GL_CW);
-      
-      //glBegin(GL_LINES);
-      //glBegin(GL_POINTS);
-      //glBegin(GL_POLYGON);
-      glBegin(GL_TRIANGLE_STRIP);
-      for (int i = 0; i < terrain.size(); ++i) {
-         glColor3f(1.0, 1.0, 1.0); glVertex3fv(terrain[i]);
-      }
-      glEnd();
-   }
-
    drawSides();
 
    glBegin(GL_TRIANGLE_STRIP);
-   glColor3f(1, 0, 0); glVertex3f(0, 2, 0);
+   glColor3f(1, 0, 0); glVertex3f(0, 0, 0);
    glColor3f(0, 1, 0); glVertex3f(-1, 0, 1);
    glColor3f(0, 0, 1); glVertex3f(1, 0, 1);
    glEnd();
@@ -706,6 +907,11 @@ void drawScene(void) {
    draw_spheres();
 
    draw_cam_spheres();
+
+   if (DRAW_GLUT_MENU) {
+      draw_glut_menu();
+      DRAW_GLUT_MENU = false;
+   }
 
 //   // draw a simple grid
 //   glColor3f(1.0, 1.0, 1.0);
@@ -725,34 +931,50 @@ void drawScene(void) {
 
    /* all the good stuff follows */
 
-   //glEnable(GL_STENCIL_TEST);
-   //glClear(GL_STENCIL_BUFFER_BIT);
-   //glStencilMask(1);
-   //glStencilFunc(GL_ALWAYS, 0, 1);
-   //glStencilOp(GL_INVERT, GL_INVERT, GL_INVERT);
-   //glColor3f(1.0, 1.0, 0.0);
+   glEnable(GL_STENCIL_TEST);
+   glClear(GL_STENCIL_BUFFER_BIT);
+   glStencilMask(1);
+   glStencilFunc(GL_ALWAYS, 0, 1);
+   glStencilOp(GL_INVERT, GL_INVERT, GL_INVERT);
+   glColor3f(1.0, 1.0, 0.0);
 
+   // draw all the objects in objs vector
    for (int j = 0; j < objs.size(); ++j) {
-      for (i = 0; i < 6; i++) {
-         //drawWireframe(j, i);
-         //glStencilFunc(GL_EQUAL, 0, 1);
-         //glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+      if (objs[j].shape == "cube") {
+         for (i = 0; i < 6; i++) {
+            //drawWireframe(j, i);
+            //glStencilFunc(GL_EQUAL, 0, 1);
+            //glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
-         // set the default color
-         //objs[j].faceColors[i][0] = rand() % 100 / 100.0;//0.7;
-         //objs[j].faceColors[i][1] = rand() % 100 / 100.0;//0.7;
-         //objs[j].faceColors[i][2] = rand() % 100 / 100.0;//0.7;
-         glColor4f(objs[j].faceColors[i][0], objs[j].faceColors[i][1], objs[j].faceColors[i][2], 0.1); // box color
-         drawFilled(j, i);
+            // set the default color
+            //objs[j].faceColors[i][0] = rand() % 100 / 100.0;//0.7;
+            //objs[j].faceColors[i][1] = rand() % 100 / 100.0;//0.7;
+            //objs[j].faceColors[i][2] = rand() % 100 / 100.0;//0.7;
+            glColor4f(objs[j].faceColors[i][0], objs[j].faceColors[i][1], objs[j].faceColors[i][2], 0.1); // box color
+            drawFilled(j, i);
 
-//         glStencilFunc(GL_ALWAYS, 0, 1);
-//         glStencilOp(GL_INVERT, GL_INVERT, GL_INVERT);
-         glColor3f(0.0, 0.0, 0.0);
-         drawWireframe(j, i);
+//            glStencilFunc(GL_ALWAYS, 0, 1);
+//            glStencilOp(GL_INVERT, GL_INVERT, GL_INVERT);
+            glColor3f(0.0, 0.0, 0.0);
+            drawWireframe(j, i);
+         }
+      }
+      if (objs[j].shape == "tetrahedron") {
+         //glColor3f(rand() % 100 / 100.0, rand() % 100 / 100.0, rand() % 100 / 100.0);
+         drawFilledTetrahedron(j);
       }
    }
 
-   if (menu_depth != 0) {
+   // draw visible triangles in globs map
+   for (auto glit = gs.begin(); glit != gs.end(); glit++) {
+      string id = glit->first;
+      for (auto objit = gs[id].objs.begin(); objit != gs[id].objs.end();
+                                                                objit++) {
+         drawVisibleTriangles(objit->second.tetra);
+      }
+   }
+
+   if (menu_depth != 0 || timed_menu_display-- > 0) {
       // write character bitmaps
       draw_bitmap_string(
          // these calculate the location in front of the face
@@ -778,9 +1000,9 @@ void drawScene(void) {
 
    }
 
-   if (PRICION) { // write date and time tags on objects
-      
-   }
+   //if (PRICION) { // write date and time tags on objects
+   //   
+   //}
 
 
    glPopMatrix();
@@ -838,7 +1060,7 @@ void map_generation(void) {
    int fcount = 0;
    // fork and save the map sections with no PIDSID entry
    if (CMSQ.size() >= 128 && PIDSIDQ.size() < 4) {
-      for (int u = 0; u < CMSQ.size(); ++u) {
+      for (int u = 0; u < CMSQ.size(); u++) {
 
          if (fcount == 16) {
             break;
@@ -1038,7 +1260,7 @@ void pricion(void) {
 
       }
       else {
-         cout << "SHIT!!!!!!!!!!!!!!!\n";
+         cout << "jval is not an array\n";
       }
       once = true;
    }
@@ -1063,46 +1285,45 @@ void hot_pause(void) {
    }
 }
 
-void setup_glut_menu() {
+void draw_glut_menu() {
    while (glutGet(GLUT_MENU_NUM_ITEMS) > 0) {
       glutRemoveMenuItem(1);
    }
+ 
    if (MAP_GEN) {
-      glutAddMenuEntry("1 - Map Generation", 4);
+      glutAddMenuEntry("1 - Map Generation", 0);
    }
    else {
-      glutAddMenuEntry("0 - Map Generation", 4);
+      glutAddMenuEntry("0 - Map Generation", 0);
    }
    if (ANIMATION) {
-      glutAddMenuEntry("1 - Animation", 3);
+      glutAddMenuEntry("1 - Animation", 1);
    }
    else {
-      glutAddMenuEntry("0 - Animation", 3);
+      glutAddMenuEntry("0 - Animation", 1);
    }
    if (PRICION) {
-      glutAddMenuEntry("1 - Pricion", 1);
+      glutAddMenuEntry("1 - Pricion", 2);
    }
    else {
-      glutAddMenuEntry("0 - Pricion", 1);
+      glutAddMenuEntry("0 - Pricion", 2);
    }
-//   glutAddMenuEntry("Stencil", 1);
-   glutAddMenuEntry("Reset", 2);
+   glutAddMenuEntry("Reset", 3);
 }
 
 // mouse right click menu
 void menu(int choice) {
 
    switch (choice) {
-   case 4: // Map Generation
+   case 0: // Map Generation
       if (MAP_GEN) {
          MAP_GEN = false;
       }
       else {
          MAP_GEN = true;
       }
-      //setup_glut_menu();
       break;
-   case 3: // Animation
+   case 1: // Animation
       count = 0;
       if (ANIMATION) {
          ANIMATION = false;
@@ -1111,7 +1332,7 @@ void menu(int choice) {
          ANIMATION = true;
       }
       break;
-   case 2: // Reset
+   case 3: // Reset
       mech.current_time = 0.0;
       for (int i = 0; i < objs.size(); ++i) {
          objs[i].set_cube(Object().cube);
@@ -1127,9 +1348,7 @@ void menu(int choice) {
 
       glutPostRedisplay();
       break;
-   case 1: // Pricion
-//      glutSetWindowTitle("Stencil Enabled");
-//      glutPostRedisplay();
+   case 2: // Pricion
       if (PRICION) {
          PRICION = false;
       }
@@ -1139,20 +1358,28 @@ void menu(int choice) {
       break;
    }
 
-   setup_glut_menu();
+   DRAW_GLUT_MENU = true;
+   //if (choice != 0) {
+       //draw_glut_menu();
+   //}
+   glutPostRedisplay();
 }
 
 void menu_1_help() {
-   cout << "\n*** Menu level: 1";
-   cout << "  -  selected object: " << selected_object;
-   cout << "  -  time: " << mech.current_time << "\n";
-   cout << "   p -   Print the object information\n";
-   cout << "   r -   Set motion function to null.\n";
-   cout << "   c -   Randomize the colors of selected object.\n";
-   cout << "   e -   Enter command.\n";
-   cout << "   h -   Print this help message.\n";
-   cout << "   q -   exit menu\n";
-   cout << "\n";
+   string msg;
+   msg += "\n*** Menu level: 1\n";
+//   msg += "  -  selected object: " << selected_object;
+//   msg += "  -  time: " << mech.current_time << "\n";
+   msg += "   p -   Print the object information\n";
+   msg += "   r -   Set motion function to null.\n";
+   msg += "   c -   Randomize the colors of selected object.\n";
+   msg += "   e -   Enter command.\n";
+   msg += "   h -   Print this help message.\n";
+   msg += "   q -   exit menu\n";
+   msg += "\n";
+   cout << msg;
+   menu_output.push_back(msg);
+   timed_menu_display = 60;
 }
 
 /* ARGSUSED1 */
@@ -1165,26 +1392,30 @@ keyboard(unsigned char c, int x, int y)
       prefix += "   ";
    }
 
+   // timed display of in game menu output on button-press menu
+
    if (menu_depth != 0) { // go into menu mode
 
-      if (menu_depth == 37) { // this means we're taking input
-         if (c != 13 && c != 8) { // 13 is Enter
+      if (menu_depth == 37) { // menu 37 is cmd line input
+         if (c != 13 && c != 8 && c != 27) { // 13 is Enter
             // use a buffer to hold the input while writing the characters
             // to stdout.
             menu_input += c;
             cout << (int)c << "\n";
-            //glColor3f(1.0, 1.0, 1.0);
-            //glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, c);
          }
          else if (c == 8) { // backspace
             if (menu_input.size() > 3) {
                menu_input.resize(menu_input.size()-1);
             }
          }
+         else if (c == 27) { // ESC
+            menu_output.push_back("exiting menu");
+            menu_depth = 0;
+            timed_menu_display = 20;
+            draw_menu_lines = 20;
+            return;
+         }
          else  {
-            cout << selected_object << "# " << menu_input << "\n";
-            //menu_depth = 1;
-
             menu_input[0] = ' ';
             menu_input[1] = ' ';
 
@@ -1194,6 +1425,7 @@ keyboard(unsigned char c, int x, int y)
             vector<string> cmd_argv;
             string word;
             menu_input += " "; // laziness
+
             for (int z = 0; z < menu_input.size(); z++) {
                if (menu_input[z] == '\\') {
                   word += ' ';
@@ -1230,9 +1462,11 @@ keyboard(unsigned char c, int x, int y)
          return;
       }
 
-      cout << "\n*** Menu level: " << menu_depth;
-        cout << "  -  selected object: " << selected_object;
-      cout << "  -  time: " << mech.current_time << "\n";
+      string msg;
+      char buffer [100];
+      sprintf(buffer, "\n*** Menu level: %i", menu_depth); msg += buffer;
+      msg += "  -  selected object: " + selected_glob;
+      sprintf(buffer, "  -  time: %f\n", mech.current_time); msg += buffer;
 
       // run menu 1 level buttons
       if (c == 'p') {
@@ -1247,7 +1481,7 @@ keyboard(unsigned char c, int x, int y)
          cout << prefix;
          cout << "reset motion function for object " << selected_object;
          cout << "\n";
-         objs[selected_object].func_motion = NULL;
+         objs[selected_object].function = NULL;
       }
       if (c == 'c') {
          cout << prefix;
@@ -1261,6 +1495,7 @@ keyboard(unsigned char c, int x, int y)
       }
       if (c == 'e') {
          menu_depth = 37;
+         draw_menu_lines = 20;
          menu_input = "^> ";
          cout << prefix << "entering command mode:\n";
       }
@@ -1269,84 +1504,108 @@ keyboard(unsigned char c, int x, int y)
       }
       if (c == 'q') {
          cout << prefix << "exiting menu\n";
+         msg += prefix;
+         msg += "exiting menu\n";
          menu_depth = 0;
+         draw_menu_lines = 20;
       }
+      if (c == 27) {
+         cout << prefix << "exiting menu\n";
+         msg += prefix;
+         msg += "exiting menu\n";
+         menu_depth = 0;
+         timed_menu_display = 20;
+         draw_menu_lines = 20;
+      }
+      cout << msg;
+      menu_output.push_back(msg);
       return;
    }
 
-   Object spawned_test_object; // may need incase player presses b
+   // may need incase player presses b
+   Object tmp("object_1");
+   Glob spawn_glob(tmp);
 
    // gameplay level controls
+   char m0_buffer[100];
    if (c == 'h' | c == '?') {
-      cout << "\n   Controls:\n";
-      cout << "      b -             spawn a cube\n";
-      cout << "      v -             spawn a vertice\n";
-      cout << "      i j k l y n -   move selected cube\n";
-      cout << "      u o -           stretch selected cube\n";
-      cout << "      0-9 -           select cube\n";
-      cout << "      m -             open menu\n";
+      menu_output.push_back("\n   Controls:\n");
+      menu_output.push_back("      m -             open menu");
+      menu_output.push_back("      b -             spawn a cube");
+      menu_output.push_back("      v -             spawn a vertice");
+      menu_output.push_back("      i j k l y n -   move selected cube");
+      menu_output.push_back("      u o -           stretch selected cube");
+      menu_output.push_back("      0-9 -           select cube");
+      menu_output.push_back("      +/- -           add or subtract number of points drawn\n");
+      
+      timed_menu_display = 60;
    }
    if (c == 'e') {
       menu_input = "^> ";
       menu_depth = 37;
+      draw_menu_lines = 25;
    }
    if (c == 'b') {
-      string id = "spawned_object_";
-      cout << prefix;
-      cout << "spawning random object: " << id << objs.size();
-        cout << "\n";
-      if (objs.size() < 9)
-         id.push_back((char)(objs.size() + 48));
-      else
-         id += "n";
-      spawned_test_object.id = id;
-      spawned_test_object.setConstQ("m", 1);
-      switch (rand() % 3) {
-      case 0:
-         cout << "1!\n";
-         spawned_test_object.func_motion = random_motion;
-         break;
-      case 1:
-         cout << "2!\n";
-         spawned_test_object.func_motion = random_motion_2;
-         break;
-      case 2:
-         cout << "2!\n";
-         spawned_test_object.func_motion = random_motion_2;
-         break;
-      }
-      for (int i = 0; i < 6; i++) {
-         // set the default color
-         spawned_test_object.faceColors[i][0] = 0.8;//rand() % 100 / 100.0;
-         spawned_test_object.faceColors[i][1] = 0.8;//rand() % 100 / 100.0;
-         spawned_test_object.faceColors[i][2] = 0.8;//rand() % 100 / 100.0;
-      }
-      spawned_test_object.translate_by(
-         (GLfloat) \
-         (cam.getX() + (cos(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*7.0),
-         (GLfloat) \
-         (cam.getY() + sin(-cam.getAY())*7.0 - 1.0),
-         (GLfloat) \
-      (cam.getZ() + (sin(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*7.0));
+      string id ;
+      char n[100];
+      sprintf(n, "spawned_g_object_%i", gs.size());
+      id = n;
 
-      spawned_test_object.c_qs["posi"][0] = spawned_test_object.cube[0][0];
-      spawned_test_object.c_qs["posi"][1] = spawned_test_object.cube[0][1];
-      spawned_test_object.c_qs["posi"][2] = spawned_test_object.cube[0][2];
+      cout << prefix;
+      cout << "spawning glob object: " << id << "\n";
+
+      string msg = prefix;
+      msg += "spawning glob object: " + id + "\n";
+      menu_output.push_back(msg);
+      draw_menu_lines = 2;
+      timed_menu_display = 60;
+
+
+      spawn_glob.id = id;
+      spawn_glob.objs["object_1"].setConstQ("m", 1);
+
+      //switch (rand() % 3) {
+      //case 0:
+      //   cout << "1!\n";
+      //   spawned_test_object.function = random_motion;
+      //   break;
+      //case 1:
+      //   cout << "2!\n";
+      //   spawned_test_object.function = random_motion_2;
+      //   break;
+      //case 2:
+      //   cout << "2!\n";
+      //   spawned_test_object.function = random_motion_2;
+      //   break;
+      //}
+
+      GLfloat nx, ny, nz;
+      cam.pos_in_los(SD, nx, ny, nz);
+
+      spawn_glob.translate_by(nx, ny, nz);
+      gs[spawn_glob.id] = spawn_glob;
+
    }
-   if (c == 'v') { // add a vector to the terrain
-      GLfloat tmp[3] = {
-         (GLfloat) \
-         (cam.getX() + (cos(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*2.0),
-         (GLfloat) \
-         (cam.getY() + sin(-cam.getAY())*2.0),
-         (GLfloat) \
-         (cam.getZ() + (sin(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*2.0)
-      };
-      terrain.push_back(tmp);
-      cout << prefix << "set vertice at (" << tmp[0] << ", " << tmp[1];
-      cout << ", " << tmp[2] << ")\n";
+   if (c == '+') { // add to draw_x_vertices
+      draw_x_vertices++;
+      sprintf(m0_buffer, "draw_x_vertices: %i", draw_x_vertices);
+      string msg = m0_buffer;
+      cout << msg << "\n";
+      menu_output.push_back(msg);
+      timed_menu_display = 60;
       return;
    }
+   if (c == '-') { // subtract from draw_x_vertices
+      if (draw_x_vertices > -1) draw_x_vertices--;
+      sprintf(m0_buffer, "draw_x_vertices: %i", draw_x_vertices);
+      string msg = m0_buffer;
+      cout << msg << "\n";
+      menu_output.push_back(msg);
+      timed_menu_display = 60;
+      return;
+   }
+
+   Vertex center;
 
 
    switch (c) {
@@ -1362,48 +1621,71 @@ keyboard(unsigned char c, int x, int y)
       glutPostRedisplay();
       break;
    case 'i':
-      objs[selected_object].translate_by(0, 0, -0.1);
+      gs[selected_glob].translate_by(0, 0, -0.1);
       break;
    case 'j':
-      objs[selected_object].translate_by(-0.1, 0, 0);
+      gs[selected_glob].translate_by(-0.1, 0, 0);
       break;
    case 'k':
-      objs[selected_object].translate_by(0, 0, 0.1);
+      gs[selected_glob].translate_by(0, 0, 0.1);
       break;
    case 'l':
-      objs[selected_object].translate_by(0.1, 0, 0);
+      gs[selected_glob].translate_by(0.1, 0, 0);
       break;
    case 'y':
-      objs[selected_object].translate_by(0, 0.1, 0);
+      gs[selected_glob].translate_by(0, 0.1, 0);
       break;
    case 'n':
-      objs[selected_object].translate_by(0, -0.1, 0);
+      gs[selected_glob].translate_by(0, -0.1, 0);
       break;
-
    case 'o':
-      objs[selected_object].scale_by(1.1, 1.1, 1.1);
+//      gs[selected_glob].scale_by(1.1, 1.1, 1.1);
       break;
    case 'u':
-      objs[selected_object].scale_by(0.9, 0.9, 0.9);
+//      gs[selected_glob].scale_by(0.9, 0.9, 0.9);
       break;
-   case 'b':
-      objs.push_back(spawned_test_object);
-      selected_object = objs.size() - 1;
+   case 'I':
+      gs[selected_glob].rotate_abt_center(7.0*(M_PI/4.0), 0.0, 0.0);
       break;
-   case 'm':
+   case 'J':
+      gs[selected_glob].rotate_abt_center(0.0, M_PI/4.0, 0.0);
+      break;
+   case 'K':
+      gs[selected_glob].rotate_abt_center(M_PI/4.0, 0.0, 0.0);
+      break;
+   case 'L':
+      gs[selected_glob].rotate_abt_center(0.0, 7.0*(M_PI/4.0), 0.0);
+      break;
+   case 'U':
+      gs[selected_glob].rotate_abt_center(0.0, 0.0, M_PI/4.0);
+      break;
+   case 'O':
+      gs[selected_glob].rotate_abt_center(0.0, 0.0, 7.0*(M_PI/4.0));
+      break;
    case '`':
       menu_depth = 1;
       menu_1_help();
       break;
-
-//   case 'c':
-//      cam.Move(DOWN);
-//      break;
-//   case ' ':
-//      cam.Move(UP);
-//      break;
-   default:
-      if (c == '1' || c == '2' || c == '3' || c == '4' || c == '5' || c == '0')
+   case '1':
+      selector_function = "select";
+      menu_output.push_back("mouse function: select");
+      draw_menu_lines = 1;
+      timed_menu_display = 50;
+      break;
+   case '2':
+      selector_function = "remove";
+      menu_output.push_back("mouse function: remove");
+      draw_menu_lines = 1;
+      timed_menu_display = 50;
+      break;
+   case '3':
+      selector_function = "build";
+      menu_output.push_back("mouse function: build");
+      draw_menu_lines = 1;
+      timed_menu_display = 50;
+      break;
+   default: // hotkeys
+      if (c == '4' || c == '5' || c == '0')
          selected_object = (int)c - 48;
       else
          cam.pressKey(c);
@@ -1426,4 +1708,97 @@ resize(int w, int h)
   glViewport(0, 0, w, h);
   setMatrix(w, h);
 }
-      
+
+Tetrahedron generate_tetra_from_side(
+      Tetrahedron& source_tetra, int source_face) {
+
+   Tetrahedron new_tetra;
+   // reflect opposite point across selected side
+
+   // temporary vector placed at position of opposite point
+   Vertex opp_v;
+   // get the index of the vertex that is reflected
+   int opp_v_i = 4;
+   if (source_face == 0) opp_v_i = 3;
+   if (source_face == 1) opp_v_i = 2;
+   if (source_face == 2) opp_v_i = 1;
+   if (source_face == 3) opp_v_i = 0;
+
+   opp_v = source_tetra.points[opp_v_i];
+
+//   cout << "opposite vertex: " << opp_v_i << "\n";
+
+   // use 2 lines from source face to reflect opp_v_i across plane
+
+   Vertex tnorm;
+   Vertex tpa = source_tetra.points[source_tetra.faceIndex[source_face][0]];
+   Vertex tpb = source_tetra.points[source_tetra.faceIndex[source_face][1]];
+   Vertex tpc = source_tetra.points[source_tetra.faceIndex[source_face][2]];
+   tnorm = ((tpb - tpa).cross(tpc - tpa)).normalize();
+
+   Vertex u;
+   u.x = (opp_v.dot(tnorm) - tnorm.dot(tpa)) * tnorm.x;
+   u.y = (opp_v.dot(tnorm) - tnorm.dot(tpa)) * tnorm.y;
+   u.z = (opp_v.dot(tnorm) - tnorm.dot(tpa)) * tnorm.z;
+   Vertex v = opp_v - u;
+
+   Vertex new_v = v - u;
+
+//   cout << "tnorm: "
+//   << tnorm.x << ", " << tnorm.y << ", " << tnorm.z << "\n";
+//   cout << "new_v: "
+//   << new_v.x << ", " << new_v.y << ", " << new_v.z << "\n";
+//   cout << "opp_v: "
+//   << opp_v.x << ", "
+//   << opp_v.y << ", " << opp_v.z << "\n";
+   //Sphere opp_v_sphere(opp_v.x, opp_v.y, opp_v.z, 0.0369, 0.4, 0.8, 0.6);
+   //sphrs.push_back(opp_v_sphere);
+   //Sphere new_v_sphere(new_v.x, new_v.y, new_v.z, 0.0369, 0.4, 0.8, 0.6);
+   //sphrs.push_back(new_v_sphere);
+
+   // loop through source face indices copy points for each face
+   
+   if (source_face == 0) {
+      new_tetra.points[0] = 
+         source_tetra.points[source_tetra.faceIndex[source_face][1]];
+      new_tetra.points[1] =
+         source_tetra.points[source_tetra.faceIndex[source_face][0]];
+      new_tetra.points[2] =
+         source_tetra.points[source_tetra.faceIndex[source_face][2]];
+      new_tetra.points[3] = new_v;
+   }
+   if (source_face == 1) {
+      new_tetra.points[0] = 
+         source_tetra.points[source_tetra.faceIndex[source_face][1]];
+      new_tetra.points[1] =
+         source_tetra.points[source_tetra.faceIndex[source_face][0]];
+      new_tetra.points[2] = new_v;
+
+      new_tetra.points[3] = 
+         source_tetra.points[source_tetra.faceIndex[source_face][2]];
+
+   }
+   if (source_face == 2) {
+      new_tetra.points[0] = new_v;
+      new_tetra.points[1] =
+         source_tetra.points[source_tetra.faceIndex[source_face][0]];
+      new_tetra.points[2] =
+         source_tetra.points[source_tetra.faceIndex[source_face][1]];
+      new_tetra.points[3] = 
+         source_tetra.points[source_tetra.faceIndex[source_face][2]];
+
+   }
+   if (source_face == 3) {
+      new_tetra.points[0] =
+         source_tetra.points[source_tetra.faceIndex[source_face][0]];
+      new_tetra.points[1] = new_v;
+
+      new_tetra.points[2] =
+         source_tetra.points[source_tetra.faceIndex[source_face][1]];
+      new_tetra.points[3] = 
+         source_tetra.points[source_tetra.faceIndex[source_face][2]];
+
+   }
+
+   return new_tetra;
+}

@@ -206,6 +206,7 @@ tools::Error MapGen_random(MapSection& ms) {
          return MapGen_bg_random(ms);
          break;
    }
+   return NULL;
 }
 
 int Map::section_i_loaded(int x, int y, int z) {

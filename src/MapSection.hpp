@@ -10,7 +10,7 @@
 #include "tools.hpp"
 
 #include <GL/glut.h>
-#include <glm/core/type_vec.hpp>
+//#include <glm/detail/type_vec3.hpp>
 #include "Block.hpp"
 #include "Camera.hpp"
 #include "Q.hpp"

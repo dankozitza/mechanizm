@@ -48,14 +48,14 @@ tools::Error mechanizm::run(double seconds, double skip, double tick) {
 
       current_time += tick;
       for (int i = 0; i < objects->size(); ++i) {
-         if (objects->at(i).func_motion == NULL) {
+         if (objects->at(i).function == NULL) {
 
 //            cout << "func motion for object: `";
 //            cout << objects->at(i).id.c_str();
 //            cout << "` is NULL!\n";
             continue;//return NULL;
          }
-         e = objects->at(i).func_motion(current_time, objects->operator[](i));
+         e = objects->at(i).function(current_time, objects->operator[](i));
          if (e != NULL) {
             return tools::errorf(
                   "mechanizm::run: at %d seconds object %s returned error %s",
