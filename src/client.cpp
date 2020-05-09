@@ -734,8 +734,6 @@ void draw_cam_spheres() {
          i = MAP.section_i_loaded(sidx, sidy, sidz);
       }
 
-//cout << "MAP SECTION " << sidx << "," << sidy << "," << sidz << "\n";
-
       if (i != -1) { // check the block array
          int bidx = floorf(nsx) - sidx;
          int bidy = floorf(nsy) - sidy;
@@ -872,7 +870,6 @@ void draw_menu_output(float x, float y, float z, void *font) {
    }
 }
 
-   
 void drawScene(void) {
    int i;
 
@@ -913,24 +910,6 @@ void drawScene(void) {
       DRAW_GLUT_MENU = false;
    }
 
-//   // draw a simple grid
-//   glColor3f(1.0, 1.0, 1.0);
-//   glBegin(GL_LINES);
-//   for (GLfloat i = -30; i <= 30; i += 0.25) {
-//      if (mech.current_time > i + 40.0) {
-//      glVertex3f(i, 0, 30); glVertex3f(i, 0, -30);
-//      glVertex3f(30, 0, i); glVertex3f(-30, 0, i);
-//      }
-//   }
-//   glEnd();
-
-//   for (int j = 0; j < objs.size(); ++j) {
-//      glRotatef(objs[j].ax, 1.0, 0.0, 0.0);
-//      glRotatef(-objs[j].ay, 0.0, 1.0, 0.0);
-//   }
-
-   /* all the good stuff follows */
-
    glEnable(GL_STENCIL_TEST);
    glClear(GL_STENCIL_BUFFER_BIT);
    glStencilMask(1);
@@ -960,7 +939,6 @@ void drawScene(void) {
          }
       }
       if (objs[j].shape == "tetrahedron") {
-         //glColor3f(rand() % 100 / 100.0, rand() % 100 / 100.0, rand() % 100 / 100.0);
          drawFilledTetrahedron(j);
       }
    }
@@ -1726,10 +1704,7 @@ Tetrahedron generate_tetra_from_side(
 
    opp_v = source_tetra.points[opp_v_i];
 
-//   cout << "opposite vertex: " << opp_v_i << "\n";
-
    // use 2 lines from source face to reflect opp_v_i across plane
-
    Vertex tnorm;
    Vertex tpa = source_tetra.points[source_tetra.faceIndex[source_face][0]];
    Vertex tpb = source_tetra.points[source_tetra.faceIndex[source_face][1]];
@@ -1743,18 +1718,6 @@ Tetrahedron generate_tetra_from_side(
    Vertex v = opp_v - u;
 
    Vertex new_v = v - u;
-
-//   cout << "tnorm: "
-//   << tnorm.x << ", " << tnorm.y << ", " << tnorm.z << "\n";
-//   cout << "new_v: "
-//   << new_v.x << ", " << new_v.y << ", " << new_v.z << "\n";
-//   cout << "opp_v: "
-//   << opp_v.x << ", "
-//   << opp_v.y << ", " << opp_v.z << "\n";
-   //Sphere opp_v_sphere(opp_v.x, opp_v.y, opp_v.z, 0.0369, 0.4, 0.8, 0.6);
-   //sphrs.push_back(opp_v_sphere);
-   //Sphere new_v_sphere(new_v.x, new_v.y, new_v.z, 0.0369, 0.4, 0.8, 0.6);
-   //sphrs.push_back(new_v_sphere);
 
    // loop through source face indices copy points for each face
    
