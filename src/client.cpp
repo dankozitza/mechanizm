@@ -212,16 +212,6 @@ int main(int argc, char *argv[]) {
          "Exit the command line.",
          "e");
 
-
-   Object test_object_1("test_object_1", 1, NULL);
-   Vertex center;
-   test_object_1.tetra.center(center);
-   test_object_1.tetra.translate_by(-center.x, -center.y, -center.z);
-   test_object_1.tetra.center(center);
-   cout << "Spawning block " << test_object_1.id << ". center: "
-        << center.x << ", " << center.y << ", " << center.z << "\n";
-   objs.push_back(test_object_1);
-
    // build the map around origin
    MAP.load_section_list();
    //MAP.update(0.0, 0.0, 0.0, CMSQ);

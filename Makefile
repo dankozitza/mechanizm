@@ -1,10 +1,10 @@
-# 745b81284aaa88843b4da56e9d3bed8e
+# 5296fa2379dc1a0374e59b0b8ec8c94d
 # Generated with vfnmkmc by the mc program.
 PREFIX=/usr/local
 CFLAGS=-O$(O)  -std=c++11
 O=2
 LFLAGS= -l GL -l GLU -l glut -l jsoncpp
-OBJS=objs/Block.o objs/Map.o objs/Glob.o objs/Sphere.o objs/scratch.o objs/client.o objs/mechanizm.o objs/Triangle.o objs/Object.o objs/commands.o objs/Tetrahedron.o objs/options.o objs/Camera.o objs/Vertex.o objs/MapSection.o objs/Side.o objs/ogl_utils.o objs/system.o objs/vectors.o objs/strings.o objs/json_utils.o objs/pcre_utils.o objs/utils.o objs/doubles.o objs/radix.o
+OBJS=objs/Block.o objs/Map.o objs/Glob.o objs/Sphere.o objs/client.o objs/mechanizm.o objs/Triangle.o objs/Object.o objs/commands.o objs/Tetrahedron.o objs/options.o objs/Camera.o objs/Vertex.o objs/MapSection.o objs/Side.o objs/ogl_utils.o objs/system.o objs/vectors.o objs/strings.o objs/json_utils.o objs/pcre_utils.o objs/utils.o objs/doubles.o objs/radix.o
 
 
 .PHONY: all
@@ -29,13 +29,10 @@ objs/Glob.o: src/Glob.cpp src/Glob.hpp src/tools.hpp src/Vertex.hpp \
 objs/Sphere.o: src/Sphere.cpp src/Sphere.hpp
 	@ echo "    CXX  src/Sphere.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Sphere.cpp" -o $@
-objs/scratch.o: src/scratch.cpp
-	@ echo "    CXX  src/scratch.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/scratch.cpp" -o $@
 objs/client.o: src/client.cpp src/commands.hpp src/tools.hpp src/Vertex.hpp \
  src/mechanizm.hpp src/Object.hpp src/Tetrahedron.hpp src/Triangle.hpp \
- src/options.hpp src/Camera.hpp src/Sphere.hpp src/Side.hpp src/Block.hpp \
- src/MapSection.hpp src/Q.hpp src/Map.hpp
+ src/options.hpp src/Camera.hpp src/Glob.hpp src/Sphere.hpp src/Side.hpp \
+ src/Block.hpp src/MapSection.hpp src/Q.hpp src/Map.hpp
 	@ echo "    CXX  src/client.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/client.cpp" -o $@
 objs/mechanizm.o: src/mechanizm.cpp src/mechanizm.hpp src/tools.hpp \
