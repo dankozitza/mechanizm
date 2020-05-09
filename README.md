@@ -1,6 +1,6 @@
 # mechanizm
 
-A motion simulator.
+A block building game.
 
 ### Controls
 
