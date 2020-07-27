@@ -71,3 +71,9 @@ void Triangle::translate_by(GLfloat add_pnts[3]) {
 //   points[vertex_index][1] *= y;
 //   points[vertex_index][2] *= z;
 //}
+
+void Triangle::center(Vertex& c) {
+   c[0] = (*pnts[0][0] + *pnts[1][0] + *pnts[2][0]) / 3.0;
+   c[1] = (*pnts[0][1] + *pnts[1][1] + *pnts[2][1]) / 3.0;
+   c[2] = (*pnts[0][2] + *pnts[1][2] + *pnts[2][2]) / 3.0;
+}

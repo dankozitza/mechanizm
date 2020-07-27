@@ -93,6 +93,7 @@ namespace tools {
    // ogl_utils.cpp
    bool line_intersects_triangle(
          Vertex line[2], Vertex tri[3], Vertex* point);
+   bool verts_within_eps(Vertex v1, Vertex v2, GLfloat eps);
 }
 
 #endif

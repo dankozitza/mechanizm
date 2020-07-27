@@ -319,18 +319,28 @@ void cmd_grow(vector<string>& argv) {
       string id = buffer;
       Object o(id);
 
-      auto oit = gs[gi].objs.begin();
-      int robji = rand() % gs[gi].objs.size() - 1;
-      while (robji > 0) {robji--; oit++;}
-      string robjkey = oit->first;
+      string robjkey;
+      bool has_sides = false;
+      while (has_sides == false) {
+
+         auto oit = gs[gi].objs.begin();
+         int robji = rand() % gs[gi].objs.size();
+         while (robji > 0) {robji--; oit++;}
+         robjkey = oit->first;
+
+         if (gs[gi].objs[robjkey].tetra.vis_faces.size() != 0) {
+            has_sides = true;
+         }
+      }
+
 
       string msg = "growing object: " + robjkey;
       menu_output.push_back(msg);
 
-      int rvfacei = rand() % gs[gi].objs[robjkey].tetra.vis_faces.size() - 1;
+      int rvfacei = rand() % gs[gi].objs[robjkey].tetra.vis_faces.size();
       int rfacei = gs[gi].objs[robjkey].tetra.vis_faces[rvfacei];
       o.tetra = generate_tetra_from_side(
-                     oit->second.tetra, rfacei);
+                     gs[gi].objs[robjkey].tetra, rfacei);
 
       gs[gi].attach(robjkey, rfacei, o);
    }

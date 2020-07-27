@@ -32,6 +32,8 @@ class Triangle {
       void translate_by(GLfloat add_points[3]);
       //multiply_by(GLfloat x, GLfloat y, GLfloat z);
       //multiply_vert_by(int vertex_index, GLfloat x, GLfloat y, GLfloat);
+      
+      void center(Vertex& c);
 };
 
 #endif

@@ -1,4 +1,4 @@
-// 
+//
 // Glob.cpp
 //
 // Created by Daniel Kozitza
@@ -59,16 +59,13 @@ Vertex Glob::center() {
 tools::Error Glob::attach(
       string source_id, int source_face, Object& new_obj) {
 
-   //remove interior faces from vis_faces index
-   for (auto it = objs[source_id].tetra.vis_faces.begin();
-            it != objs[source_id].tetra.vis_faces.end(); it++) {
-
-      if (*it == source_face) { //objs[source_id].tetra.vis_faces[i] == source_face) {
-         objs[source_id].tetra.vis_fbools[*it] = false;
-         objs[source_id].tetra.vis_faces.erase(it);
-         break;
+   vector<int> newvf(0);
+   for (int vfi = 0; vfi < objs[source_id].tetra.vis_faces.size(); vfi++) {
+      if (objs[source_id].tetra.vis_faces[vfi] != source_face) {
+         newvf.push_back(objs[source_id].tetra.vis_faces[vfi]);
       }
    }
+   objs[source_id].tetra.set_vis_faces(newvf);
 
    int new_obj_face;
    if (source_face == 0) new_obj_face = 0;
@@ -76,16 +73,15 @@ tools::Error Glob::attach(
    else if (source_face == 2) new_obj_face = 3;
    else if (source_face == 3) new_obj_face = 2;
 
-   // remove interior faces from vis_faces index
-   for (auto it2 = new_obj.tetra.vis_faces.begin();
-            it2 != new_obj.tetra.vis_faces.end(); it2++) {
-
-      if (*it2 == new_obj_face) { //new_obj.tetra.vis_faces[i] == new_obj_face) {
-         new_obj.tetra.vis_fbools[*it2] = false;
-         new_obj.tetra.vis_faces.erase(it2);
-         break;
+   vector<int> novfs;
+   for (int nvfi = 0;
+            nvfi < new_obj.tetra.vis_faces.size();
+            nvfi++) {
+      if (new_obj.tetra.vis_faces[nvfi] != new_obj_face) {
+         novfs.push_back(new_obj.tetra.vis_faces[nvfi]);
       }
    }
+   new_obj.tetra.set_vis_faces(novfs);
 
    objs[new_obj.id] = new_obj;
 
@@ -94,20 +90,15 @@ tools::Error Glob::attach(
 
 tools::Error Glob::attach_interior_sides(string new_obj_id) {
 
-   // remove vis_faces
    for (auto objit = objs.begin(); objit != objs.end(); objit++) {
 
       if (objit->first == new_obj_id) continue;
+      string objid = objit->first;
+      vector<int> remove_vfs;
 
-      //cout << "other vis faces:\n";
-      //cout << objs[objit->first].tetra.vis_faces.size() << "\n";
-      for (auto ovfit = objs[objit->first].tetra.vis_faces.begin();
-            ovfit != objs[objit->first].tetra.vis_faces.end(); ovfit++) {
+      for (int ovfi = 0; ovfi < objs[objid].tetra.vis_faces.size(); ovfi++) {
 
-      //for (auto vfit = objs[new_obj_id].tetra.vis_faces.begin();
-      //      vfit != objs[new_obj_id].tetra.vis_faces.end(); vfit++) {
-
-         int ofi = objs[objit->first].tetra.vis_faces[*ovfit];
+         int ofi = objs[objid].tetra.vis_faces[ovfi];
          int nfi;
 
          if (ofi == 0) nfi = 0;
@@ -115,24 +106,58 @@ tools::Error Glob::attach_interior_sides(string new_obj_id) {
          else if (ofi == 2) nfi = 3;
          else if (ofi == 3) nfi = 2;
 
-         string oid = objit->first;
+         // get center points of both faces
+         Vertex ocenter;
+         objs[objid].tetra.face[ofi].center(ocenter);
 
-         if (objs[new_obj_id].tetra.vis_fbools[nfi] == true) {
-            cout << "new object has side!\n";
+         Vertex ncenter;
+         objs[new_obj_id].tetra.face[nfi].center(ncenter);
+
+         // check distance between centers of faces
+         if (verts_within_eps(ocenter, ncenter, (GLfloat)0.05)) {
+
+            // remove faces that are attached and still visible
+            if (objs[new_obj_id].tetra.vis_fbools[nfi] == true) {
+
+               objs[new_obj_id].tetra.vis_fbools[nfi] = false;
+
+               vector<int> nnvfs;
+               for (int nvfi = 0;
+                        nvfi < objs[new_obj_id].tetra.vis_faces.size();
+                        nvfi++) {
+                  if (objs[new_obj_id].tetra.vis_faces[nvfi] != nfi) {
+                     nnvfs.push_back(objs[new_obj_id].tetra.vis_faces[nvfi]);
+                  }
+               }
+               objs[new_obj_id].tetra.set_vis_faces(nnvfs);
+            }
+
+            if (objs[objid].tetra.vis_fbools[ofi] == true) {
+               remove_vfs.push_back(ovfi);
+            }
          }
 
-         int npi = objs[new_obj_id].tetra.faceIndex[nfi][0];
-         int opi = objs[oid].tetra.faceIndex[ofi][0];
+      } // end ovfi loop
 
-         cout << "other object id: " << oid << "\n";
-         cout << "other face index:"
-              << ofi << ", new face index: " << nfi << "\n";
-         cout << "opi: " << opi << ", npi: " << npi << "\n";
+      // rebuild vis_face vectors
+      for (int rvfi = 0; rvfi < remove_vfs.size(); rvfi++) {
 
-         //for (auto vfit = objs[new_obj_id].tetra.vis_faces.begin();
-         //   vfit != objs[new_obj_id].tetra.vis_faces.end(); vfit++) {
+         int remove_vfi = remove_vfs[rvfi];
+         vector<int> novfs;
 
-         //}
+         for (int tvfi = 0;
+            tvfi < objs[objid].tetra.vis_faces.size(); tvfi++) {
+
+            if (tvfi != remove_vfi) {
+               novfs.push_back(objs[objid].tetra.vis_faces[tvfi]);
+            }
+            else {
+               objs[objid].tetra.vis_fbools[
+                  objs[objid].tetra.vis_faces[tvfi]
+               ] = false;
+            }
+         }
+         objs[objid].tetra.set_vis_faces(novfs);
       }
    }
 
@@ -173,5 +198,5 @@ void Glob::rotate_abt_center(GLfloat ax, GLfloat ay, GLfloat az) {
    Vertex v = center();
    for (auto it = objs.begin(); it != objs.end(); it++) {
       it->second.tetra.rotate_abt_vert(v, ax, ay, az);
-   }  
+   }
 }

@@ -4,6 +4,7 @@
 // Created by Daniel Kozitza
 //
 
+
 #include "Tetrahedron.hpp"
 
 Vertex init_v_tetra[4] = {
@@ -128,13 +129,14 @@ void Tetrahedron::set_face(const Triangle new_face[4]) {
    }
 }
 
-void Tetrahedron::set_vis_faces(vector<int> vvfi) {
+void Tetrahedron::set_vis_faces(const vector<int> vvfi) {
    vis_faces.clear();
+   vis_faces.resize(vvfi.size());
    vis_fbools.clear();
-   vis_fbools.resize(4);
+   vis_fbools.resize(4, false);
    for (int fi = 0; fi < vvfi.size(); fi++) {
       vis_fbools[vvfi[fi]] = true;
-      vis_faces.push_back(vvfi[fi]);
+      vis_faces[fi] = vvfi[fi];
    }
 }
 
