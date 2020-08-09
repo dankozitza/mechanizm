@@ -35,8 +35,27 @@ Glob::Glob(Object& obj) {
 
 void Glob::initialize(Object& obj) {
    objs.clear();
+   vis_objs.clear();
    objs[obj.id] = obj;
+   vis_objs.push_back(obj.id);
    center_offset = obj.tetra.points[0] - obj.tetra.center();
+}
+
+void Glob::set_vis_objs(vector<string>& new_vis_objs) {
+   vis_objs.resize(new_vis_objs.size());
+   for (int voi = 0; voi < new_vis_objs.size(); voi++) {
+      vis_objs[voi] = new_vis_objs[voi];
+   }
+}
+
+void Glob::remove_vis_obj(string obj_id) {
+   vector<string> nvos;
+   for (int voi = 0; voi < vis_objs.size(); voi++) {
+      if (vis_objs[voi] != obj_id) {
+         nvos.push_back(vis_objs[voi]);
+      }
+   }
+   set_vis_objs(nvos);
 }
 
 Vertex Glob::center() {
@@ -59,6 +78,12 @@ Vertex Glob::center() {
 tools::Error Glob::attach(
       string source_id, int source_face, Object& new_obj) {
 
+   if (verts_within_eps(objs[source_id].tetra.center(), new_obj.tetra.center(),
+       (GLfloat)0.05)) {
+      cout << "ERROR!!! new object intersects source object\n";
+      return error("ERROR!!! new object intersects source object\n");
+   }
+
    vector<int> newvf(0);
    for (int vfi = 0; vfi < objs[source_id].tetra.vis_faces.size(); vfi++) {
       if (objs[source_id].tetra.vis_faces[vfi] != source_face) {
@@ -66,6 +91,10 @@ tools::Error Glob::attach(
       }
    }
    objs[source_id].tetra.set_vis_faces(newvf);
+   if (objs[source_id].tetra.vis_faces.size() < 1) {
+      // remove source_id from vis_objs
+      remove_vis_obj(source_id);
+   }
 
    int new_obj_face;
    if (source_face == 0) new_obj_face = 0;
@@ -84,17 +113,28 @@ tools::Error Glob::attach(
    new_obj.tetra.set_vis_faces(novfs);
 
    objs[new_obj.id] = new_obj;
+   if (new_obj.tetra.vis_faces.size() > 0) vis_objs.push_back(new_obj.id);
 
    return attach_interior_sides(new_obj.id);
 }
 
 tools::Error Glob::attach_interior_sides(string new_obj_id) {
 
-   for (auto objit = objs.begin(); objit != objs.end(); objit++) {
+   for (int voit = 0; voit < vis_objs.size(); voit++) {
 
-      if (objit->first == new_obj_id) continue;
-      string objid = objit->first;
+      if (vis_objs[voit] == new_obj_id) continue;
+      string objid = vis_objs[voit];
       vector<int> remove_vfs;
+
+      if (verts_within_eps(objs[objid].tetra.center(),
+               objs[new_obj_id].tetra.center(), (GLfloat)0.05)) {
+         cout << "ERROR!!! new object intersects existing object\n";
+
+         remove_vis_obj(new_obj_id);
+         remove_vis_obj(objid);
+
+         return error("ERROR!!! new object intersects source object\n");
+      }
 
       for (int ovfi = 0; ovfi < objs[objid].tetra.vis_faces.size(); ovfi++) {
 
@@ -130,6 +170,10 @@ tools::Error Glob::attach_interior_sides(string new_obj_id) {
                   }
                }
                objs[new_obj_id].tetra.set_vis_faces(nnvfs);
+
+               if (objs[new_obj_id].tetra.vis_faces.size() < 1) {
+                  remove_vis_obj(new_obj_id);
+               }
             }
 
             if (objs[objid].tetra.vis_fbools[ofi] == true) {
@@ -158,6 +202,10 @@ tools::Error Glob::attach_interior_sides(string new_obj_id) {
             }
          }
          objs[objid].tetra.set_vis_faces(novfs);
+
+         if (objs[objid].tetra.vis_faces.size() < 1) {
+            remove_vis_obj(objid);
+         }
       }
    }
 

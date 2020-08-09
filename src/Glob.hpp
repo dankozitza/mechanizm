@@ -12,9 +12,9 @@
 #include <vector>
 #include <unordered_map>
 #include "tools.hpp"
-#include "Object.hpp"
 #include "Vertex.hpp"
 #include "Triangle.hpp"
+#include "Object.hpp"
 
 class Glob {
 
@@ -24,6 +24,7 @@ class Glob {
 
       string id;
       unordered_map<string, Object> objs;
+      vector<string> vis_objs;
       Vertex center_offset; // calculated on attach/detach
       string init_obj_id;
 
@@ -31,6 +32,8 @@ class Glob {
       Glob(Object& obj);
 
       void initialize(Object& init_obj);
+      void set_vis_objs(vector<string>& new_vis_objs);
+      void remove_vis_obj(string obj_id);
 
       Vertex center();
       tools::Error attach(

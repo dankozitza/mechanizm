@@ -28,7 +28,7 @@ class Camera {
 		void setY(float Y)					{ _Y = Y; }
 		void setZ(float Z)					{ _Z = Z; }
 		void translation();	
-      void pressKey(unsigned char c);
+      bool pressKey(unsigned char c);
       void pos_in_los(float distance, float& x, float& y, float& z);
 
 	private :

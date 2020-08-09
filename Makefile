@@ -1,18 +1,18 @@
-# 5296fa2379dc1a0374e59b0b8ec8c94d
+# e40b4c028add583c9ff5fd3ce7ff5e4f
 # Generated with vfnmkmc by the mc program.
 PREFIX=/usr/local
 CFLAGS=-O$(O)  -std=c++11
 O=2
 LFLAGS= -l GL -l GLU -l glut -l jsoncpp
-OBJS=objs/Block.o objs/Map.o objs/Glob.o objs/Sphere.o objs/client.o objs/mechanizm.o objs/Triangle.o objs/Object.o objs/commands.o objs/Tetrahedron.o objs/options.o objs/Camera.o objs/Vertex.o objs/MapSection.o objs/Side.o objs/ogl_utils.o objs/system.o objs/vectors.o objs/strings.o objs/json_utils.o objs/pcre_utils.o objs/utils.o objs/doubles.o objs/radix.o
+OBJS=objs/Block.o objs/Map.o objs/Glob.o objs/Sphere.o objs/mechanizm.o objs/mechanizm_game.o objs/Triangle.o objs/Object.o objs/commands.o objs/Tetrahedron.o objs/options.o objs/Camera.o objs/Vertex.o objs/MapSection.o objs/Side.o objs/ogl_utils.o objs/system.o objs/vectors.o objs/strings.o objs/json_utils.o objs/pcre_utils.o objs/utils.o objs/doubles.o objs/radix.o
 
 
 .PHONY: all
-all: objs client
+all: objs mechanizm_game
 
-./client:  $(OBJS)
-	@ echo "    LINK ./client"
-	@ $(CXX) $(OBJS) -o "./client" $(LFLAGS)
+./mechanizm_game:  $(OBJS)
+	@ echo "    LINK ./mechanizm_game"
+	@ $(CXX) $(OBJS) -o "./mechanizm_game" $(LFLAGS)
 
 objs/Block.o: src/Block.cpp src/Block.hpp src/Side.hpp src/tools.hpp \
  src/Vertex.hpp
@@ -29,16 +29,17 @@ objs/Glob.o: src/Glob.cpp src/Glob.hpp src/tools.hpp src/Vertex.hpp \
 objs/Sphere.o: src/Sphere.cpp src/Sphere.hpp
 	@ echo "    CXX  src/Sphere.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Sphere.cpp" -o $@
-objs/client.o: src/client.cpp src/commands.hpp src/tools.hpp src/Vertex.hpp \
- src/mechanizm.hpp src/Object.hpp src/Tetrahedron.hpp src/Triangle.hpp \
- src/options.hpp src/Camera.hpp src/Glob.hpp src/Sphere.hpp src/Side.hpp \
- src/Block.hpp src/MapSection.hpp src/Q.hpp src/Map.hpp
-	@ echo "    CXX  src/client.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/client.cpp" -o $@
 objs/mechanizm.o: src/mechanizm.cpp src/mechanizm.hpp src/tools.hpp \
  src/Vertex.hpp src/Object.hpp src/Tetrahedron.hpp src/Triangle.hpp
 	@ echo "    CXX  src/mechanizm.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/mechanizm.cpp" -o $@
+objs/mechanizm_game.o: src/mechanizm_game.cpp src/commands.hpp src/tools.hpp \
+ src/Vertex.hpp src/mechanizm.hpp src/Object.hpp src/Tetrahedron.hpp \
+ src/Triangle.hpp src/options.hpp src/Camera.hpp src/Glob.hpp \
+ src/Sphere.hpp src/Side.hpp src/Block.hpp src/MapSection.hpp src/Q.hpp \
+ src/Map.hpp
+	@ echo "    CXX  src/mechanizm_game.cpp"
+	@ $(CXX) $(CFLAGS) -c "src/mechanizm_game.cpp" -o $@
 objs/Triangle.o: src/Triangle.cpp src/Triangle.hpp src/Vertex.hpp
 	@ echo "    CXX  src/Triangle.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Triangle.cpp" -o $@
@@ -113,7 +114,7 @@ objs:
 c: clean
 clean:
 	@ if [ -d "objs" ]; then rm -r "objs"; fi
-	@ rm -f "./client"
+	@ rm -f "./mechanizm_game"
 	@ echo "    CLEAN"
 .PHONY: f fresh
 f: fresh
@@ -122,7 +123,7 @@ fresh: clean
 .PHONY: r run
 r: run
 run: all
-	@ ././client
+	@ ././mechanizm_game
 
 .PHONY: d debug
 d: debug
@@ -138,14 +139,14 @@ superclean: clean
 
 .PHONY: install
 install: all
-	@ install -D -m 755 client $(PREFIX)/bin/client
-	@ echo "[1;32m*[0m client installed in $(PREFIX)/bin"
-	@ echo "[1muse \`make uninstall\` to remove client[0m"
+	@ install -D -m 755 mechanizm_game $(PREFIX)/bin/mechanizm_game
+	@ echo "[1;32m*[0m mechanizm_game installed in $(PREFIX)/bin"
+	@ echo "[1muse \`make uninstall\` to remove mechanizm_game[0m"
 
 .PHONY: uninstall
 uninstall:
-	@ rm $(PREFIX)/bin/client
-	@ echo "[1;32m*[0m client removed from $(PREFIX)/bin[0m"
+	@ rm $(PREFIX)/bin/mechanizm_game
+	@ echo "[1;32m*[0m mechanizm_game removed from $(PREFIX)/bin[0m"
 
 .PHONY: check-syntax
 check-syntax:

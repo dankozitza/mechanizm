@@ -73,7 +73,7 @@ void Camera::setKeyboard(int i, bool etat) {
    _keyboard[i] = etat;
 }
 
-void Camera::pressKey(unsigned char c) {
+bool Camera::pressKey(unsigned char c) {
 
    if (c >= 'A' && c <= 'Z') { // convert to lower case
       c += 32;
@@ -90,7 +90,7 @@ void Camera::pressKey(unsigned char c) {
 		
 	}
 	
-	if(c == 'a') {
+   else if(c == 'a') {
       _keyboard[c] = true;
 
       //_X -= (cos(_AX) * cos(-_AY)) * _translationSpeed * _shift;
@@ -98,7 +98,7 @@ void Camera::pressKey(unsigned char c) {
 
 	}
 
-	if(c == 'w') {
+   else if(c == 'w') {
 	   _keyboard[c] = true;
 
       //_X += (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * _shift;
@@ -106,7 +106,7 @@ void Camera::pressKey(unsigned char c) {
       //_Z += (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * _shift;
 	}
  
-	if(c == 's') {
+   else if(c == 's') {
 	   _keyboard[c] = true;
 
       //_X -= (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * _shift;
@@ -114,7 +114,7 @@ void Camera::pressKey(unsigned char c) {
       //_Z -= (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * _shift;
 	}
    
-   if (c == ' ') {
+   else if (c == ' ') {
       _keyboard[c] = true;
       //_X -= (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * _shift;
       //_Y += cos(-_AY) * _translationSpeed * _shift;
@@ -122,14 +122,18 @@ void Camera::pressKey(unsigned char c) {
 
    }
 
-   if (c == 'c') {
+   else if (c == 'c') {
       _keyboard[c] = true;
       //_X += (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * _shift;
       //_Y -= cos(-_AY) * _translationSpeed * _shift;
       //_Z += (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * _shift;
 
    }
+   else {
+      return false;
+   }
 
+   return true;
 }
 
 // pos_in_los

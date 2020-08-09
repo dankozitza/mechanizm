@@ -1,7 +1,7 @@
 //
-// client.cpp
+// mechanizm_game.cpp
 //
-// Frontend for the mechanizm object.
+// Asteroid mining and block building game.
 //
 // Created by Daniel Kozitza
 //
@@ -24,15 +24,8 @@
 //#include <glm/detail/type_vec4.hpp>
 
 #include "Camera.hpp"
-#include "Glob.hpp"
-#include "Object.hpp"
+#include "Glob.hpp" // includes Vertex, Tetrahedron, & Object
 #include "Sphere.hpp"
-#include "Side.hpp"
-#include "Tetrahedron.hpp"
-#include "Vertex.hpp"
-#include "Block.hpp"
-#include "MapSection.hpp"
-#include "Map.hpp"
 
 
 using namespace tools;
@@ -45,7 +38,7 @@ void
    map_generation(void),
    animation(void),
    pricion(void),
-   hot_pause(void),
+   g_pause(void),
    draw_glut_menu(),
    menu(int choice),
    resize(int w, int h),
@@ -55,27 +48,23 @@ void
    keyboard_up(unsigned char c, int x, int y),
    motion(int x, int y),
    drawWireframe(int objs_index, int face),
-   drawFilled(int objs_index, int face),
-   drawFilledTetrahedron(int objs_index),
    drawVisibleTriangles(Tetrahedron& tetra),
    draw_circle(float cx, float cy, float r, int num_segments),
    draw_cam_spheres(),
    draw_sphere(Sphere& s),
    draw_spheres(),
-
    reset_sphere_distance();
 
-tools::Error random_motion(double t, Object &self);
-tools::Error random_motion_2(double t, Object &self);
-tools::Error spawned_motion(double t, Object &self);
-tools::Error tryhard_motion(double t, Object &self);
+tools::Error
+   random_motion(double t, Object &self),
+   random_motion_2(double t, Object &self),
+   spawned_motion(double t, Object &self),
+   tryhard_motion(double t, Object &self);
 
 Tetrahedron generate_tetra_from_side(Tetrahedron& source, int source_face);
 
-static vector<Object> objs;
 static unordered_map<string, Glob> gs;
 static vector<Sphere> sphrs;
-static int selected_object = 0;
 static string selected_glob;
 static long unsigned int gen_obj_cnt = 0;
 static string selector_function = "select";
@@ -89,35 +78,33 @@ int block_count = 1;
 int mouse_left_state = 1;
 
 // X Y Z theta (ax) psi (ay) rotationSpeed translationSpeed
-static Camera cam(2.0, 2.0, 3.5, 0.0, 0.0, 0.6, 0.0022);
+static Camera CAM(2.0, 2.0, 3.5, 0.0, 0.0, 0.6, 0.0022);
 
-static mechanizm mech;
+static mechanizm MECH;
 int count = 1; // cycles through 1/60th of a second
 
 commands IN_GAME_CMDS;
-map<string, string> CMDS_STORE; // values that can be set in-game
+map<string, string> CMDS_STORE;
+map<string, unsigned long> GAME_STATS;
 GLfloat SD; // current distance of the selection sphere
-bool SD_DONE = true; // tells draw_cam_spheres when to move selector
-
-Map MAP;
-//Q<Side> visible_sides;
-Q<MapSection> CMSQ;
-Q<Map::PidSid> PIDSIDQ;
+bool SD_DONE = true;
 
 bool DRAW_GLUT_MENU = false;
+
 // menu options
 bool MAP_GEN = false;
 bool ANIMATION = false;
-bool PRICION = false;
 
 // commands for the in-game cli
-void cmd_help(vector<string>& argv);
-void cmd_tp(vector<string>& argv);
-void cmd_set(vector<string>& argv);
-void cmd_select(vector<string>& argv);
-void cmd_grow(vector<string>& argv);
-void cmd_q(vector<string>& argv);
-void cmd_exit(vector<string>& argv);
+void
+   cmd_help(vector<string>& argv),
+   cmd_tp(vector<string>& argv),
+   cmd_set(vector<string>& argv),
+   cmd_select(vector<string>& argv),
+   cmd_grow(vector<string>& argv),
+   cmd_stat(vector<string>& argv),
+   cmd_load(vector<string>& argv),
+   cmd_exit(vector<string>& argv);
 
 int main(int argc, char *argv[]) {
 
@@ -129,13 +116,12 @@ int main(int argc, char *argv[]) {
    bool realtime   = false;
    bool time       = false;
    string file_path;
-   string time_int_str;
    string m[5];
    vector<string> args;
    Error e = NULL;
 
-   mech.set_objects(objs);
-   mech.current_time = 0.0;
+   //MECH.set_objects(objs);
+   MECH.current_time = 0.0;
 
    signal(SIGINT, signals_callback_handler);
 
@@ -143,7 +129,6 @@ int main(int argc, char *argv[]) {
    opt.handle('h', show_help);
    opt.handle('f', file_given, file_path);
    opt.handle('r', realtime);
-   opt.handle('t', time, time_int_str);
 
    for (int i = 1; i < argc; ++i)
       args.push_back(argv[i]);
@@ -164,6 +149,8 @@ int main(int argc, char *argv[]) {
    CMDS_STORE["n_click_speed"]         = "0.075";
    CMDS_STORE["n_click_max_distance"]  = "3.8";
    CMDS_STORE["n_click_distance"]      = "1.25";
+   CMDS_STORE["hotkey_g"] = "grow 1";
+   CMDS_STORE["hotkey_G"] = "grow 500";
    SD = 2.0;
 
    Sphere selector_sphere_1(0.0, 0.0, 0.0, 0.0369, 0.4, 0.8, 0.6);
@@ -201,10 +188,17 @@ int main(int argc, char *argv[]) {
          "grow [x]");
 
    IN_GAME_CMDS.handle(
-         "q",
-         cmd_q,
-         "Quit to menu.",
-         "q");
+         "stats",
+         cmd_stat,
+         "Display game stats.",
+         "stats");
+
+   IN_GAME_CMDS.handle(
+         "load",
+         cmd_load,
+         "Load an object into the game.",
+         "load [name] [x] [y] [z]",
+         "Options:\n   -m [sizex] [sizey] [sizez] [randx] [randy] [randz]\n\nload a matrix of objects centered at x,y,z with dimentions\nsizex, sizey, sizez. randx, randy, and randz are floats from\n0 to 1 that describe the likelyhood of an object being loaded\nat each whole number cross section.");
 
    IN_GAME_CMDS.handle(
          "e",
@@ -212,32 +206,18 @@ int main(int argc, char *argv[]) {
          "Exit the command line.",
          "e");
 
-   // build the map around origin
-   MAP.load_section_list();
-   //MAP.update(0.0, 0.0, 0.0, CMSQ);
-
-   cout << "MAP.ms.size(): " << MAP.ms.size() << "\n";
-   MapSection* ms = MAP.ms.get_item_ptr();
-
-   //for (int z = 0; z < MAP.ms.size(); ++z) { // loop through map sections
-   //   cout << ms->sid[0] << " " << ms->sid[1] << " " << ms->sid[2] << "\n";
-   //   ms->populate_visible_sides(visible_sides, cam);
-   //   MAP.ms.increment_item_ptr();
-   //   ms = MAP.ms.get_item_ptr();
-   //}
-
    glEnable(GL_BLEND);
    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-   int fake = 0;
-   char** fake2;
-   glutInit(&fake, fake2);
+   int glinit = 0;
+   char** glinit2;
+   glutInit(&glinit, glinit2);
 
    glutInitWindowSize(700, 500);
    glutInitDisplayMode(GLUT_RGB | GLUT_STENCIL | GLUT_DOUBLE | GLUT_DEPTH);
    glutCreateWindow("Mechanizm");
 
-   glutIdleFunc(hot_pause);
+   glutIdleFunc(g_pause);
    glutDisplayFunc(drawScene);
    glutMouseFunc(mouse);
    glutPassiveMotionFunc(mouse_passive);
@@ -260,9 +240,9 @@ void cmd_help(vector<string>& argv) {
 }
 
 void cmd_tp(vector<string>& argv) {
-   cam.setX(as_double(argv[0]));
-   cam.setY(as_double(argv[1]));
-   cam.setZ(as_double(argv[2]));
+   CAM.setX(as_double(argv[0]));
+   CAM.setY(as_double(argv[1]));
+   CAM.setZ(as_double(argv[2]));
 }
 
 void cmd_set(vector<string>& argv) {
@@ -296,10 +276,7 @@ void cmd_set(vector<string>& argv) {
 }
 
 void cmd_select(vector<string>& argv) {
-   menu_output.push_back("you ran select!");
-   for (int z = 0; z < argv.size(); z++) {
-      menu_output.push_back(argv[z]);
-   }
+   selected_glob = argv[0];
 }
 
 void cmd_grow(vector<string>& argv) {
@@ -312,7 +289,6 @@ void cmd_grow(vector<string>& argv) {
    while (arg-- > 0) {
       string gi = selected_glob;
 
-     // generate_tetra_from_side(objs[selected_object].tetra, rand() % 4);
       char buffer[100];
       sprintf(buffer, "generated_object_%i", gen_obj_cnt);
       gen_obj_cnt++;
@@ -320,22 +296,12 @@ void cmd_grow(vector<string>& argv) {
       Object o(id);
 
       string robjkey;
-      bool has_sides = false;
-      while (has_sides == false) {
 
-         auto oit = gs[gi].objs.begin();
-         int robji = rand() % gs[gi].objs.size();
-         while (robji > 0) {robji--; oit++;}
-         robjkey = oit->first;
+      int robji = rand() % gs[gi].vis_objs.size();
+      robjkey = gs[gi].vis_objs[robji];
 
-         if (gs[gi].objs[robjkey].tetra.vis_faces.size() != 0) {
-            has_sides = true;
-         }
-      }
-
-
-      string msg = "growing object: " + robjkey;
-      menu_output.push_back(msg);
+//      string msg = "growing object: " + robjkey;
+//      menu_output.push_back(msg);
 
       int rvfacei = rand() % gs[gi].objs[robjkey].tetra.vis_faces.size();
       int rfacei = gs[gi].objs[robjkey].tetra.vis_faces[rvfacei];
@@ -344,11 +310,132 @@ void cmd_grow(vector<string>& argv) {
 
       gs[gi].attach(robjkey, rfacei, o);
    }
-   //timed_menu_display = 60;
 }
 
-void cmd_q(vector<string>& argv) {
-   menu_depth = 1;
+void cmd_stat(vector<string>& argv) {
+   // set GAME_STATS
+   GAME_STATS["total_bodies"] = gs.size();
+   GAME_STATS["total_blocks"] = 0;
+   GAME_STATS["visible_blocks"] = 0;
+   for (auto git = gs.begin(); git != gs.end(); git++) {
+      GAME_STATS["total_blocks"] += gs[git->first].objs.size();
+      GAME_STATS["visible_blocks"] += gs[git->first].vis_objs.size();
+   }
+
+   for (auto gsit = GAME_STATS.begin(); gsit != GAME_STATS.end(); gsit++) {
+      string msg = gsit->first;
+      char buffer[100];
+      sprintf(buffer, ": %i", GAME_STATS[gsit->first]);
+      msg += buffer;
+      menu_output.push_back(msg);
+   }
+}
+
+void cmd_load(vector<string>& argv) {
+
+   bool matrix = false;
+   unsigned long sizex, sizey, sizez;
+   GLfloat randx, randy, randz;
+   string msg;
+   Vertex v;
+
+   vector<string> nargv(0);
+   for (int argi = 0; argi < argv.size(); argi++) {
+      if (argv[argi] == "-m") {
+         matrix = true;
+
+         if (argi+6 >= argv.size()) {
+            menu_output.push_back("invalid argument sequence.");
+            return;
+         }
+
+         sizex = as_double(argv[argi+1]);
+         sizey = as_double(argv[argi+2]);
+         sizez = as_double(argv[argi+3]);
+
+         randx = as_double(argv[argi+4]);
+         randy = as_double(argv[argi+5]);
+         randz = as_double(argv[argi+6]);
+
+         argi += 6;
+      }
+      else {
+         nargv.push_back(argv[argi]);
+      }
+   }
+
+   if (nargv.size() < 4) {
+      menu_output.push_back("try `help load`.");
+      return;
+   }
+
+   string name = nargv[0];
+
+   v.x = as_double(nargv[1]);
+   v.y = as_double(nargv[2]);
+   v.z = as_double(nargv[3]);
+
+   if (!matrix) {
+      // if name exists load or copy from gs, otherwise generate tetrahedron
+      msg = "loading new tetrahedron " + name;
+      Object obj(name + "_obj_0");
+      Glob g(obj);
+      Vertex c = obj.tetra.center();
+      g.translate_by(-c.x, -c.y, -c.z);
+
+      g.translate_by(v.x, v.y, v.z);
+      gs[name] = g;
+      selected_glob = name;
+
+      if (nargv.size() >= 5) {
+         vector<string> tmp(1);
+         tmp[0] = nargv[4];
+         cmd_grow(tmp);
+      }
+
+      menu_output.push_back(msg);
+   }
+   else {
+      // get points to generate blocks
+      unsigned long int gen_obj_cnt = 1;
+      for (GLfloat xi = v.x - (sizex/2.0); xi < v.x+(sizex/2.0); xi += 1.0) {
+         for (GLfloat yi = v.y-(sizey/2.0); yi < v.y+(sizey/2.0); yi += 1.0) {
+            for (
+              GLfloat zi = v.z-(sizez/2.0); zi < v.z+(sizez/2.0); zi += 1.0) {
+
+               bool x_ok, y_ok, z_ok = false;
+               if (1000.0 * randx > rand() % 1001) x_ok = true;
+               if (1000.0 * randy > rand() % 1001) y_ok = true;
+               if (1000.0 * randz > rand() % 1001) z_ok = true;
+
+               if (x_ok && y_ok && z_ok) {
+                  
+                  char buffer[100];
+                  sprintf(buffer, "_matrix_g_obj_%i", gen_obj_cnt);
+                  gen_obj_cnt++;
+                  string g_obj_name = name + buffer;
+
+                  cout << "generating block " << g_obj_name;
+                  cout << " at (" << xi << " " << yi << " " << zi << ")\n";
+
+                  Object obj(g_obj_name);
+                  Glob g(obj);
+                  Vertex c = g.objs[g_obj_name].tetra.center();
+                  g.translate_by(-c.x, -c.y, -c.z);
+                  g.translate_by(xi, yi, zi);
+                  gs[g_obj_name] = g;
+
+                  if (nargv.size() >= 5) {
+                     vector<string> tmp(1);
+                     tmp[0] = nargv[4];
+                     selected_glob = g_obj_name;
+                     cmd_grow(tmp);
+                  }
+               }
+            }
+         }
+      }
+   }
 }
 
 void cmd_exit(vector<string>& argv) {
@@ -398,27 +485,7 @@ tools::Error random_motion_2(double t, Object &self) {
 
    tmp.setConstQ("a", self.getConstQ("a"));
 
-   //tmp.setConstQ("a", {
-   //   self.c_qs["a"][0] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190,
-   //   self.c_qs["a"][1] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190,
-   //   self.c_qs["a"][2] + (GLfloat) (rand() % 21 - 10) / (GLfloat) 190});
-
-   //tmp.setConstQ("a", {
-   //   self.c_qs["a"][0] + (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
-   //   self.c_qs["a"][0] + (GLfloat) (rand() % 3 - 1) / (GLfloat) 10,
-   //   self.c_qs["a"][1] + (GLfloat) (rand() % 3 - 1) / (GLfloat) 10});
-   //
-   //
-   //Object tmp_2 = tmp;
-
    tryhard_motion(t, tmp);
-
-   //tryhard_motion(self.last_t, tmp_2);
-
-   //tmp_2.multiply_by(-1, -1, -1);
-   //tmp.translate_by(tmp_2.cube[0][0], tmp_2.cube[0][1], tmp_2.cube[0][2]);
-
-   //self.translate_by(tmp.cube[0][0], tmp.cube[0][1], tmp.cube[0][2]);
 
    self.set_cube(tmp.cube);
    self.last_t = t;
@@ -429,7 +496,7 @@ tools::Error random_motion_2(double t, Object &self) {
 tools::Error spawned_motion(double t, Object &self) {
 
    //if (self.cube[0][1] <= 0.0000001) {
-   //   glutIdleFunc(hot_pause);
+   //   glutIdleFunc(g_pause);
    //}
 
    Object tmp;
@@ -493,55 +560,16 @@ void help(string p_name) {
    cout << "   h             - Print this information.\n\n";
 }
 
-void
-drawWireframe(int objs_index, int face)
-{
-   int i, j = objs_index;
-   glBegin(GL_LINE_LOOP);
-   for (i = 0; i < 4; i++)
-      glVertex3fv((GLfloat *) objs[j].cube[(objs[j].faceIndex[face][i])]);
-   glEnd();
-}
-
-// This fills the space betwen the lines defined in faceIndex
-void
-drawFilled(int objs_index, int face)
-{
-   int dfi, j = objs_index;
-   glBegin(GL_POLYGON);
-   for (dfi = 0; dfi < 4; dfi++) {
-      glVertex3fv((GLfloat *) objs[j].cube[ objs[j].faceIndex[face][dfi] ]);
-   }
-   glEnd();
-}
-
-
-void drawFilledTetrahedron(int objs_index) {
-
-   if (draw_x_vertices > 0) {
-      int j = objs_index;
-      int drawn = 0;
-
-      glBegin(GL_TRIANGLES);
-      for (int fi = 0; fi < 4; fi++) {
-         glColor3fv(objs[j].tetra.faceColors[fi]);
-         for (int pi = 0; pi < 3; pi++) {
-
-            glVertex3f(
-               *objs[j].tetra.face[fi].pnts[pi][0],
-               *objs[j].tetra.face[fi].pnts[pi][1],
-               *objs[j].tetra.face[fi].pnts[pi][2]);
-
-            drawn++;
-            if (drawn > draw_x_vertices) {
-               glEnd();
-               return;
-            }
-         }
-      }
-      glEnd();
-   }
-}
+// TODO: incorperate into drawVisibleTriangles and add options
+//void
+//drawWireframe(int objs_index, int face)
+//{
+//   int i, j = objs_index;
+//   glBegin(GL_LINE_LOOP);
+//   for (i = 0; i < 4; i++)
+//      //glVertex3fv((GLfloat *) objs[j].cube[(objs[j].faceIndex[face][i])]);
+//   glEnd();
+//}
 
 void drawVisibleTriangles(Tetrahedron& tetra) {
 
@@ -618,7 +646,7 @@ void draw_cam_spheres() {
       }
 
       // get the new position in front of the camera
-      cam.pos_in_los(SD, nsx, nsy, nsz);
+      CAM.pos_in_los(SD, nsx, nsy, nsz);
 
       // set the sphere position
       sphrs[0].center[0] = nsx;
@@ -626,19 +654,18 @@ void draw_cam_spheres() {
       sphrs[0].center[2] = nsz;
 
       int i = -1;
-      int sidx;
-      int sidy;
-      int sidz;
+      int sidx, sidy, sidz;
 
       // check for collision with glob
       for (auto git = gs.begin(); git != gs.end(); git++) {
 
       string gi = git->first;
 
-      // check each object within glob gs[gi]
-      for (auto jit = gs[gi].objs.begin(); jit != gs[gi].objs.end(); jit++) {
+      // check each visible object in glob gs[gi]
+      for (int voi = 0; voi < gs[gi].vis_objs.size(); voi++) {
 
-         string j = jit->first;
+         // get object id
+         string j = gs[gi].vis_objs[voi];
 
          if (gs[gi].objs[j].shape == "tetrahedron") {
 
@@ -649,7 +676,7 @@ void draw_cam_spheres() {
             line[0].z = nsz;
 
             GLfloat tx, ty, tz;
-            cam.pos_in_los(SD+0.08f, tx, ty, tz);
+            CAM.pos_in_los(SD+0.08f, tx, ty, tz);
             line[1].x = tx;
             line[1].y = ty;
             line[1].z = tz;
@@ -724,42 +751,14 @@ void draw_cam_spheres() {
          } // end of tetrahedron loop
       } // end of obect loop
       } // end of glob collision loop
-
-      if (MAP.ms.size() > 0) {
-         // select non-empty blocks from the map
-         // find map section
-         sidx = floorf(nsx / (float) MAP.ms[0].size) * MAP.ms[0].size;
-         sidy = floorf(nsy / (float) MAP.ms[0].size) * MAP.ms[0].size;
-         sidz = floorf(nsz / (float) MAP.ms[0].size) * MAP.ms[0].size;
-         i = MAP.section_i_loaded(sidx, sidy, sidz);
-      }
-
-      if (i != -1) { // check the block array
-         int bidx = floorf(nsx) - sidx;
-         int bidy = floorf(nsy) - sidy;
-         int bidz = floorf(nsz) - sidz;
-         if (bidx < 0) {bidx *= -1;}
-         if (bidy < 0) {bidy *= -1;}
-         if (bidz < 0) {bidz *= -1;}
-
-         if (MAP.ms[i].blocks[bidy][bidx][bidz].type == 1) {
-    
-            MAP.ms[i].blocks[bidy][bidx][bidz].type = 0;
-            cout << "TYPE 1: block: " << sidx + bidx << " " << sidy + bidy << " " << sidz + bidz << " " << endl;
-
-            SD = as_double(CMDS_STORE["n_click_distance"]);
-            if (mouse_left_state == 1) SD_DONE = true;
-         }
-
-      }
    }
    else {
-      cam.pos_in_los(SD,
+      CAM.pos_in_los(SD,
             sphrs[0].center[0], sphrs[0].center[1], sphrs[0].center[2]);
    }
 
 
-   // draw the first and best sphere
+   // draw the sphere
    glColor3f(sphrs[0].color[0], sphrs[0].color[1], sphrs[0].color[2]);
    glPushMatrix();
    glTranslatef(sphrs[0].center[0], sphrs[0].center[1], sphrs[0].center[2]);
@@ -786,27 +785,6 @@ void draw_sphere(Sphere& s) {
 void reset_sphere_distance() {
    SD = as_double(CMDS_STORE["n_click_distance"]);
    if (mouse_left_state == 1) SD_DONE = true;
-}
-
-void drawSides() {
-   int sidecnt = 0;
-   for (int msi = 0; msi < MAP.ms.size(); msi++) {
-      for (int vsi = 0; vsi < MAP.ms[msi].visible_sides.size(); vsi++) {
-
-         glBegin(GL_POLYGON);
-         glColor3fv(MAP.ms[msi].visible_sides[vsi].color);
-         for (int point = 0; point < 4; ++point) {
-            glVertex3fv(MAP.ms[msi].visible_sides[vsi].points[point]);
-         }
-         glEnd();
-
-         sidecnt++;
-      }
-   }
-   //if (count == 60) {
-   //   cout << "client::drawSides: Total visible sides drawed: `"
-   //        << sidecnt << "`.\n";
-   //}
 }
 
 void drawFilledTStrip() {
@@ -837,7 +815,7 @@ void mouse(int button, int state, int x, int y) {
 }
 
 void mouse_passive(int x, int y) {
-   cam.rotation(x, y);
+   CAM.rotation(x, y);
 //   SDL_SetRelativeMouseMode((SDL_bool) 1);
    glutPostRedisplay();
 }
@@ -873,7 +851,7 @@ void draw_menu_output(float x, float y, float z, void *font) {
 void drawScene(void) {
    int i;
 
-   glClearColor(0.2, 0.4, 0.5, 0.0); // background color
+   glClearColor(0.0, 0.0, 0.025, 0.0); // background color
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
    glPushMatrix();
@@ -882,16 +860,14 @@ void drawScene(void) {
    //glViewport(0, 0, 500, 500);
 
    glLoadIdentity();
-   cam.translation();
-   glRotatef(180 * cam.getAY() / 3.141592653, 1.0, 0.0, 0.0);
-   glRotatef(180 * cam.getAX() / 3.141592653, 0.0, 1.0, 0.0);
-   glTranslated(-cam.getX(), -cam.getY(), -cam.getZ());
+   CAM.translation();
+   glRotatef(180 * CAM.getAY() / 3.141592653, 1.0, 0.0, 0.0);
+   glRotatef(180 * CAM.getAX() / 3.141592653, 0.0, 1.0, 0.0);
+   glTranslated(-CAM.getX(), -CAM.getY(), -CAM.getZ());
 
    // draw stuff
    glEnable(GL_DEPTH_TEST);
    glDepthFunc(GL_LEQUAL);
-
-   drawSides();
 
    glBegin(GL_TRIANGLE_STRIP);
    glColor3f(1, 0, 0); glVertex3f(0, 0, 0);
@@ -899,7 +875,7 @@ void drawScene(void) {
    glColor3f(0, 0, 1); glVertex3f(1, 0, 1);
    glEnd();
 
-   draw_circle(3.0, 1.0, -3.0, 36);
+   draw_circle(0.0, 1.0, 3.0, 36);
 
    draw_spheres();
 
@@ -917,38 +893,13 @@ void drawScene(void) {
    glStencilOp(GL_INVERT, GL_INVERT, GL_INVERT);
    glColor3f(1.0, 1.0, 0.0);
 
-   // draw all the objects in objs vector
-   for (int j = 0; j < objs.size(); ++j) {
-      if (objs[j].shape == "cube") {
-         for (i = 0; i < 6; i++) {
-            //drawWireframe(j, i);
-            //glStencilFunc(GL_EQUAL, 0, 1);
-            //glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-
-            // set the default color
-            //objs[j].faceColors[i][0] = rand() % 100 / 100.0;//0.7;
-            //objs[j].faceColors[i][1] = rand() % 100 / 100.0;//0.7;
-            //objs[j].faceColors[i][2] = rand() % 100 / 100.0;//0.7;
-            glColor4f(objs[j].faceColors[i][0], objs[j].faceColors[i][1], objs[j].faceColors[i][2], 0.1); // box color
-            drawFilled(j, i);
-
-//            glStencilFunc(GL_ALWAYS, 0, 1);
-//            glStencilOp(GL_INVERT, GL_INVERT, GL_INVERT);
-            glColor3f(0.0, 0.0, 0.0);
-            drawWireframe(j, i);
-         }
-      }
-      if (objs[j].shape == "tetrahedron") {
-         drawFilledTetrahedron(j);
-      }
-   }
-
    // draw visible triangles in globs map
    for (auto glit = gs.begin(); glit != gs.end(); glit++) {
-      string id = glit->first;
-      for (auto objit = gs[id].objs.begin(); objit != gs[id].objs.end();
-                                                                objit++) {
-         drawVisibleTriangles(objit->second.tetra);
+      string gid = glit->first;
+
+      for (int voit = 0; voit < gs[gid].vis_objs.size(); voit++) {
+         string oid = gs[gid].vis_objs[voit];
+         drawVisibleTriangles(gs[gid].objs[oid].tetra);
       }
    }
 
@@ -956,32 +907,25 @@ void drawScene(void) {
       // write character bitmaps
       draw_bitmap_string(
          // these calculate the location in front of the face
-         cam.getX() + (cos(cam.getAX() - 2*(M_PI/3)) * cos(-cam.getAY()))*1.3,
-         //cam.getY() + sin(-cam.getAY())*1.3 - 0.5,
-         cam.getY() - 0.5,
-         cam.getZ() + (sin(cam.getAX() - 2*(M_PI/3)) * cos(-cam.getAY()))*1.3,
+         CAM.getX() + (cos(CAM.getAX() - 2*(M_PI/3)) * cos(-CAM.getAY()))*1.3,
+         //CAM.getY() + sin(-CAM.getAY())*1.3 - 0.5,
+         CAM.getY() - 0.5,
+         CAM.getZ() + (sin(CAM.getAX() - 2*(M_PI/3)) * cos(-CAM.getAY()))*1.3,
          GLUT_BITMAP_9_BY_15,
          menu_input);
 
       // draw the output next
       draw_menu_output(
          // these calculate the location in front of the face
-         cam.getX() + (cos(cam.getAX() - 2*(M_PI/3)) * cos(-cam.getAY()))*1.3,
-         //cam.getY() + sin(-cam.getAY())*1.3 - 0.5,
-         cam.getY() - 0.5,
-         cam.getZ() + (sin(cam.getAX() - 2*(M_PI/3)) * cos(-cam.getAY()))*1.3,
+         CAM.getX() + (cos(CAM.getAX() - 2*(M_PI/3)) * cos(-CAM.getAY()))*1.3,
+         CAM.getY() - 0.5,
+         CAM.getZ() + (sin(CAM.getAX() - 2*(M_PI/3)) * cos(-CAM.getAY()))*1.3,
          GLUT_BITMAP_9_BY_15);
 
-//         cam.getX() + (cos(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*1.3,
-//         (GLfloat) (cam.getY() + sin(-cam.getAY())*1.3 - 0.33),
-//         cam.getZ() + (sin(cam.getAX() - M_PI/2) * cos(-cam.getAY()))*1.3,
-
+//         CAM.getX() + (cos(CAM.getAX() - M_PI/2) * cos(-CAM.getAY()))*1.3,
+//         (GLfloat) (CAM.getY() + sin(-CAM.getAY())*1.3 - 0.33),
+//         CAM.getZ() + (sin(CAM.getAX() - M_PI/2) * cos(-CAM.getAY()))*1.3,
    }
-
-   //if (PRICION) { // write date and time tags on objects
-   //   
-   //}
-
 
    glPopMatrix();
 
@@ -990,6 +934,7 @@ void drawScene(void) {
    /* end of good stuff */
 
    glutSwapBuffers();
+
 }
 
 void
@@ -1004,12 +949,12 @@ setMatrix(int w, int h)
    // set the perspective (angle of sight, width/height ratio, clip near, depth)
    gluPerspective(60, (GLfloat)w / (GLfloat)h, 0.1, 100.0);
 
-//   gluLookAt(cam.getX(), cam.getY(), cam.getZ(), 0, 0, 0, 0, 1, 0);
+//   gluLookAt(CAM.getX(), CAM.getY(), CAM.getZ(), 0, 0, 0, 0, 1, 0);
 
 
-   //glRotatef(cam.getTheta(), 1.0, 0.0, 0.0);
-   //glRotatef(cam.getPsi(), 0.0, 1.0, 0.0);
-   //glTranslated(-cam.getX(), -cam.getY(), -cam.getZ());
+   //glRotatef(CAM.getTheta(), 1.0, 0.0, 0.0);
+   //glRotatef(CAM.getPsi(), 0.0, 1.0, 0.0);
+   //glTranslated(-CAM.getX(), -CAM.getY(), -CAM.getZ());
 
    glMatrixMode(GL_MODELVIEW);
    glLoadIdentity();
@@ -1017,163 +962,23 @@ setMatrix(int w, int h)
 
 void map_generation(void) {
 
-   if (count % 7 == 0) {
-      MAP.update(cam.getX(), cam.getY(), cam.getZ(), CMSQ);
-      for (int z = 0; z < MAP.ms.size(); ++z) {
-         if (!MAP.ms[z].has_sides)
-            MAP.ms[z].generate_visible_sides(cam);
-
-      }
-   }
-
-   if (count % 15 == 0) {
-      MAP.generate_visible_edges();
-   }
-
-   if (count == 60) {
-      cout << "client::map_generation: cached map section queue has "
-           << CMSQ.size() << " sections.\n";
-   }
-
-   int fcount = 0;
-   // fork and save the map sections with no PIDSID entry
-   if (CMSQ.size() >= 128 && PIDSIDQ.size() < 4) {
-      for (int u = 0; u < CMSQ.size(); u++) {
-
-         if (fcount == 16) {
-            break;
-         }
-
-         int idir;
-         for (idir = 0; idir >= 0; ++idir) {
-            if (CMSQ[u].fid < idir * 100 + 100) {
-               break;
-            }
-         }
-
-         bool has_pid = false;
-         for (int o = PIDSIDQ.size()-1; o >= 0; --o) {
-            if (  PIDSIDQ[o].sid[0] == CMSQ[u].sid[0] &&
-                  PIDSIDQ[o].sid[1] == CMSQ[u].sid[1] &&
-                  PIDSIDQ[o].sid[2] == CMSQ[u].sid[2]    ) {
-               has_pid = true;
-               break;
-            }
-         }
-
-         // if no process is saving this map section: fork
-         if (!has_pid) {
-
-            MapSection* msp = &CMSQ[u];
-
-            pid_t pID = fork();
-            if (pID < 0) {
-               cerr << "Map::update: failed to fork!\n";
-               exit(1);
-            }
-            else if (pID == 0) { // child
-               msp->save(MAP.map_name);
-               _exit(0);
-            }
-            else { // parent
-
-               // store the process id of the child and the section id
-               Map::PidSid tps;
-               tps.pid = pID;
-               tps.sid[0] = CMSQ[u].sid[0];
-               tps.sid[1] = CMSQ[u].sid[1];
-               tps.sid[2] = CMSQ[u].sid[2];
-               PIDSIDQ.enq(tps);
-               fcount++;
-            }
-         }
-      }
-   }
-
-   if (PIDSIDQ.size() > 40) {
-      cout << "client::map_generation: PIDSIDQ size has reached `"
-           << PIDSIDQ.size() << "`! There should not be that many child "
-           << "processes!\n";
-   }
-
-   // check if any child process is done and remove from cache
-   // waiting for more than 4 of these at a time seems to break some and cause
-   // the proc/pid dir to remain after waitpid gets an exit status 0 from the
-   // child process.
-   int ret_cnt = 0;
-   if (PIDSIDQ.size() > 0) {
-      for (int z = 0; z < PIDSIDQ.size() && ret_cnt < 4;) {
-         int exit_status;
-
-         pid_t ws = waitpid(PIDSIDQ[z].pid, &exit_status, WNOHANG);
-
-         if( WIFEXITED(exit_status) ) {
-            //cout << "waitpid() exited with signal: Status= "
-            //     << WEXITSTATUS(exit_status)
-            //     << endl;
-
-            // a process exited, delete the map section and pidsid
-            ret_cnt++;
-
-            bool found_data = false;
-            for (int x = 0; x < CMSQ.size();) {
-
-               if (  PIDSIDQ[z].sid[0] == CMSQ[x].sid[0] &&
-                     PIDSIDQ[z].sid[1] == CMSQ[x].sid[1] &&
-                     PIDSIDQ[z].sid[2] == CMSQ[x].sid[2]) {
-
-                  found_data = true;
-
-                  // add this map section to the esm
-                  MAP.add_esm_entry(CMSQ[x]);
-
-                  CMSQ.delete_item(x);
-                  if (tools::pid_exists(PIDSIDQ[z].pid)) {
-                     cout << "client::map_generation: child process `"
-                          << PIDSIDQ[z].pid << "` was retrieved but it still "
-                          << "exists! Returned exit status: `" << exit_status
-                          << "`.\n";
-                  }
-                  else {
-                     PIDSIDQ.delete_item(z);
-                  }
-                  break;
-               }
-               else {
-                  x++;
-               }
-            }
-            if (!found_data) {
-               cout << "client::map_generation: did not find map "
-                    << "section (" << PIDSIDQ[z].sid[0] << ", "
-                    << PIDSIDQ[z].sid[1] << ", " << PIDSIDQ[z].sid[2]
-                    << ") in cached map section queue. process "
-                    << PIDSIDQ[z].pid << " was supposed to be using it.\n";
-               PIDSIDQ.delete_item(z);
-            }
-         }
-         else {
-            z++;
-         }
-      }
-   }
 }
 
 void animation(void) {
 
    tools::Error e = NULL;
    // 1/64th of a second
-   e = mech.run(0.015625, 0, 0.015625);
+   e = MECH.run(0.015625, 0, 0.015625);
    if (e != NULL) {
       cout << e;
       return;
    }
-   //cout << "count: " << count << " t: " << mech.current_time << "\n";
+   //cout << "count: " << count << " t: " << MECH.current_time << "\n";
    //glutPostRedisplay();
 
    if (count == 60) { // make up for the time lost
-      e = mech.run(0.046875, 0, 0.046875);
-      cout << "last t: " << mech.current_time << "\n";
+      e = MECH.run(0.046875, 0, 0.046875);
+      cout << "last t: " << MECH.current_time << "\n";
 
    }
    if (e != NULL) {
@@ -1182,77 +987,12 @@ void animation(void) {
    }
 }
 
-bool once = false;
-Json::Value JVAL;
-void pricion(void) {
-   Error e = NULL;
-   string jsonfile = "data/pricion_hist.json";
-   if (!once) {
-      e = tools::load_json_value_from_file(JVAL, jsonfile);
-      if (e != NULL) {
-         cout << "client::pricion: " <<  e << "\n";
-      }
-      if (JVAL.isArray()) {
-         cout << "client::pricion: JVAL is an array!!!\n";
-         cout << "client::pricion: there are " << JVAL.size() << " elements\n";
-
-         GLfloat c1 = 0.5;//rand() % 100 / 100.0;
-         GLfloat c2 = 0.1;//rand() % 100 / 100.0;
-         GLfloat c3 = 0.5;//rand() % 100 / 100.0;
-
-         for (int i = 0; i < JVAL.size(); i++) {
-            //Json::Members mv;
-            cout << i << ": date: "
-                 << JVAL[i]["date"].asInt64() << " weightedAverage: "
-                 << JVAL[i]["weightedAverage"].asDouble() << "\n";
-            Object tmpcube;
-
-            c2 += 0.009;
-
-            for (int i2 = 0; i2 < 6; i2++) {
-               // set the default color
-               tmpcube.faceColors[i2][0] = c1;
-               tmpcube.faceColors[i2][1] = c2;
-               tmpcube.faceColors[i2][2] = c3;
-            }
-
-            tmpcube.translate_by(
-                  (GLfloat) i,
-                  (GLfloat) JVAL[i]["weightedAverage"].asDouble() - 500.000,
-                  0.0);
-            objs.push_back(tmpcube);
-
-            // write the time and price
-            // must be done inside draw block
-            //string tag = "date: ";
-            //tag += JVAL[i]["date"].asInt64();
-            //tag += " weightedAverage: $";
-            //tag += JVAL[i]["weightedAverage"].asDouble();
-            //draw_bitmap_string(
-            //      (GLfloat) i,
-            //      (GLfloat) JVAL[i]["weightedAverage"].asDouble() - 499.250,
-            //      0.0,
-            //      GLUT_BITMAP_9_BY_15,
-            //      tag);
-         }
-
-      }
-      else {
-         cout << "jval is not an array\n";
-      }
-      once = true;
-   }
-}
-
-void hot_pause(void) {
+void g_pause(void) {
    if (MAP_GEN) {
       map_generation();
    }
    if (ANIMATION) {
       animation();
-   }
-   if (PRICION) {
-      pricion();
    }
 
    glutPostRedisplay();
@@ -1280,12 +1020,6 @@ void draw_glut_menu() {
    else {
       glutAddMenuEntry("0 - Animation", 1);
    }
-   if (PRICION) {
-      glutAddMenuEntry("1 - Pricion", 2);
-   }
-   else {
-      glutAddMenuEntry("0 - Pricion", 2);
-   }
    glutAddMenuEntry("Reset", 3);
 }
 
@@ -1310,54 +1044,10 @@ void menu(int choice) {
          ANIMATION = true;
       }
       break;
-   case 3: // Reset
-      mech.current_time = 0.0;
-      for (int i = 0; i < objs.size(); ++i) {
-         objs[i].set_cube(Object().cube);
-         if (objs[i].c_qs.count("posi")
-               && objs[i].c_qs["posi"].size() == 3) {
-            objs[i].translate_by(
-                  objs[i].c_qs["posi"][0],
-                  objs[i].c_qs["posi"][1],
-                  objs[i].c_qs["posi"][2]);
-         }
-         objs[i].last_t = 0.0;
-      }
-
-      glutPostRedisplay();
-      break;
-   case 2: // Pricion
-      if (PRICION) {
-         PRICION = false;
-      }
-      else {
-         PRICION = true;
-      }
-      break;
    }
 
    DRAW_GLUT_MENU = true;
-   //if (choice != 0) {
-       //draw_glut_menu();
-   //}
    glutPostRedisplay();
-}
-
-void menu_1_help() {
-   string msg;
-   msg += "\n*** Menu level: 1\n";
-//   msg += "  -  selected object: " << selected_object;
-//   msg += "  -  time: " << mech.current_time << "\n";
-   msg += "   p -   Print the object information\n";
-   msg += "   r -   Set motion function to null.\n";
-   msg += "   c -   Randomize the colors of selected object.\n";
-   msg += "   e -   Enter command.\n";
-   msg += "   h -   Print this help message.\n";
-   msg += "   q -   exit menu\n";
-   msg += "\n";
-   cout << msg;
-   menu_output.push_back(msg);
-   timed_menu_display = 60;
 }
 
 /* ARGSUSED1 */
@@ -1444,41 +1134,14 @@ keyboard(unsigned char c, int x, int y)
       char buffer [100];
       sprintf(buffer, "\n*** Menu level: %i", menu_depth); msg += buffer;
       msg += "  -  selected object: " + selected_glob;
-      sprintf(buffer, "  -  time: %f\n", mech.current_time); msg += buffer;
+      sprintf(buffer, "  -  time: %f\n", MECH.current_time); msg += buffer;
 
       // run menu 1 level buttons
-      if (c == 'p') {
-         for (int i = 0; i < 8; ++i) {
-            for (int j = 0; j < 3; ++j) {
-               cout << objs[selected_object].cube[i][j] << " ";
-            }
-            cout << "\n";
-         }
-      }
-      if (c == 'r') {
-         cout << prefix;
-         cout << "reset motion function for object " << selected_object;
-         cout << "\n";
-         objs[selected_object].function = NULL;
-      }
-      if (c == 'c') {
-         cout << prefix;
-         cout << "reset colors for object " << selected_object << "\n";
-         for (int i = 0; i < 6; i++) {
-            // set the default color
-            objs[selected_object].faceColors[i][0] = rand() % 100 / 100.0;
-            objs[selected_object].faceColors[i][1] = rand() % 100 / 100.0;
-            objs[selected_object].faceColors[i][2] = rand() % 100 / 100.0;
-         }
-      }
       if (c == 'e') {
          menu_depth = 37;
          draw_menu_lines = 20;
          menu_input = "^> ";
          cout << prefix << "entering command mode:\n";
-      }
-      if (c == 'h') {
-         menu_1_help();
       }
       if (c == 'q') {
          cout << prefix << "exiting menu\n";
@@ -1517,11 +1180,13 @@ keyboard(unsigned char c, int x, int y)
       menu_output.push_back("      +/- -           add or subtract number of points drawn\n");
       
       timed_menu_display = 60;
+      return;
    }
    if (c == 'e') {
       menu_input = "^> ";
       menu_depth = 37;
       draw_menu_lines = 25;
+      return;
    }
    if (c == 'b') {
       string id ;
@@ -1538,6 +1203,7 @@ keyboard(unsigned char c, int x, int y)
       draw_menu_lines = 2;
       timed_menu_display = 60;
 
+      selected_glob = id;
 
       spawn_glob.id = id;
       spawn_glob.objs["object_1"].setConstQ("m", 1);
@@ -1558,11 +1224,11 @@ keyboard(unsigned char c, int x, int y)
       //}
 
       GLfloat nx, ny, nz;
-      cam.pos_in_los(SD, nx, ny, nz);
+      CAM.pos_in_los(SD, nx, ny, nz);
 
       spawn_glob.translate_by(nx, ny, nz);
       gs[spawn_glob.id] = spawn_glob;
-
+      return;
    }
    if (c == '+') { // add to draw_x_vertices
       draw_x_vertices++;
@@ -1585,10 +1251,9 @@ keyboard(unsigned char c, int x, int y)
 
    Vertex center;
 
-
    switch (c) {
    case 27: // Esc
-      exit(0);
+      //exit(0);
       break;
    case 93: // ]
       //grow_side(selected_side, 1.0);
@@ -1642,7 +1307,6 @@ keyboard(unsigned char c, int x, int y)
       break;
    case '`':
       menu_depth = 1;
-      menu_1_help();
       break;
    case '1':
       selector_function = "select";
@@ -1663,20 +1327,38 @@ keyboard(unsigned char c, int x, int y)
       timed_menu_display = 50;
       break;
    default: // hotkeys
-      if (c == '4' || c == '5' || c == '0')
-         selected_object = (int)c - 48;
-      else
-         cam.pressKey(c);
 
-      glutPostRedisplay();
+      if (CAM.pressKey(c)) {
+         glutPostRedisplay();
+         break;
+      }
 
-      //std::cout << "got key:" << (int)c << std::endl;
+      // loop through config and find hotkey entries
+      for (auto it = CMDS_STORE.begin(); it != CMDS_STORE.end(); it++) {
+         string key = it->first;
+
+         if (key.size() == 8 && key.substr(0, 6) == "hotkey") {
+            string hkey = key.substr(7, 1);
+
+            if (hkey[0] == c) {
+               
+               string cmd = CMDS_STORE[key];
+               if (cmd.substr(0, 4) == "grow") {
+                  // run grow command
+                  vector<string> cmd_argv;
+                  cmd_argv.push_back(cmd.substr(5, 50));
+                  IN_GAME_CMDS.run("grow", cmd_argv);
+               }
+            }
+         }
+      }
+
       break;
   }
 }
 
 void keyboard_up(unsigned char c, int x, int y) {
-   cam.setKeyboard(c, false);
+   CAM.setKeyboard(c, false);
    glutPostRedisplay();
 }
 
@@ -1760,7 +1442,6 @@ Tetrahedron generate_tetra_from_side(
          source_tetra.points[source_tetra.faceIndex[source_face][1]];
       new_tetra.points[3] = 
          source_tetra.points[source_tetra.faceIndex[source_face][2]];
-
    }
 
    return new_tetra;
