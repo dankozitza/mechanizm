@@ -27,7 +27,6 @@
 #include "Glob.hpp" // includes Vertex, Tetrahedron, & Object
 #include "Sphere.hpp"
 
-
 using namespace tools;
 
 void help(string prog_name);
@@ -198,7 +197,7 @@ int main(int argc, char *argv[]) {
          cmd_load,
          "Load an object into the game.",
          "load [name] [x] [y] [z]",
-         "Options:\n   -m [sizex] [sizey] [sizez] [randx] [randy] [randz]\n\nload a matrix of objects centered at x,y,z with dimentions\nsizex, sizey, sizez. randx, randy, and randz are floats from\n0 to 1 that describe the likelyhood of an object being loaded\nat each whole number cross section.");
+         "Options:\n   -m [sizex] [sizey] [sizez] [randomness]\n      Load a matrix of objects centered at x,y,z with dimentions\n      sizex, sizey, sizez. randomness is a float from\n      0 to 1 that describes the likelyhood of an object being loaded\n      at each whole number cross section.\n   -s [unit_size]\n      Sets the unit size of the 3d grid. default: 1.0\n   -g [count]\n      Grow each object count new blocks. `-g r` selects a\n      random count from 0 to 1000.");
 
    IN_GAME_CMDS.handle(
          "e",
@@ -213,7 +212,7 @@ int main(int argc, char *argv[]) {
    char** glinit2;
    glutInit(&glinit, glinit2);
 
-   glutInitWindowSize(700, 500);
+   glutInitWindowSize(800, 600);
    glutInitDisplayMode(GLUT_RGB | GLUT_STENCIL | GLUT_DOUBLE | GLUT_DEPTH);
    glutCreateWindow("Mechanizm");
 
@@ -335,7 +334,9 @@ void cmd_load(vector<string>& argv) {
 
    bool matrix = false;
    unsigned long sizex, sizey, sizez;
-   GLfloat randx, randy, randz;
+   int grow_i = -1;
+   GLfloat gsc = 1.0; // grid scale
+   GLfloat rndmns;
    string msg;
    Vertex v;
 
@@ -344,7 +345,7 @@ void cmd_load(vector<string>& argv) {
       if (argv[argi] == "-m") {
          matrix = true;
 
-         if (argi+6 >= argv.size()) {
+         if (argi+4 >= argv.size()) {
             menu_output.push_back("invalid argument sequence.");
             return;
          }
@@ -353,11 +354,17 @@ void cmd_load(vector<string>& argv) {
          sizey = as_double(argv[argi+2]);
          sizez = as_double(argv[argi+3]);
 
-         randx = as_double(argv[argi+4]);
-         randy = as_double(argv[argi+5]);
-         randz = as_double(argv[argi+6]);
+         rndmns = as_double(argv[argi+4]);
 
-         argi += 6;
+         argi += 4;
+      }
+      else if (argv[argi] == "-s") {
+         gsc = as_double(argv[argi+1]);
+         argi++;
+      }
+      else if (argv[argi] == "-g") {
+         grow_i = argi+1;
+         argi++;
       }
       else {
          nargv.push_back(argv[argi]);
@@ -387,9 +394,9 @@ void cmd_load(vector<string>& argv) {
       gs[name] = g;
       selected_glob = name;
 
-      if (nargv.size() >= 5) {
+      if (grow_i > 0) {
          vector<string> tmp(1);
-         tmp[0] = nargv[4];
+         tmp[0] = argv[grow_i];
          cmd_grow(tmp);
       }
 
@@ -398,18 +405,13 @@ void cmd_load(vector<string>& argv) {
    else {
       // get points to generate blocks
       unsigned long int gen_obj_cnt = 1;
-      for (GLfloat xi = v.x - (sizex/2.0); xi < v.x+(sizex/2.0); xi += 1.0) {
-         for (GLfloat yi = v.y-(sizey/2.0); yi < v.y+(sizey/2.0); yi += 1.0) {
+      for (GLfloat xi = v.x - (sizex/2.0); xi < v.x+(sizex/2.0); xi += gsc) {
+         for (GLfloat yi = v.y-(sizey/2.0); yi < v.y+(sizey/2.0); yi += gsc) {
             for (
-              GLfloat zi = v.z-(sizez/2.0); zi < v.z+(sizez/2.0); zi += 1.0) {
+              GLfloat zi = v.z-(sizez/2.0); zi < v.z+(sizez/2.0); zi += gsc) {
 
-               bool x_ok, y_ok, z_ok = false;
-               if (1000.0 * randx > rand() % 1001) x_ok = true;
-               if (1000.0 * randy > rand() % 1001) y_ok = true;
-               if (1000.0 * randz > rand() % 1001) z_ok = true;
+               if (10000.0 * rndmns > rand() % 10001) {
 
-               if (x_ok && y_ok && z_ok) {
-                  
                   char buffer[100];
                   sprintf(buffer, "_matrix_g_obj_%i", gen_obj_cnt);
                   gen_obj_cnt++;
@@ -425,9 +427,16 @@ void cmd_load(vector<string>& argv) {
                   g.translate_by(xi, yi, zi);
                   gs[g_obj_name] = g;
 
-                  if (nargv.size() >= 5) {
+                  if (grow_i > 0) {
                      vector<string> tmp(1);
-                     tmp[0] = nargv[4];
+                     if (argv[grow_i][0] != 'r') {
+                        tmp[0] = argv[grow_i];
+                     }
+                     else {
+                        int rcnt = rand() % 1000;
+                        sprintf(buffer, "%i", rcnt);
+                        tmp[0] = buffer;
+                     }
                      selected_glob = g_obj_name;
                      cmd_grow(tmp);
                   }
@@ -943,18 +952,9 @@ setMatrix(int w, int h)
    glMatrixMode(GL_PROJECTION);
    glLoadIdentity();
 
-//  glOrtho(-2.0, 2.0, -2.0, 2.0, -2.0, 2.0);
-//
-
-   // set the perspective (angle of sight, width/height ratio, clip near, depth)
-   gluPerspective(60, (GLfloat)w / (GLfloat)h, 0.1, 100.0);
-
-//   gluLookAt(CAM.getX(), CAM.getY(), CAM.getZ(), 0, 0, 0, 0, 1, 0);
-
-
-   //glRotatef(CAM.getTheta(), 1.0, 0.0, 0.0);
-   //glRotatef(CAM.getPsi(), 0.0, 1.0, 0.0);
-   //glTranslated(-CAM.getX(), -CAM.getY(), -CAM.getZ());
+   // set the perspective
+   // (angle of sight, width/height ratio, clip near, depth)
+   gluPerspective(60, (GLfloat)w / (GLfloat)h, 0.1, 500.0);
 
    glMatrixMode(GL_MODELVIEW);
    glLoadIdentity();
