@@ -6,6 +6,7 @@
 // Created by Daniel Kozitza
 //
 
+#include <chrono>
 #include <csignal>
 #include <cstdlib>
 #include <dirent.h>
@@ -47,24 +48,22 @@ void
    keyboard_up(unsigned char c, int x, int y),
    motion(int x, int y),
    drawWireframe(int objs_index, int face),
-   drawVisibleTriangles(Tetrahedron& tetra),
+   drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra),
    draw_circle(float cx, float cy, float r, int num_segments),
    draw_cam_spheres(),
    draw_sphere(Sphere& s),
    draw_spheres(),
    reset_sphere_distance();
 
-tools::Error
-   random_motion(double t, Object &self),
-   random_motion_2(double t, Object &self),
-   spawned_motion(double t, Object &self),
-   tryhard_motion(double t, Object &self);
+tools::Error random_motion(double t, Object &self);
 
 Tetrahedron generate_tetra_from_side(Tetrahedron& source, int source_face);
 
 static unordered_map<string, Glob> gs;
 static vector<Sphere> sphrs;
-static string selected_glob;
+static string select_gobj;
+static string select_obj;
+static int select_face;
 static long unsigned int gen_obj_cnt = 0;
 static string selector_function = "select";
 static int draw_x_vertices = 18;
@@ -107,6 +106,7 @@ void
 
 int main(int argc, char *argv[]) {
 
+   srand(time(NULL));
    string prog_name = string(argv[0]);
    options opt;
    bool quiet      = false;
@@ -148,6 +148,7 @@ int main(int argc, char *argv[]) {
    CMDS_STORE["n_click_speed"]         = "0.075";
    CMDS_STORE["n_click_max_distance"]  = "3.8";
    CMDS_STORE["n_click_distance"]      = "1.25";
+   CMDS_STORE["mapgen_initrnd_rndmns"] = "0.0002";
    CMDS_STORE["hotkey_g"] = "grow 1";
    CMDS_STORE["hotkey_G"] = "grow 500";
    SD = 2.0;
@@ -187,17 +188,17 @@ int main(int argc, char *argv[]) {
          "grow [x]");
 
    IN_GAME_CMDS.handle(
-         "stats",
+         "stat",
          cmd_stat,
          "Display game stats.",
-         "stats");
+         "stat");
 
    IN_GAME_CMDS.handle(
          "load",
          cmd_load,
          "Load an object into the game.",
          "load [name] [x] [y] [z]",
-         "Options:\n   -m [sizex] [sizey] [sizez] [randomness]\n      Load a matrix of objects centered at x,y,z with dimentions\n      sizex, sizey, sizez. randomness is a float from\n      0 to 1 that describes the likelyhood of an object being loaded\n      at each whole number cross section.\n   -s [unit_size]\n      Sets the unit size of the 3d grid. default: 1.0\n   -g [count]\n      Grow each object count new blocks. `-g r` selects a\n      random count from 0 to 1000.");
+         "Options:\n   -m [sizex] [sizey] [sizez] [randomness]\n      Load a matrix of objects centered at x,y,z with dimentions\n      sizex, sizey, sizez. randomness is a float from\n      0 to 1 that describes the likelyhood of an object being loaded.\n      -s [unit_size]\n      Sets the unit size of the 3d grid. default: 1.0\n   -g [count]\n      Grow each object count new blocks. `-g r` selects a\n      random count from 0 to 1000.");
 
    IN_GAME_CMDS.handle(
          "e",
@@ -275,7 +276,7 @@ void cmd_set(vector<string>& argv) {
 }
 
 void cmd_select(vector<string>& argv) {
-   selected_glob = argv[0];
+   select_gobj = argv[0];
 }
 
 void cmd_grow(vector<string>& argv) {
@@ -286,7 +287,7 @@ void cmd_grow(vector<string>& argv) {
    int arg = as_int(argv[0]);
 
    while (arg-- > 0) {
-      string gi = selected_glob;
+      string gi = select_gobj;
 
       char buffer[100];
       sprintf(buffer, "generated_object_%i", gen_obj_cnt);
@@ -371,8 +372,8 @@ void cmd_load(vector<string>& argv) {
       }
    }
 
-   if (nargv.size() < 4) {
-      menu_output.push_back("try `help load`.");
+   if (nargv.size() != 4) {
+      menu_output.push_back("Invalid arguments. Try `help load`.");
       return;
    }
 
@@ -392,7 +393,7 @@ void cmd_load(vector<string>& argv) {
 
       g.translate_by(v.x, v.y, v.z);
       gs[name] = g;
-      selected_glob = name;
+      select_gobj = name;
 
       if (grow_i > 0) {
          vector<string> tmp(1);
@@ -425,7 +426,9 @@ void cmd_load(vector<string>& argv) {
                   Vertex c = g.objs[g_obj_name].tetra.center();
                   g.translate_by(-c.x, -c.y, -c.z);
                   g.translate_by(xi, yi, zi);
+                  //g.objs[g_obj_name].setConstQ("v", {0.0, 0.0, -0.05});
                   gs[g_obj_name] = g;
+                  gs[g_obj_name].objs[g_obj_name].setConstQ("v", {0.0, 0.0, -0.05});
 
                   if (grow_i > 0) {
                      vector<string> tmp(1);
@@ -437,7 +440,7 @@ void cmd_load(vector<string>& argv) {
                         sprintf(buffer, "%i", rcnt);
                         tmp[0] = buffer;
                      }
-                     selected_glob = g_obj_name;
+                     select_gobj = g_obj_name;
                      cmd_grow(tmp);
                   }
                }
@@ -476,86 +479,6 @@ tools::Error random_motion(double t, Object &self) {
    return NULL;
 }
 
-tools::Error random_motion_2(double t, Object &self) {
-
-   if (self.c_qs["a"].size() != 3)
-      self.setConstQ("a", {
-            (GLfloat) (rand() % 7 - 3) / (GLfloat) 300,
-            (GLfloat) (rand() % 7 - 3) / (GLfloat) 300,
-            (GLfloat) (rand() % 7 - 3) / (GLfloat) 300});
-
-   Object tmp;
-   if (self.c_qs.count("vi"))
-      tmp.setConstQ("vi", self.c_qs["vi"]);
-   else
-      tmp.setConstQ("vi", 0.0);
-
-   tmp.set_cube(self.cube);
-
-   tmp.setConstQ("a", self.getConstQ("a"));
-
-   tryhard_motion(t, tmp);
-
-   self.set_cube(tmp.cube);
-   self.last_t = t;
-
-   return NULL;
-}
-
-tools::Error spawned_motion(double t, Object &self) {
-
-   //if (self.cube[0][1] <= 0.0000001) {
-   //   glutIdleFunc(g_pause);
-   //}
-
-   Object tmp;
-
-   //float gt = (float)(glutGet(GLUT_ELAPSED_TIME));
-   //cout << "gluttime: " << gt << endl;
-   tmp.translate_by(
-         25 * t,
-         31.3 * t - 4.9 * t * t,
-         0.0);
-
-   //self.translate_by(
-   //      0.1 * sin(t * 3),
-   //      ,
-   //      0.1 * cos(t * 3));
-
-   self.set_cube(tmp.cube);
-
-   cout << self.id << ": cube 0 0: " << self.cube[0][0] << endl;
-   cout << self.id << ": cube 0 1: " << self.cube[0][1] << endl;
-   cout << self.id << ": cube 0 2: " << self.cube[0][2] << endl;
-   cout << "t: " << t << endl;
-
-   return NULL;
-}
-
-//tools::Error tryhard_motion(double t, Object &self) {
-//   vector<GLfloat> posi, v, vi, a; 
-//   Object tmp;
-//
-//   posi = self.c_qs["posi"];
-//   vi   = self.c_qs["vi"];
-//
-//   if (self.get_v(v)) {
-//      self.set_cube(tmp.cube);
-//      self.translate_by(
-//         posi[0] + v[0] * t,
-//         posi[1] + v[1] * t,
-//         posi[2] + v[2] * t);
-//   }
-//   else if (self.get_a(a)) {
-//      self.set_cube(tmp.cube);
-//      self.translate_by(
-//         posi[0] + vi[0] * t + a[0] * t * t,
-//         posi[1] + vi[1] * t + a[1] * t * t,
-//         posi[2] + vi[2] * t + a[2] * t * t);
-//   }
-//   return NULL;
-//}  
-
 void help(string p_name) {
    cout << "\n";
    cout << fold(0, 80, p_name +
@@ -569,18 +492,7 @@ void help(string p_name) {
    cout << "   h             - Print this information.\n\n";
 }
 
-// TODO: incorperate into drawVisibleTriangles and add options
-//void
-//drawWireframe(int objs_index, int face)
-//{
-//   int i, j = objs_index;
-//   glBegin(GL_LINE_LOOP);
-//   for (i = 0; i < 4; i++)
-//      //glVertex3fv((GLfloat *) objs[j].cube[(objs[j].faceIndex[face][i])]);
-//   glEnd();
-//}
-
-void drawVisibleTriangles(Tetrahedron& tetra) {
+void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
 
    int drawn = 0;
 
@@ -594,13 +506,12 @@ void drawVisibleTriangles(Tetrahedron& tetra) {
       }
       return;
    } 
-   glBegin(GL_TRIANGLES);
 
    for (int vfi = 0; vfi < tetra.vis_faces.size(); vfi++) {
       int fi = tetra.vis_faces[vfi];
 
+      glBegin(GL_TRIANGLES);
       glColor3fv(tetra.faceColors[fi]);
-
       for (int pi = 0; pi < 3; pi++) {
          Vertex tmpv;
          tmpv.x = *tetra.face[fi].pnts[pi][0];
@@ -618,8 +529,25 @@ void drawVisibleTriangles(Tetrahedron& tetra) {
             return;
          }
       }
+      glEnd();
+
+      if (gsid == select_gobj) {
+         glBegin(GL_LINE_LOOP);
+         glColor3f(0.0, 0.0, 0.0);
+         for (int pi = 0; pi < 3; pi++) {
+            Vertex tmpv;
+            tmpv.x = *tetra.face[fi].pnts[pi][0];
+            tmpv.y = *tetra.face[fi].pnts[pi][1];
+            tmpv.z = *tetra.face[fi].pnts[pi][2];
+
+            glVertex3f(
+               tmpv.x,
+               tmpv.y,
+               tmpv.z);
+         }
+         glEnd();
+      }
    }
-   glEnd();
 }
 
 void draw_circle(float cx, float cy, float r, int num_segments) {
@@ -710,7 +638,7 @@ void draw_cam_spheres() {
 
                   // glob: ji object: j
                   if (selector_function == "select") {
-                     selected_glob = gi;
+                     select_gobj = gi;
 
                      string msg("selected glob: " + gi + "\nobject: " + j);
                      char buffer[100];
@@ -739,7 +667,7 @@ void draw_cam_spheres() {
                      return;
                   }
                   else if (selector_function == "build") {
-                     selected_glob = gi;
+                     select_gobj = gi;
 
                      char buffer[100];
                      sprintf(buffer, "generated_object_%i", gen_obj_cnt++);
@@ -771,7 +699,7 @@ void draw_cam_spheres() {
    glColor3f(sphrs[0].color[0], sphrs[0].color[1], sphrs[0].color[2]);
    glPushMatrix();
    glTranslatef(sphrs[0].center[0], sphrs[0].center[1], sphrs[0].center[2]);
-   glutWireSphere(sphrs[0].r, 9, 9);
+   glutWireSphere(sphrs[0].r, 8, 6);
    glPopMatrix();
 
 }
@@ -787,7 +715,8 @@ void draw_sphere(Sphere& s) {
 
       glPushMatrix();
       glTranslatef(s.center[0], s.center[1], s.center[2]);
-      glutWireSphere(s.r, 36, 36);
+      //glutWireSphere(s.r, 36, 36);
+      glutWireSphere(s.r, 4, 4);
       glPopMatrix();
 }
 
@@ -908,7 +837,7 @@ void drawScene(void) {
 
       for (int voit = 0; voit < gs[gid].vis_objs.size(); voit++) {
          string oid = gs[gid].vis_objs[voit];
-         drawVisibleTriangles(gs[gid].objs[oid].tetra);
+         drawVisibleTriangles(gid, oid, gs[gid].objs[oid].tetra);
       }
    }
 
@@ -960,8 +889,15 @@ setMatrix(int w, int h)
    glLoadIdentity();
 }
 
+bool once = false;
 void map_generation(void) {
-
+   vector<string> targv = {"initrnd1kx3", "0", "0", "0",
+      "-g", "r", "-s", "10.0",
+      "-m", "1000", "100", "1000", CMDS_STORE["mapgen_initrnd_rndmns"]};
+   if (!once) {
+      cmd_load(targv);
+      once = true;
+   }
 }
 
 void animation(void) {
@@ -1133,7 +1069,7 @@ keyboard(unsigned char c, int x, int y)
       string msg;
       char buffer [100];
       sprintf(buffer, "\n*** Menu level: %i", menu_depth); msg += buffer;
-      msg += "  -  selected object: " + selected_glob;
+      msg += "  -  selected object: " + select_gobj;
       sprintf(buffer, "  -  time: %f\n", MECH.current_time); msg += buffer;
 
       // run menu 1 level buttons
@@ -1203,7 +1139,7 @@ keyboard(unsigned char c, int x, int y)
       draw_menu_lines = 2;
       timed_menu_display = 60;
 
-      selected_glob = id;
+      select_gobj = id;
 
       spawn_glob.id = id;
       spawn_glob.objs["object_1"].setConstQ("m", 1);
@@ -1264,46 +1200,46 @@ keyboard(unsigned char c, int x, int y)
       glutPostRedisplay();
       break;
    case 'i':
-      gs[selected_glob].translate_by(0, 0, -0.1);
+      gs[select_gobj].translate_by(0, 0, -0.1);
       break;
    case 'j':
-      gs[selected_glob].translate_by(-0.1, 0, 0);
+      gs[select_gobj].translate_by(-0.1, 0, 0);
       break;
    case 'k':
-      gs[selected_glob].translate_by(0, 0, 0.1);
+      gs[select_gobj].translate_by(0, 0, 0.1);
       break;
    case 'l':
-      gs[selected_glob].translate_by(0.1, 0, 0);
+      gs[select_gobj].translate_by(0.1, 0, 0);
       break;
    case 'y':
-      gs[selected_glob].translate_by(0, 0.1, 0);
+      gs[select_gobj].translate_by(0, 0.1, 0);
       break;
    case 'n':
-      gs[selected_glob].translate_by(0, -0.1, 0);
+      gs[select_gobj].translate_by(0, -0.1, 0);
       break;
    case 'o':
-//      gs[selected_glob].scale_by(1.1, 1.1, 1.1);
+//      gs[select_gobj].scale_by(1.1, 1.1, 1.1);
       break;
    case 'u':
-//      gs[selected_glob].scale_by(0.9, 0.9, 0.9);
+//      gs[select_gobj].scale_by(0.9, 0.9, 0.9);
       break;
    case 'I':
-      gs[selected_glob].rotate_abt_center(7.0*(M_PI/4.0), 0.0, 0.0);
+      gs[select_gobj].rotate_abt_center(7.0*(M_PI/4.0), 0.0, 0.0);
       break;
    case 'J':
-      gs[selected_glob].rotate_abt_center(0.0, M_PI/4.0, 0.0);
+      gs[select_gobj].rotate_abt_center(0.0, M_PI/4.0, 0.0);
       break;
    case 'K':
-      gs[selected_glob].rotate_abt_center(M_PI/4.0, 0.0, 0.0);
+      gs[select_gobj].rotate_abt_center(M_PI/4.0, 0.0, 0.0);
       break;
    case 'L':
-      gs[selected_glob].rotate_abt_center(0.0, 7.0*(M_PI/4.0), 0.0);
+      gs[select_gobj].rotate_abt_center(0.0, 7.0*(M_PI/4.0), 0.0);
       break;
    case 'U':
-      gs[selected_glob].rotate_abt_center(0.0, 0.0, M_PI/4.0);
+      gs[select_gobj].rotate_abt_center(0.0, 0.0, M_PI/4.0);
       break;
    case 'O':
-      gs[selected_glob].rotate_abt_center(0.0, 0.0, 7.0*(M_PI/4.0));
+      gs[select_gobj].rotate_abt_center(0.0, 0.0, 7.0*(M_PI/4.0));
       break;
    case '`':
       menu_depth = 1;
