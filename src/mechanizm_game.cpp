@@ -114,7 +114,9 @@ int main(int argc, char *argv[]) {
    bool file_given = false;
    bool realtime   = false;
    bool time       = false;
-   string file_path;
+   bool seed_b       = false;
+   vector<string> seed_argv(1);
+   vector<string> file_path_av(1);
    string m[5];
    vector<string> args;
    Error e = NULL;
@@ -126,8 +128,9 @@ int main(int argc, char *argv[]) {
 
    opt.handle('q', quiet);
    opt.handle('h', show_help);
-   opt.handle('f', file_given, file_path);
+   opt.handle('f', file_given, file_path_av);
    opt.handle('r', realtime);
+   opt.handle('s', seed_b, seed_argv);
 
    for (int i = 1; i < argc; ++i)
       args.push_back(argv[i]);
@@ -140,6 +143,10 @@ int main(int argc, char *argv[]) {
    if (show_help) {
       help(prog_name);
       return 0;
+   }
+
+   if (seed_b) {
+      srand(as_double(seed_argv[0]));
    }
 
    // set up the in game command line
@@ -198,7 +205,7 @@ int main(int argc, char *argv[]) {
          cmd_load,
          "Load an object into the game.",
          "load [name] [x] [y] [z]",
-         "Options:\n   -m [sizex] [sizey] [sizez] [randomness]\n      Load a matrix of objects centered at x,y,z with dimentions\n      sizex, sizey, sizez. randomness is a float from\n      0 to 1 that describes the likelyhood of an object being loaded.\n      -s [unit_size]\n      Sets the unit size of the 3d grid. default: 1.0\n   -g [count]\n      Grow each object count new blocks. `-g r` selects a\n      random count from 0 to 1000.");
+         "Options:\n   -m [sizex] [sizey] [sizez] [randomness]\n      Load a matrix of objects centered at x,y,z with dimentions\n      sizex, sizey, sizez. randomness is a float from\n      0 to 1 that describes the likelyhood of an object being loaded.\n   -s [unit_size]\n      Sets the unit size of the 3d grid. default: 1.0\n   -g [count]\n      Grow each object count new blocks. `-g r` selects a\n      random count from 0 to 1000.");
 
    IN_GAME_CMDS.handle(
          "e",
@@ -489,7 +496,8 @@ void help(string p_name) {
    cout << "   r             - Run the simulation in real time.\n";
    cout << "   q             - Quiet mode. Nothing will be printed to stdout.";
    cout << "\n   f <file_name> - Load the objects from the given file name.\n";
-   cout << "   h             - Print this information.\n\n";
+   cout << "   h             - Print this information.\n";
+   cout << "   s <integer>   - Set the random number generator seed.\n\n";
 }
 
 void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
@@ -507,10 +515,10 @@ void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
       return;
    } 
 
+   glBegin(GL_TRIANGLES);
    for (int vfi = 0; vfi < tetra.vis_faces.size(); vfi++) {
       int fi = tetra.vis_faces[vfi];
 
-      glBegin(GL_TRIANGLES);
       glColor3fv(tetra.faceColors[fi]);
       for (int pi = 0; pi < 3; pi++) {
          Vertex tmpv;
@@ -529,9 +537,9 @@ void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
             return;
          }
       }
-      glEnd();
 
-      if (gsid == select_gobj) {
+      if (gsid == select_gobj && obid == select_obj) {
+         glEnd();
          glBegin(GL_LINE_LOOP);
          glColor3f(0.0, 0.0, 0.0);
          for (int pi = 0; pi < 3; pi++) {
@@ -546,8 +554,10 @@ void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
                tmpv.z);
          }
          glEnd();
+         glBegin(GL_TRIANGLES);
       }
    }
+   glEnd();
 }
 
 void draw_circle(float cx, float cy, float r, int num_segments) {
@@ -636,9 +646,10 @@ void draw_cam_spheres() {
                         tripnts,
                         NULL)) {
 
-                  // glob: ji object: j
+                  // glob: gi object: j
                   if (selector_function == "select") {
                      select_gobj = gi;
+                     select_obj = j;
 
                      string msg("selected glob: " + gi + "\nobject: " + j);
                      char buffer[100];
@@ -671,6 +682,7 @@ void draw_cam_spheres() {
 
                      char buffer[100];
                      sprintf(buffer, "generated_object_%i", gen_obj_cnt++);
+                     select_obj = buffer;
 
                      Object o(buffer);
                      o.tetra = generate_tetra_from_side(
@@ -956,7 +968,6 @@ void draw_glut_menu() {
    else {
       glutAddMenuEntry("0 - Animation", 1);
    }
-   glutAddMenuEntry("Reset", 3);
 }
 
 // mouse right click menu
@@ -966,6 +977,7 @@ void menu(int choice) {
    case 0: // Map Generation
       if (MAP_GEN) {
          MAP_GEN = false;
+         once = false;
       }
       else {
          MAP_GEN = true;
