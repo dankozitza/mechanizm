@@ -88,7 +88,6 @@ void commands::default_help(vector<string>& argv) {
       // print the list of available commands
       if (cmds.size() > 0) {
          cout << "Commands:\n\n";
-         //for (const auto c : cmds) {
          for (cmds_iter it = cmds.begin(); it != cmds.end(); it++) {
             cout << "   " << left << setw(cmd_name_width) << it->first;
             cout << " - " << tools::fold(

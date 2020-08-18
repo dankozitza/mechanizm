@@ -30,6 +30,8 @@ class Camera {
 		void translation();	
       bool pressKey(unsigned char c);
       void pos_in_los(float distance, float& x, float& y, float& z);
+      int last_mouse_pos_x;
+      int last_mouse_pos_y;
 
 	private :
 	
@@ -42,8 +44,6 @@ class Camera {
 		float _Z;
 		float _AX;
 		float _AY;
-      int last_mouse_pos_x;
-      int last_mouse_pos_y;
       float _shift; // when shift is pressed this increases speed
 };
 

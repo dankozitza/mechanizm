@@ -1,4 +1,4 @@
-# e40b4c028add583c9ff5fd3ce7ff5e4f
+# 04b56f1a72d001da817601e854fbaef3
 # Generated with vfnmkmc by the mc program.
 PREFIX=/usr/local
 CFLAGS=-O$(O)  -std=c++11
@@ -23,7 +23,7 @@ objs/Map.o: src/Map.cpp src/Map.hpp src/tools.hpp src/Vertex.hpp \
 	@ echo "    CXX  src/Map.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Map.cpp" -o $@
 objs/Glob.o: src/Glob.cpp src/Glob.hpp src/tools.hpp src/Vertex.hpp \
- src/Object.hpp src/Tetrahedron.hpp src/Triangle.hpp
+ src/Triangle.hpp src/Object.hpp src/Tetrahedron.hpp
 	@ echo "    CXX  src/Glob.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Glob.cpp" -o $@
 objs/Sphere.o: src/Sphere.cpp src/Sphere.hpp
@@ -36,8 +36,7 @@ objs/mechanizm.o: src/mechanizm.cpp src/mechanizm.hpp src/tools.hpp \
 objs/mechanizm_game.o: src/mechanizm_game.cpp src/commands.hpp src/tools.hpp \
  src/Vertex.hpp src/mechanizm.hpp src/Object.hpp src/Tetrahedron.hpp \
  src/Triangle.hpp src/options.hpp src/Camera.hpp src/Glob.hpp \
- src/Sphere.hpp src/Side.hpp src/Block.hpp src/MapSection.hpp src/Q.hpp \
- src/Map.hpp
+ src/Sphere.hpp
 	@ echo "    CXX  src/mechanizm_game.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/mechanizm_game.cpp" -o $@
 objs/Triangle.o: src/Triangle.cpp src/Triangle.hpp src/Vertex.hpp

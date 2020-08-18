@@ -30,16 +30,13 @@
 
 using namespace tools;
 
-void help(string prog_name);
-
 void
-   drawScene(void),
+   animation(void),
    setMatrix(int w, int h),
    map_generation(void),
-   animation(void),
    pricion(void),
    g_pause(void),
-   draw_glut_menu(),
+   help(string prog_name),
    menu(int choice),
    resize(int w, int h),
    mouse(int button, int state, int x, int y),
@@ -47,8 +44,10 @@ void
    keyboard(unsigned char c, int x, int y),
    keyboard_up(unsigned char c, int x, int y),
    motion(int x, int y),
+   drawScene(void),
    drawWireframe(int objs_index, int face),
    drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra),
+   draw_glut_menu(),
    draw_circle(float cx, float cy, float r, int num_segments),
    draw_cam_spheres(),
    draw_sphere(Sphere& s),
@@ -59,21 +58,22 @@ tools::Error random_motion(double t, Object &self);
 
 Tetrahedron generate_tetra_from_side(Tetrahedron& source, int source_face);
 
-static unordered_map<string, Glob> gs;
-static vector<Sphere> sphrs;
-static string select_gobj;
-static string select_obj;
-static int select_face;
-static long unsigned int gen_obj_cnt = 0;
-static string selector_function = "select";
-static int draw_x_vertices = 18;
-static int menu_depth = 0;
-static int timed_menu_display = 0;
-static int draw_menu_lines = 10;
-static string menu_input;
-static vector<string> menu_output;
+unordered_map<string, Glob> GS;
+vector<Sphere> SPHRS;
+string select_gobj;
+string select_obj;
+int select_face;
+long unsigned int gen_obj_cnt = 0;
+string selector_function = "select";
+int draw_x_vertices = 18;
+int menu_depth = 0;
+int timed_menu_display = 0;
+int draw_menu_lines = 10;
+string menu_input;
+vector<string> menu_output;
 int block_count = 1;
 int mouse_left_state = 1;
+int WIN = -1;
 
 // X Y Z theta (ax) psi (ay) rotationSpeed translationSpeed
 static Camera CAM(2.0, 2.0, 3.5, 0.0, 0.0, 0.6, 0.0022);
@@ -83,6 +83,7 @@ int count = 1; // cycles through 1/60th of a second
 
 commands IN_GAME_CMDS;
 map<string, string> CMDS_STORE;
+int IGCMD_MOUT_SCROLL = 0;
 map<string, unsigned long> GAME_STATS;
 GLfloat SD; // current distance of the selection sphere
 bool SD_DONE = true;
@@ -92,6 +93,7 @@ bool DRAW_GLUT_MENU = false;
 // menu options
 bool MAP_GEN = false;
 bool ANIMATION = false;
+bool MOUSE_GRAB = false;
 
 // commands for the in-game cli
 void
@@ -102,11 +104,15 @@ void
    cmd_grow(vector<string>& argv),
    cmd_stat(vector<string>& argv),
    cmd_load(vector<string>& argv),
-   cmd_exit(vector<string>& argv);
+   cmd_reseed(vector<string>& argv);
 
 int main(int argc, char *argv[]) {
 
-   srand(time(NULL));
+   char buf[100];
+   sprintf(buf, "%d", time(NULL));
+   CMDS_STORE["rng_seed"] = buf;
+
+   srand(as_double(CMDS_STORE["rng_seed"]));
    string prog_name = string(argv[0]);
    options opt;
    bool quiet      = false;
@@ -114,7 +120,7 @@ int main(int argc, char *argv[]) {
    bool file_given = false;
    bool realtime   = false;
    bool time       = false;
-   bool seed_b       = false;
+   bool seed_b     = false;
    vector<string> seed_argv(1);
    vector<string> file_path_av(1);
    string m[5];
@@ -124,6 +130,7 @@ int main(int argc, char *argv[]) {
    //MECH.set_objects(objs);
    MECH.current_time = 0.0;
 
+   // build handler for glut window / game save
    signal(SIGINT, signals_callback_handler);
 
    opt.handle('q', quiet);
@@ -147,21 +154,25 @@ int main(int argc, char *argv[]) {
 
    if (seed_b) {
       srand(as_double(seed_argv[0]));
+      CMDS_STORE["rng_seed"] = seed_argv[0];
    }
 
    // set up the in game command line
    vector<string> cmd_argv;
 
-   CMDS_STORE["n_click_speed"]         = "0.075";
-   CMDS_STORE["n_click_max_distance"]  = "3.8";
+   CMDS_STORE["n_click_speed"]         = "0.25";
+   CMDS_STORE["n_click_max_distance"]  = "4.0";
    CMDS_STORE["n_click_distance"]      = "1.25";
-   CMDS_STORE["mapgen_initrnd_rndmns"] = "0.0002";
+   CMDS_STORE["mapgen_initmap_rndmns"] = "0.0002";
+   CMDS_STORE["mapgen_initmap_g_opt"] = "r";
    CMDS_STORE["hotkey_g"] = "grow 1";
    CMDS_STORE["hotkey_G"] = "grow 500";
-   SD = 2.0;
+   CMDS_STORE["igcmd_mout_max_size"] = "100";
+   CMDS_STORE["igcmd_scroll_speed"] = "5";
 
+   SD = as_double(CMDS_STORE["n_click_distance"]);
    Sphere selector_sphere_1(0.0, 0.0, 0.0, 0.0369, 0.4, 0.8, 0.6);
-   sphrs.push_back(selector_sphere_1);
+   SPHRS.push_back(selector_sphere_1);
 
    IN_GAME_CMDS.handle(
          "help",
@@ -208,10 +219,11 @@ int main(int argc, char *argv[]) {
          "Options:\n   -m [sizex] [sizey] [sizez] [randomness]\n      Load a matrix of objects centered at x,y,z with dimentions\n      sizex, sizey, sizez. randomness is a float from\n      0 to 1 that describes the likelyhood of an object being loaded.\n   -s [unit_size]\n      Sets the unit size of the 3d grid. default: 1.0\n   -g [count]\n      Grow each object count new blocks. `-g r` selects a\n      random count from 0 to 1000.");
 
    IN_GAME_CMDS.handle(
-         "e",
-         cmd_exit,
-         "Exit the command line.",
-         "e");
+         "reseed",
+         cmd_reseed,
+         "Re-set the rng seed.",
+         "reseed [double]",
+         "Reseed sets the stored seed to the given double and runs srand.");
 
    glEnable(GL_BLEND);
    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -222,7 +234,7 @@ int main(int argc, char *argv[]) {
 
    glutInitWindowSize(800, 600);
    glutInitDisplayMode(GLUT_RGB | GLUT_STENCIL | GLUT_DOUBLE | GLUT_DEPTH);
-   glutCreateWindow("Mechanizm");
+   WIN = glutCreateWindow("Mechanizm");
 
    glutIdleFunc(g_pause);
    glutDisplayFunc(drawScene);
@@ -304,29 +316,29 @@ void cmd_grow(vector<string>& argv) {
 
       string robjkey;
 
-      int robji = rand() % gs[gi].vis_objs.size();
-      robjkey = gs[gi].vis_objs[robji];
+      int robji = rand() % GS[gi].vis_objs.size();
+      robjkey = GS[gi].vis_objs[robji];
 
 //      string msg = "growing object: " + robjkey;
 //      menu_output.push_back(msg);
 
-      int rvfacei = rand() % gs[gi].objs[robjkey].tetra.vis_faces.size();
-      int rfacei = gs[gi].objs[robjkey].tetra.vis_faces[rvfacei];
+      int rvfacei = rand() % GS[gi].objs[robjkey].tetra.vis_faces.size();
+      int rfacei = GS[gi].objs[robjkey].tetra.vis_faces[rvfacei];
       o.tetra = generate_tetra_from_side(
-                     gs[gi].objs[robjkey].tetra, rfacei);
+                     GS[gi].objs[robjkey].tetra, rfacei);
 
-      gs[gi].attach(robjkey, rfacei, o);
+      GS[gi].attach(robjkey, rfacei, o);
    }
 }
 
 void cmd_stat(vector<string>& argv) {
    // set GAME_STATS
-   GAME_STATS["total_bodies"] = gs.size();
+   GAME_STATS["total_bodies"] = GS.size();
    GAME_STATS["total_blocks"] = 0;
    GAME_STATS["visible_blocks"] = 0;
-   for (auto git = gs.begin(); git != gs.end(); git++) {
-      GAME_STATS["total_blocks"] += gs[git->first].objs.size();
-      GAME_STATS["visible_blocks"] += gs[git->first].vis_objs.size();
+   for (auto git = GS.begin(); git != GS.end(); git++) {
+      GAME_STATS["total_blocks"] += GS[git->first].objs.size();
+      GAME_STATS["visible_blocks"] += GS[git->first].vis_objs.size();
    }
 
    for (auto gsit = GAME_STATS.begin(); gsit != GAME_STATS.end(); gsit++) {
@@ -399,7 +411,7 @@ void cmd_load(vector<string>& argv) {
       g.translate_by(-c.x, -c.y, -c.z);
 
       g.translate_by(v.x, v.y, v.z);
-      gs[name] = g;
+      GS[name] = g;
       select_gobj = name;
 
       if (grow_i > 0) {
@@ -434,8 +446,8 @@ void cmd_load(vector<string>& argv) {
                   g.translate_by(-c.x, -c.y, -c.z);
                   g.translate_by(xi, yi, zi);
                   //g.objs[g_obj_name].setConstQ("v", {0.0, 0.0, -0.05});
-                  gs[g_obj_name] = g;
-                  gs[g_obj_name].objs[g_obj_name].setConstQ("v", {0.0, 0.0, -0.05});
+                  GS[g_obj_name] = g;
+                  GS[g_obj_name].objs[g_obj_name].setConstQ("v", {0.0, 0.0, -0.05});
 
                   if (grow_i > 0) {
                      vector<string> tmp(1);
@@ -457,8 +469,12 @@ void cmd_load(vector<string>& argv) {
    }
 }
 
-void cmd_exit(vector<string>& argv) {
-   menu_depth = 0;
+void cmd_reseed(vector<string>& argv) {
+   if (argv.size() >= 1) {
+      CMDS_STORE["seed"] = argv[0];
+   }
+   
+   srand(as_double(CMDS_STORE["seed"]));
 }
 
 // a pointer to this function placed in the test_object_1 object. It sets the
@@ -575,6 +591,8 @@ void draw_circle(float cx, float cy, float r, int num_segments) {
 void draw_cam_spheres() {
    Error e = NULL;
 
+   if (menu_depth != 0) {return;}
+
    // if left click is pressed calculate the distance
    if (SD_DONE == false) {
 
@@ -596,25 +614,27 @@ void draw_cam_spheres() {
       CAM.pos_in_los(SD, nsx, nsy, nsz);
 
       // set the sphere position
-      sphrs[0].center[0] = nsx;
-      sphrs[0].center[1] = nsy;
-      sphrs[0].center[2] = nsz;
+      SPHRS[0].center[0] = nsx;
+      SPHRS[0].center[1] = nsy;
+      SPHRS[0].center[2] = nsz;
 
       int i = -1;
       int sidx, sidy, sidz;
 
+      // use a load managed function to get selected object
+
       // check for collision with glob
-      for (auto git = gs.begin(); git != gs.end(); git++) {
+      for (auto git = GS.begin(); git != GS.end(); git++) {
 
       string gi = git->first;
 
-      // check each visible object in glob gs[gi]
-      for (int voi = 0; voi < gs[gi].vis_objs.size(); voi++) {
+      // check each visible object in glob GS[gi]
+      for (int voi = 0; voi < GS[gi].vis_objs.size(); voi++) {
 
          // get object id
-         string j = gs[gi].vis_objs[voi];
+         string j = GS[gi].vis_objs[voi];
 
-         if (gs[gi].objs[j].shape == "tetrahedron") {
+         if (GS[gi].objs[j].shape == "tetrahedron") {
 
             // get line segment points
             Vertex line[2];
@@ -623,22 +643,35 @@ void draw_cam_spheres() {
             line[0].z = nsz;
 
             GLfloat tx, ty, tz;
-            CAM.pos_in_los(SD+0.08f, tx, ty, tz);
+            CAM.pos_in_los(SD+n_s, tx, ty, tz);
             line[1].x = tx;
             line[1].y = ty;
             line[1].z = tz;
 
-            // get triangle points of each face
-            for (int fi = 0; fi < 4; fi++) {
+            glBegin(GL_LINE_LOOP);
+            glVertex3f(
+               line[0].x,
+               line[0].y,
+               line[0].z);
+            glVertex3f(
+               line[1].x,
+               line[1].y,
+               line[1].z);
+            glEnd();
+
+            // get triangle points of each visible face
+            for (int vfi = 0; vfi < GS[gi].objs[j].tetra.vis_faces.size();
+                 vfi++) {
                Vertex tripnts[3];
+               int fi = GS[gi].objs[j].tetra.vis_faces[vfi];
 
                for (int tripti = 0; tripti < 3; tripti++) {
                   tripnts[tripti].x =
-                     *gs[gi].objs[j].tetra.face[fi].pnts[tripti][0];
+                     *GS[gi].objs[j].tetra.face[fi].pnts[tripti][0];
                   tripnts[tripti].y =
-                     *gs[gi].objs[j].tetra.face[fi].pnts[tripti][1];
+                     *GS[gi].objs[j].tetra.face[fi].pnts[tripti][1];
                   tripnts[tripti].z =
-                     *gs[gi].objs[j].tetra.face[fi].pnts[tripti][2];
+                     *GS[gi].objs[j].tetra.face[fi].pnts[tripti][2];
                }
 
                if (tools::line_intersects_triangle(
@@ -664,8 +697,8 @@ void draw_cam_spheres() {
                   }
                   else if (selector_function == "remove") {
 
-                     auto it = gs[gi].objs.find(j);
-                     gs[gi].objs.erase(it);
+                     auto it = GS[gi].objs.find(j);
+                     GS[gi].objs.erase(it);
 
                      SD = as_double(CMDS_STORE["n_click_distance"]);
                      SD_DONE = true;
@@ -686,9 +719,9 @@ void draw_cam_spheres() {
 
                      Object o(buffer);
                      o.tetra = generate_tetra_from_side(
-                                    gs[gi].objs[j].tetra, fi);
+                                    GS[gi].objs[j].tetra, fi);
 
-                     gs[gi].attach(j, fi, o);
+                     GS[gi].attach(j, fi, o);
 
                      SD = as_double(CMDS_STORE["n_click_distance"]);
                      SD_DONE = true;
@@ -703,22 +736,22 @@ void draw_cam_spheres() {
    }
    else {
       CAM.pos_in_los(SD,
-            sphrs[0].center[0], sphrs[0].center[1], sphrs[0].center[2]);
+            SPHRS[0].center[0], SPHRS[0].center[1], SPHRS[0].center[2]);
    }
 
 
    // draw the sphere
-   glColor3f(sphrs[0].color[0], sphrs[0].color[1], sphrs[0].color[2]);
+   glColor3f(SPHRS[0].color[0], SPHRS[0].color[1], SPHRS[0].color[2]);
    glPushMatrix();
-   glTranslatef(sphrs[0].center[0], sphrs[0].center[1], sphrs[0].center[2]);
-   glutWireSphere(sphrs[0].r, 8, 6);
+   glTranslatef(SPHRS[0].center[0], SPHRS[0].center[1], SPHRS[0].center[2]);
+   glutWireSphere(SPHRS[0].r, 8, 6);
    glPopMatrix();
 
 }
 
 void draw_spheres() {
-   for (int i = 1; i < sphrs.size(); i++) {
-      draw_sphere(sphrs[i]);
+   for (int i = 1; i < SPHRS.size(); i++) {
+      draw_sphere(SPHRS[i]);
    }
 }
 
@@ -762,12 +795,41 @@ void mouse(int button, int state, int x, int y) {
       mouse_left_state = 1;
    }
 
+   if (state == 0) {
+      int scroll_speed = as_int(CMDS_STORE["igcmd_scroll_speed"]);
+      if (button == 4) {
+         if (IGCMD_MOUT_SCROLL - scroll_speed < 0) {
+            IGCMD_MOUT_SCROLL = 0;
+         }
+         else {
+            IGCMD_MOUT_SCROLL = IGCMD_MOUT_SCROLL - scroll_speed;
+         }
+      }
+      if (button == 3) {
+         if (IGCMD_MOUT_SCROLL + scroll_speed >=
+            as_int(CMDS_STORE["igcmd_mout_max_size"])) {
+            IGCMD_MOUT_SCROLL = 0;
+         }
+         else {
+            IGCMD_MOUT_SCROLL += scroll_speed;
+         }
+      }
+      //if (button == 1) {
+      //   MOUSE_GRAB = false;
+      //}
+   }
 }
 
 void mouse_passive(int x, int y) {
-   CAM.rotation(x, y);
+   if (MOUSE_GRAB && !DRAW_GLUT_MENU) {
+      //CAM.last_mouse_pos_x = 50;
+      //CAM.last_mouse_pos_y = 50;
+      CAM.rotation(x, y);
+   }
+
 //   SDL_SetRelativeMouseMode((SDL_bool) 1);
-   glutPostRedisplay();
+   //glutPostRedisplay();
+
 }
 
 void draw_bitmap_string(
@@ -780,15 +842,20 @@ void draw_bitmap_string(
 }
 
 void draw_menu_output(float x, float y, float z, void *font) {
-   while (menu_output.size() > 20) {
+
+   int max_lines = as_int(CMDS_STORE["igcmd_mout_max_size"]);
+   newlines_to_indices(menu_output);
+
+   while (menu_output.size() > max_lines) {
       menu_output.erase(menu_output.begin());
    }
 
    int dmli = menu_output.size() - draw_menu_lines;
    while (dmli < 0) { dmli++; }
 
-   newlines_to_indices(menu_output);
-   for (int i = menu_output.size() - 1; i >= dmli; i--) {
+   for (int i =
+        menu_output.size() - 1 - IGCMD_MOUT_SCROLL;
+        i >= dmli - IGCMD_MOUT_SCROLL && i > 0; i--) {
       y += 0.0369;
       glColor3f(0.1, 0.69, 0.99);
       glRasterPos3f(x, y, z);
@@ -801,21 +868,24 @@ void draw_menu_output(float x, float y, float z, void *font) {
 void drawScene(void) {
    int i;
 
+   if (MOUSE_GRAB && !DRAW_GLUT_MENU) {
+      CAM.last_mouse_pos_x = 75;
+      CAM.last_mouse_pos_y = 75;
+      glutWarpPointer(75, 75);
+   }
+
    glClearColor(0.0, 0.0, 0.025, 0.0); // background color
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
    glPushMatrix();
 
    //// set up camera
-   //glViewport(0, 0, 500, 500);
-
    glLoadIdentity();
    CAM.translation();
    glRotatef(180 * CAM.getAY() / 3.141592653, 1.0, 0.0, 0.0);
    glRotatef(180 * CAM.getAX() / 3.141592653, 0.0, 1.0, 0.0);
    glTranslated(-CAM.getX(), -CAM.getY(), -CAM.getZ());
 
-   // draw stuff
    glEnable(GL_DEPTH_TEST);
    glDepthFunc(GL_LEQUAL);
 
@@ -831,9 +901,14 @@ void drawScene(void) {
 
    draw_cam_spheres();
 
+   bool last_mg = MOUSE_GRAB;
    if (DRAW_GLUT_MENU) {
+      MOUSE_GRAB = false;
+
       draw_glut_menu();
       DRAW_GLUT_MENU = false;
+
+      MOUSE_GRAB = last_mg;
    }
 
    glEnable(GL_STENCIL_TEST);
@@ -844,12 +919,12 @@ void drawScene(void) {
    glColor3f(1.0, 1.0, 0.0);
 
    // draw visible triangles in globs map
-   for (auto glit = gs.begin(); glit != gs.end(); glit++) {
+   for (auto glit = GS.begin(); glit != GS.end(); glit++) {
       string gid = glit->first;
 
-      for (int voit = 0; voit < gs[gid].vis_objs.size(); voit++) {
-         string oid = gs[gid].vis_objs[voit];
-         drawVisibleTriangles(gid, oid, gs[gid].objs[oid].tetra);
+      for (int voit = 0; voit < GS[gid].vis_objs.size(); voit++) {
+         string oid = GS[gid].vis_objs[voit];
+         drawVisibleTriangles(gid, oid, GS[gid].objs[oid].tetra);
       }
    }
 
@@ -884,7 +959,6 @@ void drawScene(void) {
    /* end of good stuff */
 
    glutSwapBuffers();
-
 }
 
 void
@@ -901,15 +975,14 @@ setMatrix(int w, int h)
    glLoadIdentity();
 }
 
-bool once = false;
 void map_generation(void) {
-   vector<string> targv = {"initrnd1kx3", "0", "0", "0",
-      "-g", "r", "-s", "10.0",
-      "-m", "1000", "100", "1000", CMDS_STORE["mapgen_initrnd_rndmns"]};
-   if (!once) {
-      cmd_load(targv);
-      once = true;
-   }
+   long umapnumber = rand() % 100000;
+   char buffer[100];
+   sprintf(buffer, "initmapid%d", umapnumber);
+   vector<string> targv = {buffer, "0", "0", "0",
+      "-g", CMDS_STORE["mapgen_initmap_g_opt"], "-s", "10.0",
+      "-m", "1000", "100", "1000", CMDS_STORE["mapgen_initmap_rndmns"]};
+   cmd_load(targv);
 }
 
 void animation(void) {
@@ -937,6 +1010,7 @@ void animation(void) {
 
 void g_pause(void) {
    if (MAP_GEN) {
+      MAP_GEN = false;
       map_generation();
    }
    if (ANIMATION) {
@@ -957,16 +1031,22 @@ void draw_glut_menu() {
    }
  
    if (MAP_GEN) {
-      glutAddMenuEntry("1 - Map Generation", 0);
+      glutAddMenuEntry("1 - Generate Map", 0);
    }
    else {
-      glutAddMenuEntry("0 - Map Generation", 0);
+      glutAddMenuEntry("0 - Generate Map", 0);
    }
    if (ANIMATION) {
       glutAddMenuEntry("1 - Animation", 1);
    }
    else {
       glutAddMenuEntry("0 - Animation", 1);
+   }
+   if (MOUSE_GRAB) {
+      glutAddMenuEntry("1 - Ungrab Mouse", 2);
+   }
+   else {
+      glutAddMenuEntry("0 - Grab Mouse", 2);
    }
 }
 
@@ -977,7 +1057,6 @@ void menu(int choice) {
    case 0: // Map Generation
       if (MAP_GEN) {
          MAP_GEN = false;
-         once = false;
       }
       else {
          MAP_GEN = true;
@@ -992,6 +1071,16 @@ void menu(int choice) {
          ANIMATION = true;
       }
       break;
+   case 2: // Grab Mouse
+      if (MOUSE_GRAB) {
+         MOUSE_GRAB = false;
+      }
+      else {
+         MOUSE_GRAB = true;
+         CAM.last_mouse_pos_x = 75;
+         CAM.last_mouse_pos_y = 75;
+         glutWarpPointer(75, 75);
+      }
    }
 
    DRAW_GLUT_MENU = true;
@@ -1014,8 +1103,6 @@ keyboard(unsigned char c, int x, int y)
 
       if (menu_depth == 37) { // menu 37 is cmd line input
          if (c != 13 && c != 8 && c != 27) { // 13 is Enter
-            // use a buffer to hold the input while writing the characters
-            // to stdout.
             menu_input += c;
             cout << (int)c << "\n";
          }
@@ -1139,7 +1226,7 @@ keyboard(unsigned char c, int x, int y)
    if (c == 'b') {
       string id ;
       char n[100];
-      sprintf(n, "spawned_g_object_%i", gs.size());
+      sprintf(n, "spawned_g_object_%i", GS.size());
       id = n;
 
       cout << prefix;
@@ -1175,7 +1262,7 @@ keyboard(unsigned char c, int x, int y)
       CAM.pos_in_los(SD, nx, ny, nz);
 
       spawn_glob.translate_by(nx, ny, nz);
-      gs[spawn_glob.id] = spawn_glob;
+      GS[spawn_glob.id] = spawn_glob;
       return;
    }
    if (c == '+') { // add to draw_x_vertices
@@ -1201,7 +1288,7 @@ keyboard(unsigned char c, int x, int y)
 
    switch (c) {
    case 27: // Esc
-      //exit(0);
+      MOUSE_GRAB = false;
       break;
    case 93: // ]
       //grow_side(selected_side, 1.0);
@@ -1212,46 +1299,46 @@ keyboard(unsigned char c, int x, int y)
       glutPostRedisplay();
       break;
    case 'i':
-      gs[select_gobj].translate_by(0, 0, -0.1);
+      GS[select_gobj].translate_by(0, 0, -0.1);
       break;
    case 'j':
-      gs[select_gobj].translate_by(-0.1, 0, 0);
+      GS[select_gobj].translate_by(-0.1, 0, 0);
       break;
    case 'k':
-      gs[select_gobj].translate_by(0, 0, 0.1);
+      GS[select_gobj].translate_by(0, 0, 0.1);
       break;
    case 'l':
-      gs[select_gobj].translate_by(0.1, 0, 0);
+      GS[select_gobj].translate_by(0.1, 0, 0);
       break;
    case 'y':
-      gs[select_gobj].translate_by(0, 0.1, 0);
+      GS[select_gobj].translate_by(0, 0.1, 0);
       break;
    case 'n':
-      gs[select_gobj].translate_by(0, -0.1, 0);
+      GS[select_gobj].translate_by(0, -0.1, 0);
       break;
    case 'o':
-//      gs[select_gobj].scale_by(1.1, 1.1, 1.1);
+//      GS[select_gobj].scale_by(1.1, 1.1, 1.1);
       break;
    case 'u':
-//      gs[select_gobj].scale_by(0.9, 0.9, 0.9);
+//      GS[select_gobj].scale_by(0.9, 0.9, 0.9);
       break;
    case 'I':
-      gs[select_gobj].rotate_abt_center(7.0*(M_PI/4.0), 0.0, 0.0);
+      GS[select_gobj].rotate_abt_center(7.0*(M_PI/4.0), 0.0, 0.0);
       break;
    case 'J':
-      gs[select_gobj].rotate_abt_center(0.0, M_PI/4.0, 0.0);
+      GS[select_gobj].rotate_abt_center(0.0, M_PI/4.0, 0.0);
       break;
    case 'K':
-      gs[select_gobj].rotate_abt_center(M_PI/4.0, 0.0, 0.0);
+      GS[select_gobj].rotate_abt_center(M_PI/4.0, 0.0, 0.0);
       break;
    case 'L':
-      gs[select_gobj].rotate_abt_center(0.0, 7.0*(M_PI/4.0), 0.0);
+      GS[select_gobj].rotate_abt_center(0.0, 7.0*(M_PI/4.0), 0.0);
       break;
    case 'U':
-      gs[select_gobj].rotate_abt_center(0.0, 0.0, M_PI/4.0);
+      GS[select_gobj].rotate_abt_center(0.0, 0.0, M_PI/4.0);
       break;
    case 'O':
-      gs[select_gobj].rotate_abt_center(0.0, 0.0, 7.0*(M_PI/4.0));
+      GS[select_gobj].rotate_abt_center(0.0, 0.0, 7.0*(M_PI/4.0));
       break;
    case '`':
       menu_depth = 1;

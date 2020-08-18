@@ -41,10 +41,13 @@ void Camera::rotation(int x, int y) {
    GLfloat diffx = x - last_mouse_pos_x;
    GLfloat diffy = y - last_mouse_pos_y;
 
-   if (diffx > 4.0 || diffx < -4.0) {
+   diffx = diffx / 2.0;
+   diffy = diffy / 2.0;
+
+   if (diffx > 50.0 || diffx < -50.0) {
       diffx = 0.0;
    }
-   if (diffy > 4.0 || diffy < -4.0) {
+   if (diffy > 50.0 || diffy < -50.0) {
       diffy = 0.0;
    }
 
