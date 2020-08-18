@@ -5,9 +5,11 @@ A block building game.
 ### Controls
 
 ```text
-a s d f space ctrl - movement
+a s d f space c - movement
 b - create a block
 e - open console
+
+Mouse right click opens the menu.
 
 numbers: set mouse left click mode
 1 - select

@@ -64,6 +64,7 @@ string select_gobj;
 string select_obj;
 int select_face;
 long unsigned int gen_obj_cnt = 0;
+long unsigned int gen_map_cnt = 1;
 string selector_function = "select";
 int draw_x_vertices = 18;
 int menu_depth = 0;
@@ -319,9 +320,6 @@ void cmd_grow(vector<string>& argv) {
       int robji = rand() % GS[gi].vis_objs.size();
       robjkey = GS[gi].vis_objs[robji];
 
-//      string msg = "growing object: " + robjkey;
-//      menu_output.push_back(msg);
-
       int rvfacei = rand() % GS[gi].objs[robjkey].tetra.vis_faces.size();
       int rfacei = GS[gi].objs[robjkey].tetra.vis_faces[rvfacei];
       o.tetra = generate_tetra_from_side(
@@ -471,10 +469,10 @@ void cmd_load(vector<string>& argv) {
 
 void cmd_reseed(vector<string>& argv) {
    if (argv.size() >= 1) {
-      CMDS_STORE["seed"] = argv[0];
+      CMDS_STORE["rng_seed"] = argv[0];
    }
    
-   srand(as_double(CMDS_STORE["seed"]));
+   srand(as_double(CMDS_STORE["rng_seed"]));
 }
 
 // a pointer to this function placed in the test_object_1 object. It sets the
@@ -976,9 +974,8 @@ setMatrix(int w, int h)
 }
 
 void map_generation(void) {
-   long umapnumber = rand() % 100000;
    char buffer[100];
-   sprintf(buffer, "initmapid%d", umapnumber);
+   sprintf(buffer, "initmapid%d", gen_map_cnt++);
    vector<string> targv = {buffer, "0", "0", "0",
       "-g", CMDS_STORE["mapgen_initmap_g_opt"], "-s", "10.0",
       "-m", "1000", "100", "1000", CMDS_STORE["mapgen_initmap_rndmns"]};
