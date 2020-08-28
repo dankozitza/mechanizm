@@ -84,17 +84,17 @@ tools::Error Glob::attach(
       return error("ERROR!!! new object intersects source object\n");
    }
 
-   vector<int> newvf(0);
-   for (int vfi = 0; vfi < objs[source_id].tetra.vis_faces.size(); vfi++) {
-      if (objs[source_id].tetra.vis_faces[vfi] != source_face) {
-         newvf.push_back(objs[source_id].tetra.vis_faces[vfi]);
-      }
-   }
-   objs[source_id].tetra.set_vis_faces(newvf);
-   if (objs[source_id].tetra.vis_faces.size() < 1) {
-      // remove source_id from vis_objs
-      remove_vis_obj(source_id);
-   }
+   //vector<int> newvf(0);
+   //for (int vfi = 0; vfi < objs[source_id].tetra.vis_faces.size(); vfi++) {
+   //   if (objs[source_id].tetra.vis_faces[vfi] != source_face) {
+   //      newvf.push_back(objs[source_id].tetra.vis_faces[vfi]);
+   //   }
+   //}
+   //objs[source_id].tetra.set_vis_faces(newvf);
+   //if (objs[source_id].tetra.vis_faces.size() < 1) {
+   //   // remove source_id from vis_objs
+   //   remove_vis_obj(source_id);
+   //}
 
    int new_obj_face;
    if (source_face == 0) new_obj_face = 0;
@@ -102,18 +102,10 @@ tools::Error Glob::attach(
    else if (source_face == 2) new_obj_face = 3;
    else if (source_face == 3) new_obj_face = 2;
 
-   vector<int> novfs;
-   for (int nvfi = 0;
-            nvfi < new_obj.tetra.vis_faces.size();
-            nvfi++) {
-      if (new_obj.tetra.vis_faces[nvfi] != new_obj_face) {
-         novfs.push_back(new_obj.tetra.vis_faces[nvfi]);
-      }
-   }
-   new_obj.tetra.set_vis_faces(novfs);
+   //new_obj.tetra.remove_vis_face(new_obj_face);
 
    objs[new_obj.id] = new_obj;
-   if (new_obj.tetra.vis_faces.size() > 0) vis_objs.push_back(new_obj.id);
+   vis_objs.push_back(new_obj.id);
 
    return attach_interior_sides(new_obj.id);
 }
@@ -127,13 +119,16 @@ tools::Error Glob::attach_interior_sides(string new_obj_id) {
       vector<int> remove_vfs;
 
       if (verts_within_eps(objs[objid].tetra.center(),
-               objs[new_obj_id].tetra.center(), (GLfloat)0.05)) {
-         cout << "ERROR!!! new object intersects existing object\n";
+               objs[new_obj_id].tetra.center(), (GLfloat)0.08)) {
+         //cout << "ERROR!!! new object intersects existing object\n";
 
+         objs[new_obj_id].tetra.vis_faces.resize(0);
+         objs[new_obj_id].tetra.set_vis_faces(objs[new_obj_id].tetra.vis_faces);
          remove_vis_obj(new_obj_id);
-         remove_vis_obj(objid);
 
-         return error("ERROR!!! new object intersects source object\n");
+         //remove_vis_obj(objid);
+
+         return errorf("attach_interior_sides: new object %s intersects existing object %s", new_obj_id.c_str(), objid.c_str());
       }
 
       for (int ovfi = 0; ovfi < objs[objid].tetra.vis_faces.size(); ovfi++) {
@@ -159,19 +154,20 @@ tools::Error Glob::attach_interior_sides(string new_obj_id) {
             // remove faces that are attached and still visible
             if (objs[new_obj_id].tetra.vis_fbools[nfi] == true) {
 
-               objs[new_obj_id].tetra.vis_fbools[nfi] = false;
+               objs[new_obj_id].tetra.remove_vis_face(nfi);
+               //objs[new_obj_id].tetra.vis_fbools[nfi] = false;
 
-               vector<int> nnvfs;
-               for (int nvfi = 0;
-                        nvfi < objs[new_obj_id].tetra.vis_faces.size();
-                        nvfi++) {
-                  if (objs[new_obj_id].tetra.vis_faces[nvfi] != nfi) {
-                     nnvfs.push_back(objs[new_obj_id].tetra.vis_faces[nvfi]);
-                  }
-               }
-               objs[new_obj_id].tetra.set_vis_faces(nnvfs);
+               //vector<int> nnvfs;
+               //for (int nvfi = 0;
+               //         nvfi < objs[new_obj_id].tetra.vis_faces.size();
+               //         nvfi++) {
+               //   if (objs[new_obj_id].tetra.vis_faces[nvfi] != nfi) {
+               //      nnvfs.push_back(objs[new_obj_id].tetra.vis_faces[nvfi]);
+               //   }
+               //}
+               //objs[new_obj_id].tetra.set_vis_faces(nnvfs);
 
-               if (objs[new_obj_id].tetra.vis_faces.size() < 1) {
+               if (objs[new_obj_id].tetra.vis_faces.size() == 0) {
                   remove_vis_obj(new_obj_id);
                }
             }
@@ -180,30 +176,32 @@ tools::Error Glob::attach_interior_sides(string new_obj_id) {
                remove_vfs.push_back(ovfi);
             }
          }
-
       } // end ovfi loop
 
       // rebuild vis_face vectors
       for (int rvfi = 0; rvfi < remove_vfs.size(); rvfi++) {
 
          int remove_vfi = remove_vfs[rvfi];
-         vector<int> novfs;
+         //vector<int> novfs;
 
-         for (int tvfi = 0;
-            tvfi < objs[objid].tetra.vis_faces.size(); tvfi++) {
+         objs[objid].tetra.remove_vis_face(
+               objs[objid].tetra.vis_faces[remove_vfi]);
 
-            if (tvfi != remove_vfi) {
-               novfs.push_back(objs[objid].tetra.vis_faces[tvfi]);
-            }
-            else {
-               objs[objid].tetra.vis_fbools[
-                  objs[objid].tetra.vis_faces[tvfi]
-               ] = false;
-            }
-         }
-         objs[objid].tetra.set_vis_faces(novfs);
+         //for (int tvfi = 0;
+         //   tvfi < objs[objid].tetra.vis_faces.size(); tvfi++) {
 
-         if (objs[objid].tetra.vis_faces.size() < 1) {
+         //   if (tvfi != remove_vfi) {
+         //      novfs.push_back(objs[objid].tetra.vis_faces[tvfi]);
+         //   }
+         //   else {
+         //      objs[objid].tetra.vis_fbools[
+         //         objs[objid].tetra.vis_faces[tvfi]
+         //      ] = false;
+         //   }
+         //}
+         //objs[objid].tetra.set_vis_faces(novfs);
+
+         if (objs[objid].tetra.vis_faces.size() == 0) {
             remove_vis_obj(objid);
          }
       }

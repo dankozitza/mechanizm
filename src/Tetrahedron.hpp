@@ -59,6 +59,7 @@ class Tetrahedron {
       void set_faceColors(const GLfloat new_faceColors[][3]);
       void set_vis_faces(const vector<int> vvfi);
       void set_vis_faces_all();
+      void remove_vis_face(int facei);
       void rotate_abt_vert(
             Vertex& vert, GLfloat AX, GLfloat AY, GLfloat AZ);
       void rotate_abt_zero(GLfloat AX, GLfloat AY, GLfloat AZ);

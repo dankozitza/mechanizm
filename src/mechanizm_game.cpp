@@ -40,7 +40,7 @@ void
    menu(int choice),
    resize(int w, int h),
    mouse(int button, int state, int x, int y),
-   mouse_passive(int x, int y),
+   mouse_motion(int x, int y),
    keyboard(unsigned char c, int x, int y),
    keyboard_up(unsigned char c, int x, int y),
    motion(int x, int y),
@@ -170,6 +170,7 @@ int main(int argc, char *argv[]) {
    CMDS_STORE["hotkey_G"] = "grow 500";
    CMDS_STORE["igcmd_mout_max_size"] = "100";
    CMDS_STORE["igcmd_scroll_speed"] = "5";
+   CMDS_STORE["block_color"] = "0.5 0.5 0.5";
 
    SD = as_double(CMDS_STORE["n_click_distance"]);
    Sphere selector_sphere_1(0.0, 0.0, 0.0, 0.0369, 0.4, 0.8, 0.6);
@@ -240,7 +241,8 @@ int main(int argc, char *argv[]) {
    glutIdleFunc(g_pause);
    glutDisplayFunc(drawScene);
    glutMouseFunc(mouse);
-   glutPassiveMotionFunc(mouse_passive);
+   glutMotionFunc(mouse_motion);
+   glutPassiveMotionFunc(mouse_motion);
    glutReshapeFunc(resize);
    glutCreateMenu(menu);
    draw_glut_menu();
@@ -285,7 +287,12 @@ void cmd_set(vector<string>& argv) {
          menu_output.push_back(msg);
       }
    }
-   else if (argv.size() == 2) {
+   else if (argv.size() >= 2) {
+
+      for (int i = 2; i < argv.size(); i++) {
+         argv[1] += " " + argv[i];
+      }
+
       CMDS_STORE[argv[0]] = argv[1];
       msg = "setting ";
       msg += argv[0];
@@ -309,6 +316,12 @@ void cmd_grow(vector<string>& argv) {
    while (arg-- > 0) {
       string gi = select_gobj;
 
+      if (GS[gi].vis_objs.size() == 0) {
+         cout << "cmd_grow: gobj " << gi << " has 0 visible objects\n";
+         arg--;
+         continue;
+      }
+
       char buffer[100];
       sprintf(buffer, "generated_object_%i", gen_obj_cnt);
       gen_obj_cnt++;
@@ -320,12 +333,31 @@ void cmd_grow(vector<string>& argv) {
       int robji = rand() % GS[gi].vis_objs.size();
       robjkey = GS[gi].vis_objs[robji];
 
+      if (GS[gi].objs[robjkey].tetra.vis_faces.size() < 1) {
+         cout << "cmd_grow: ERROR random object " << robjkey << " has no vis faces\n";
+      }
+
       int rvfacei = rand() % GS[gi].objs[robjkey].tetra.vis_faces.size();
       int rfacei = GS[gi].objs[robjkey].tetra.vis_faces[rvfacei];
       o.tetra = generate_tetra_from_side(
                      GS[gi].objs[robjkey].tetra, rfacei);
 
-      GS[gi].attach(robjkey, rfacei, o);
+      select_obj = robjkey;
+      tools::Error e = GS[gi].attach(robjkey, rfacei, o);
+      if (e != NULL) {
+         cout << "cmd_grow: error generating tetrahedron from object "
+              << robjkey << " face " << rfacei << ".\n";
+         //GS[gi].objs[robjkey].tetra.remove_vis_face(rfacei);
+         GS[gi].objs[robjkey].tetra.faceColors[rfacei][0] = 0.8;
+         //if (GS[gi].objs[robjkey].tetra.vis_faces.size() == 0) {
+         //   GS[gi].remove_vis_obj(robjkey);
+         //}
+         cout << "cmd_grow::" << e << "\n";
+
+         cout << "cmd_grow: robjkey: " << robjkey << " face: " << rfacei;
+         cout << " vis_fbools: " << GS[gi].objs[robjkey].tetra.vis_fbools[rfacei] << endl;
+         return;
+      }
    }
 }
 
@@ -719,7 +751,26 @@ void draw_cam_spheres() {
                      o.tetra = generate_tetra_from_side(
                                     GS[gi].objs[j].tetra, fi);
 
-                     GS[gi].attach(j, fi, o);
+                     vector<string> m(3);
+                     if (pmatches(m,
+                        CMDS_STORE["block_color"], "(.+) (.+) (.+)")) {
+
+                        GLfloat os = (GLfloat)(rand() % 10) / 100.0;
+
+                        for (int fi = 0; fi < 4; fi++) {
+                           o.tetra.faceColors[fi][0] = as_double(m[1]) + os;
+                           o.tetra.faceColors[fi][1] = as_double(m[2]) + os;
+                           o.tetra.faceColors[fi][2] = as_double(m[3]) + os;
+                        }
+                     }
+                     else {
+                        cout << "build: block color does not match\n";
+                     }
+
+                     e = GS[gi].attach(j, fi, o);
+                     if (e != NULL) {
+                        cout << "attach::" << e << "\n";
+                     }
 
                      SD = as_double(CMDS_STORE["n_click_distance"]);
                      SD_DONE = true;
@@ -818,16 +869,10 @@ void mouse(int button, int state, int x, int y) {
    }
 }
 
-void mouse_passive(int x, int y) {
+void mouse_motion(int x, int y) {
    if (MOUSE_GRAB && !DRAW_GLUT_MENU) {
-      //CAM.last_mouse_pos_x = 50;
-      //CAM.last_mouse_pos_y = 50;
       CAM.rotation(x, y);
    }
-
-//   SDL_SetRelativeMouseMode((SDL_bool) 1);
-   //glutPostRedisplay();
-
 }
 
 void draw_bitmap_string(
@@ -899,14 +944,9 @@ void drawScene(void) {
 
    draw_cam_spheres();
 
-   bool last_mg = MOUSE_GRAB;
    if (DRAW_GLUT_MENU) {
-      MOUSE_GRAB = false;
-
       draw_glut_menu();
       DRAW_GLUT_MENU = false;
-
-      MOUSE_GRAB = last_mg;
    }
 
    glEnable(GL_STENCIL_TEST);
@@ -1285,7 +1325,12 @@ keyboard(unsigned char c, int x, int y)
 
    switch (c) {
    case 27: // Esc
-      MOUSE_GRAB = false;
+      if (MOUSE_GRAB) {
+         MOUSE_GRAB = false;
+      }
+      else {
+         MOUSE_GRAB = true;
+      }
       break;
    case 93: // ]
       //grow_side(selected_side, 1.0);
@@ -1450,10 +1495,8 @@ Tetrahedron generate_tetra_from_side(
       new_tetra.points[1] =
          source_tetra.points[source_tetra.faceIndex[source_face][0]];
       new_tetra.points[2] = new_v;
-
       new_tetra.points[3] = 
          source_tetra.points[source_tetra.faceIndex[source_face][2]];
-
    }
    if (source_face == 2) {
       new_tetra.points[0] = new_v;
@@ -1463,13 +1506,11 @@ Tetrahedron generate_tetra_from_side(
          source_tetra.points[source_tetra.faceIndex[source_face][1]];
       new_tetra.points[3] = 
          source_tetra.points[source_tetra.faceIndex[source_face][2]];
-
    }
    if (source_face == 3) {
       new_tetra.points[0] =
          source_tetra.points[source_tetra.faceIndex[source_face][0]];
       new_tetra.points[1] = new_v;
-
       new_tetra.points[2] =
          source_tetra.points[source_tetra.faceIndex[source_face][1]];
       new_tetra.points[3] = 
