@@ -25,10 +25,10 @@ tools::Error tools::load_json_value_from_file(Json::Value& jv, string fname) {
    return NULL;
 }
 
-tools::Error tools::load_json_value_from_string(Json::Value& jv, string s) {
+tools::Error tools::load_json_value_from_string(Json::Value& jv, const string& s) {
 
    Json::Reader reader;
-   if (reader.parse(s, jv, false)) { return NULL; }
+   if (reader.parse(s, jv, true)) {return NULL; }
 
    return errorf(
          "Json::Reader::parse returned false! "

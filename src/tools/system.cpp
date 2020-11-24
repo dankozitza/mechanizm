@@ -111,7 +111,6 @@ tools::Error tools::errorf(char const * format, ...) {
          case 'c':
             Printable.c = va_arg( vl, int );
             sprintf(buff, "%c", Printable.c);
-            cout << "buff: " << buff << endl;
             msg += buff;
          break;
 
@@ -188,6 +187,7 @@ bool tools::require(int sys_exit_val, string msg)
       cout << "exiting.\n";
       exit(EXIT_FAILURE);
    }
+   return true;
 }
 
 // require
@@ -203,6 +203,7 @@ bool tools::require(bool func_return_val, string msg) {
       cout << "exiting.\n";
       exit(EXIT_FAILURE);
    }
+   return true;
 }
 
 // dir_exists
@@ -349,6 +350,16 @@ tools::Error tools::read_file(string file_path, string &contents) {
       getline(fh, line);
       contents += line + "\n";
    }
+
+   fh.close();
+   return NULL;
+}
+
+tools::Error tools::write_file(string file_path, const string& contents) {
+   ofstream fh;
+   fh.open(file_path.c_str(), ofstream::out);
+
+   fh << contents.c_str() << endl;
 
    fh.close();
    return NULL;

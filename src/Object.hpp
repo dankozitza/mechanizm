@@ -55,6 +55,8 @@ class Object {
       void set_cube(GLfloat new_cube[][3]);
       void set_faceIndex(GLfloat new_faceIndex[][4]);
 
+      string getJSON();
+
       // cube transformations
       void translate_by(GLfloat x, GLfloat y, GLfloat z);
       void translate_by(GLfloat add_point[3]);

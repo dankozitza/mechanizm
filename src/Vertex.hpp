@@ -9,6 +9,7 @@
 
 #include <GL/glut.h>
 #include <math.h>
+#include <string>
 
 class Vertex {
 
@@ -21,6 +22,7 @@ class Vertex {
       Vertex(GLfloat x);
       ~Vertex();
 
+      std::string getJSON();
       GLfloat dot(const Vertex & b);
       Vertex cross(const Vertex & b);
       Vertex normalize();

@@ -38,8 +38,6 @@ Tetrahedron& Tetrahedron::operator=(const Tetrahedron& other) {
    set_vis_faces(other.vis_faces);
    init_triangles(); // pointers not copied by default constructor
    set_faceColors(other.faceColors);
-   total_types = other.total_types;
-   type = other.type;
    return *this;
 }
 
@@ -224,4 +222,33 @@ void Tetrahedron::multiply_vert_by(int vertex_index, GLfloat x, GLfloat y, GLflo
    points[vertex_index][0] *= x;
    points[vertex_index][1] *= y;
    points[vertex_index][2] *= z;
+}
+
+std::string Tetrahedron::getJSON() {
+   std::string r;
+   char buff[200];
+   r = "{\n\"points\": [" + points[0].getJSON() + ", " + points[1].getJSON();
+   r += ", " + points[2].getJSON() + ", " + points[3].getJSON() + "],\n";
+
+   r += "\"vis_faces\": [";
+   for (int vfi = 0; vfi < vis_faces.size(); vfi++) {
+      sprintf(buff, "%i", vis_faces[vfi]);
+      r += buff;
+
+      if (vfi != vis_faces.size() - 1) {r += ", ";}
+   }
+   r += "],\n";
+
+   r += "\"faceColors\": [";
+   for (int i = 0; i < 4; i++) {
+      sprintf(buff, "[%f, %f, %f]",
+            faceColors[i][0], faceColors[i][1], faceColors[i][2]);
+      r += buff;
+
+      if (i != 3) {r += ", ";}
+   }
+   r += "]\n";
+
+   r += "}";
+   return r;
 }

@@ -82,7 +82,7 @@ class options {
       options();
 
       void handle(char option_entry, bool& option_set);
-      void handle(char option_entry, bool& option_set, string& argument);
+      //void handle(char option_entry, bool& option_set, string& argument);
       // option_args.size() will determine the number of arguments to take
       // from the arguments vector during evaluate.
       // considering: If option_args.size() is 0 then take all following

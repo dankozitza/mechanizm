@@ -110,6 +110,19 @@ void Object::set_faceIndex(GLfloat new_faceIndex[][4]) {
    }
 }
 
+string Object::getJSON() {
+   string r;
+   r = "{\n\"obj_id\": \"" + id + "\",\n";
+   r += "\"obj_shape\": \"" + shape + "\",\n";
+
+   if (shape == "tetrahedron") {
+      r += "\"obj_tetra\": " + tetra.getJSON();
+   }
+
+   r += "\n}";
+   return r;
+}
+
 void Object::translate_by(GLfloat x, GLfloat y, GLfloat z) {
    if (shape == "tetrahedron") {
       tetra.translate_by(x, y, z);

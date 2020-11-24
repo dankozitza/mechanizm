@@ -38,7 +38,6 @@ void Glob::initialize(Object& obj) {
    vis_objs.clear();
    objs[obj.id] = obj;
    vis_objs.push_back(obj.id);
-   center_offset = obj.tetra.points[0] - obj.tetra.center();
 }
 
 void Glob::set_vis_objs(vector<string>& new_vis_objs) {
@@ -56,6 +55,32 @@ void Glob::remove_vis_obj(string obj_id) {
       }
    }
    set_vis_objs(nvos);
+}
+
+string Glob::getJSON() {
+   string r;
+   r = "{\n\"g_id\": \"" + id + "\",\n";
+
+   r += "\"g_vis_objs\": [";
+   for (int voi = 0; voi < vis_objs.size(); voi++) {
+      r += "\"" + vis_objs[voi] + "\"";
+
+      if (voi != vis_objs.size() - 1) {r += ", ";}
+   }
+   r += "],\n";
+
+   r += "\"g_objs\": {\n";
+
+   unsigned long int i = 0;
+   for (auto it = objs.begin(); it != objs.end(); it++) {
+      r += "\"" + it->first + "\": " + it->second.getJSON();
+
+      if (i != objs.size() - 1) {r += ",\n";}
+      i++;
+   }
+   r += "}\n}";
+
+   return r;
 }
 
 Vertex Glob::center() {

@@ -25,8 +25,6 @@ class Glob {
       string id;
       unordered_map<string, Object> objs;
       vector<string> vis_objs;
-      Vertex center_offset; // calculated on attach/detach
-      string init_obj_id;
 
       Glob();
       Glob(Object& obj);
@@ -34,6 +32,7 @@ class Glob {
       void initialize(Object& init_obj);
       void set_vis_objs(vector<string>& new_vis_objs);
       void remove_vis_obj(string obj_id);
+      string getJSON();
 
       Vertex center();
       tools::Error attach(

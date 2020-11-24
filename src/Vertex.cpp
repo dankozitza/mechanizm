@@ -29,6 +29,14 @@ Vertex::Vertex(GLfloat x) {
 Vertex::~Vertex() {
 }
 
+std::string Vertex::getJSON() {
+   std::string r;
+   char buf[100];
+   sprintf(buf, "[%f, %f, %f]", Vertex::x, Vertex::y, Vertex::z);
+   r = buf;
+   return r;
+}
+
 GLfloat Vertex::dot(const Vertex & b) {
    return Vertex::x * b.x + Vertex::y * b.y + Vertex::z * b.z;
 }

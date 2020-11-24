@@ -45,6 +45,7 @@ namespace tools {
          vector<string>& contents,
          string prefix);
    Error read_file(string file_path, string& contents);
+   Error write_file(string file_path, const string& contents);
 
    // strings.cpp
    string fold(int indent_width, int max_line_width, string s);
@@ -87,7 +88,7 @@ namespace tools {
    bool equal(double const& d1, double const& d2, double epsilon = 0.0001);
 
    // json_utils.cpp
-   Error load_json_value_from_string(Json::Value& jv, string s);
+   Error load_json_value_from_string(Json::Value& jv, const string& s);
    Error load_json_value_from_file(Json::Value& jv, string fname);
 
    // ogl_utils.cpp

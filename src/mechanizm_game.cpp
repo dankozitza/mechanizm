@@ -57,6 +57,8 @@ void
 tools::Error random_motion(double t, Object &self);
 
 Tetrahedron generate_tetra_from_side(Tetrahedron& source, int source_face);
+tools::Error save_map(string mapname);
+tools::Error load_map(string mapname);
 
 unordered_map<string, Glob> GS;
 vector<Sphere> SPHRS;
@@ -101,10 +103,11 @@ void
    cmd_help(vector<string>& argv),
    cmd_tp(vector<string>& argv),
    cmd_set(vector<string>& argv),
-   cmd_select(vector<string>& argv),
+   cmd_save(vector<string>& argv),
    cmd_grow(vector<string>& argv),
    cmd_stat(vector<string>& argv),
    cmd_load(vector<string>& argv),
+   cmd_load_map(vector<string>& argv),
    cmd_reseed(vector<string>& argv);
 
 int main(int argc, char *argv[]) {
@@ -116,12 +119,12 @@ int main(int argc, char *argv[]) {
    srand(as_double(CMDS_STORE["rng_seed"]));
    string prog_name = string(argv[0]);
    options opt;
-   bool quiet      = false;
-   bool show_help  = false;
-   bool file_given = false;
-   bool realtime   = false;
-   bool time       = false;
-   bool seed_b     = false;
+   bool quiet       = false;
+   bool show_help   = false;
+   bool file_given  = false;
+   bool realtime    = false;
+   bool time        = false;
+   bool seed_b      = false;
    vector<string> seed_argv(1);
    vector<string> file_path_av(1);
    string m[5];
@@ -164,13 +167,14 @@ int main(int argc, char *argv[]) {
    CMDS_STORE["n_click_speed"]         = "0.25";
    CMDS_STORE["n_click_max_distance"]  = "4.0";
    CMDS_STORE["n_click_distance"]      = "1.25";
+   CMDS_STORE["map_name"]              = "map.json";
    CMDS_STORE["mapgen_initmap_rndmns"] = "0.0002";
-   CMDS_STORE["mapgen_initmap_g_opt"] = "r";
-   CMDS_STORE["hotkey_g"] = "grow 1";
-   CMDS_STORE["hotkey_G"] = "grow 500";
-   CMDS_STORE["igcmd_mout_max_size"] = "100";
-   CMDS_STORE["igcmd_scroll_speed"] = "5";
-   CMDS_STORE["block_color"] = "0.5 0.5 0.5";
+   CMDS_STORE["mapgen_initmap_g_opt"]  = "r";
+   CMDS_STORE["hotkey_g"]              = "grow 1";
+   CMDS_STORE["hotkey_G"]              = "grow 500";
+   CMDS_STORE["igcmd_mout_max_size"]   = "100";
+   CMDS_STORE["igcmd_scroll_speed"]    = "5";
+   CMDS_STORE["block_color"]           = "0.5 0.5 0.5";
 
    SD = as_double(CMDS_STORE["n_click_distance"]);
    Sphere selector_sphere_1(0.0, 0.0, 0.0, 0.0369, 0.4, 0.8, 0.6);
@@ -196,10 +200,10 @@ int main(int argc, char *argv[]) {
          "Set called alone will print all values in the map. Called with \nonly a key argument it will display the value for that key. Called \nwith both key and value arguments will write the value to the map.");
 
    IN_GAME_CMDS.handle(
-         "select",
-         cmd_select,
-         "Select an object by index.",
-         "select [index]");
+         "save",
+         cmd_save,
+         "Save the map.",
+         "save [mapname]");
 
    IN_GAME_CMDS.handle(
          "grow",
@@ -219,6 +223,12 @@ int main(int argc, char *argv[]) {
          "Load an object into the game.",
          "load [name] [x] [y] [z]",
          "Options:\n   -m [sizex] [sizey] [sizez] [randomness]\n      Load a matrix of objects centered at x,y,z with dimentions\n      sizex, sizey, sizez. randomness is a float from\n      0 to 1 that describes the likelyhood of an object being loaded.\n   -s [unit_size]\n      Sets the unit size of the 3d grid. default: 1.0\n   -g [count]\n      Grow each object count new blocks. `-g r` selects a\n      random count from 0 to 1000.");
+
+   IN_GAME_CMDS.handle(
+         "load_map",
+         cmd_load_map,
+         "Load a saved map from the given json file.",
+         "load_map [file_name.json]");
 
    IN_GAME_CMDS.handle(
          "reseed",
@@ -302,8 +312,13 @@ void cmd_set(vector<string>& argv) {
    }
 }
 
-void cmd_select(vector<string>& argv) {
-   select_gobj = argv[0];
+void cmd_save(vector<string>& argv) {
+   if (argv.size() > 0) {
+      CMDS_STORE["map_name"] = argv[0];
+   }
+
+   menu_output.push_back("saving map: " + CMDS_STORE["map_name"]);
+   save_map(CMDS_STORE["map_name"]);
 }
 
 void cmd_grow(vector<string>& argv) {
@@ -497,6 +512,20 @@ void cmd_load(vector<string>& argv) {
          }
       }
    }
+}
+
+void cmd_load_map(vector<string>& argv) {
+   string mname = CMDS_STORE["map_name"];
+   if (argv.size() > 0) {
+      mname = argv[0];
+   }
+   menu_output.push_back("loading map: " + mname);
+   tools::Error e = load_map(mname);
+   if (e != NULL) {
+      menu_output.push_back("load_map: Error loading map '" + mname + "':");
+      menu_output.push_back(e);
+   }
+   return;
 }
 
 void cmd_reseed(vector<string>& argv) {
@@ -1518,4 +1547,55 @@ Tetrahedron generate_tetra_from_side(
    }
 
    return new_tetra;
+}
+
+tools::Error save_map(string mapname) {
+
+   string jmap = "{\n";
+
+   unsigned long int i = 0;
+   for (auto it = GS.begin(); it != GS.end(); it++) {
+      jmap += "\"" + it->first + "\": " + it->second.getJSON();
+
+      if (i != GS.size()-1) {jmap += ",\n";}
+      i++;
+   }
+
+   jmap += "\n}";
+
+   return tools::write_file(mapname, jmap);
+}
+
+tools::Error load_map(string mapname) {
+
+   string msg = "load_map:";
+   tools::Error e = NULL;
+   Json::Value jv;
+   e = load_json_value_from_file(jv, mapname);
+   if (e != NULL) {
+     msg += e;
+     return error(msg);
+   }
+
+   for (auto jvit = jv.begin(); jvit != jv.end(); jvit++) {
+      cout << jvit.key().asString() << ", ";
+      string gid = jvit.key().asString();
+
+      string ioid = jv[gid]["g_objs"].begin().key().asString();
+      Object obj(ioid);
+      Glob nglb(obj);
+      nglb.id = gid;
+
+      unsigned long int i = 0;
+      for (auto gobjit = jv[gid].begin(); gobjit != jv[gid].end(); gobjit++) {
+         string gobjkey = gobjit.key().asString();
+
+         
+      }
+
+      cout << "load_map: " << nglb.getJSON() << endl;
+   }
+
+
+   return NULL;
 }
