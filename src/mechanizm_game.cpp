@@ -68,7 +68,7 @@ int select_face;
 long unsigned int gen_obj_cnt = 0;
 long unsigned int gen_map_cnt = 1;
 string selector_function = "select";
-int draw_x_vertices = 18;
+int draw_x_vertices = 0;
 int menu_depth = 0;
 int timed_menu_display = 0;
 int draw_menu_lines = 10;
@@ -363,14 +363,25 @@ void cmd_grow(vector<string>& argv) {
          cout << "cmd_grow: error generating tetrahedron from object "
               << robjkey << " face " << rfacei << ".\n";
          //GS[gi].objs[robjkey].tetra.remove_vis_face(rfacei);
+         //
+         GLfloat blue[4][3] = {{0.2, 0.2, 0.8},{0.2, 0.2, 0.8},{0.2, 0.2, 0.8},{0.2, 0.2, 0.8}};
+         GS[gi].objs[robjkey].tetra.set_faceColors(blue);
          GS[gi].objs[robjkey].tetra.faceColors[rfacei][0] = 0.8;
+         GS[gi].objs[robjkey].tetra.faceColors[rfacei][2] = 0.2;
+
          //if (GS[gi].objs[robjkey].tetra.vis_faces.size() == 0) {
          //   GS[gi].remove_vis_obj(robjkey);
          //}
          cout << "cmd_grow::" << e << "\n";
+         cout << "cmd_grow: removing face " << rfacei << ".\n";
 
-         cout << "cmd_grow: robjkey: " << robjkey << " face: " << rfacei;
-         cout << " vis_fbools: " << GS[gi].objs[robjkey].tetra.vis_fbools[rfacei] << endl;
+         GS[gi].objs[robjkey].tetra.remove_vis_face(rfacei);
+         if (GS[gi].objs[robjkey].tetra.vis_faces.size() == 0) {
+            GS[gi].remove_vis_obj(robjkey);
+         }
+
+         //cout << "cmd_grow: robjkey: " << robjkey << " face: " << rfacei;
+         //cout << " vis_fbools: " << GS[gi].objs[robjkey].tetra.vis_fbools[rfacei] << endl;
          return;
       }
    }
@@ -579,15 +590,17 @@ void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
 
    int drawn = 0;
 
-   if (draw_x_vertices < 0) {
-      for (int pi = 0; pi < 4; pi++) {
+   if (draw_x_vertices != 0) {
+      for (int pi = 0; pi < draw_x_vertices; pi++) {
          Sphere new_sphere(tetra.points[pi].x,
                            tetra.points[pi].y,
                            tetra.points[pi].z,
                            0.0369, 0.4, 0.8, 0.6);
          draw_sphere(new_sphere);
       }
-      return;
+   }
+   else if (draw_x_vertices < 0) {
+     return;
    } 
 
    glBegin(GL_TRIANGLES);
@@ -607,10 +620,10 @@ void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
             tmpv.z);
 
          drawn++;
-         if (drawn > draw_x_vertices) {
-            glEnd();
-            return;
-         }
+         //if (drawn > draw_x_vertices) {
+         //   glEnd();
+         //   return;
+         //}
       }
 
       if (gsid == select_gobj && obid == select_obj) {
@@ -745,7 +758,8 @@ void draw_cam_spheres() {
 
                      string msg("selected glob: " + gi + "\nobject: " + j);
                      char buffer[100];
-                     sprintf(buffer, ", face %i", fi);
+                     sprintf(buffer, ", face %i, vis_faces: %i",
+                             fi, GS[gi].objs[j].tetra.vis_faces.size());
                      msg += buffer;
                      menu_output.push_back(msg);
                      timed_menu_display = 150;
