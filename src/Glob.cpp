@@ -129,19 +129,15 @@ tools::Error Glob::attach_interior_sides(string new_obj_id) {
                objs[new_obj_id].tetra.center(), (GLfloat)0.08)) {
          //cout << "ERROR!!! new object intersects existing object\n";
 
-         GLfloat red[4][3] = {{0.7, 0.2, 0.2},
-            {0.7, 0.2, 0.2},
-            {0.7, 0.2, 0.2},
-            {0.7, 0.2, 0.2}};
-         
-         objs[new_obj_id].tetra.set_faceColors(red);
          objs[new_obj_id].tetra.vis_faces.resize(0);
          objs[new_obj_id].tetra.set_vis_faces(objs[new_obj_id].tetra.vis_faces);
          remove_vis_obj(new_obj_id);
 
-         //remove_vis_obj(objid);
+         // TODO: fix unwanted remaining visible sides
+         // mark 'existing object' green
+         objs[objid].tetra.set_faceColors(Tetrahedron().fc_green);
 
-         return errorf("attach_interior_sides: new object %s intersects existing object %s", new_obj_id.c_str(), objid.c_str());
+         return errorf("attach_interior_sides: removed new object %s: intersects existing object (green) %s", new_obj_id.c_str(), objid.c_str());
       }
 
       for (int ovfi = 0; ovfi < objs[objid].tetra.vis_faces.size(); ovfi++) {

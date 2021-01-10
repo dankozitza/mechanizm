@@ -33,6 +33,21 @@ class Tetrahedron {
       vector<bool> vis_fbools;
 
 		GLfloat faceColors[4][3];
+      GLfloat fc_red[4][3] = {
+         0.4, 0.2, 0.2,
+         0.5, 0.2, 0.2,
+         0.6, 0.2, 0.2,
+         0.7, 0.2, 0.2};
+      GLfloat fc_green[4][3] = {
+         0.2, 0.4, 0.2,
+         0.2, 0.5, 0.2,
+         0.2, 0.6, 0.2,
+         0.2, 0.7, 0.2};
+      GLfloat fc_blue[4][3] = {
+         0.2, 0.2, 0.4,
+         0.2, 0.2, 0.5,
+         0.2, 0.2, 0.6,
+         0.2, 0.2, 0.7};
 
       void initialize();
       void init_triangles();

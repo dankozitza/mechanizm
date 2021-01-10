@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
    CMDS_STORE["hotkey_G"]              = "grow 500";
    CMDS_STORE["igcmd_mout_max_size"]   = "100";
    CMDS_STORE["igcmd_scroll_speed"]    = "5";
-   CMDS_STORE["block_color"]           = "0.5 0.5 0.5";
+   CMDS_STORE["block_color"]           = "0.25 0.3 0.3";
 
    SD = as_double(CMDS_STORE["n_click_distance"]);
    Sphere selector_sphere_1(0.0, 0.0, 0.0, 0.0369, 0.4, 0.8, 0.6);
@@ -349,7 +349,8 @@ void cmd_grow(vector<string>& argv) {
       robjkey = GS[gi].vis_objs[robji];
 
       if (GS[gi].objs[robjkey].tetra.vis_faces.size() < 1) {
-         cout << "cmd_grow: ERROR random object " << robjkey << " has no vis faces\n";
+         cout << "cmd_grow: ERROR random object "
+              << robjkey << " has no vis faces\n";
       }
 
       int rvfacei = rand() % GS[gi].objs[robjkey].tetra.vis_faces.size();
@@ -361,28 +362,29 @@ void cmd_grow(vector<string>& argv) {
       tools::Error e = GS[gi].attach(robjkey, rfacei, o);
       if (e != NULL) {
          cout << "cmd_grow: error generating tetrahedron from object "
-              << robjkey << " face " << rfacei << ".\n";
-         //GS[gi].objs[robjkey].tetra.remove_vis_face(rfacei);
-         //
-         GLfloat blue[4][3] = {{0.2, 0.2, 0.8},{0.2, 0.2, 0.8},{0.2, 0.2, 0.8},{0.2, 0.2, 0.8}};
-         GS[gi].objs[robjkey].tetra.set_faceColors(blue);
-         GS[gi].objs[robjkey].tetra.faceColors[rfacei][0] = 0.8;
-         GS[gi].objs[robjkey].tetra.faceColors[rfacei][2] = 0.2;
+              << robjkey << " face " << rfacei << ".\nERROR: " << e << endl;
+         cout << "cmd_grow: re-running attach_interior_sides.\n";
 
+         // run attach_interior_faces here to fix remaining interior sides
+         e = NULL;
+         e = GS[gi].attach_interior_sides(robjkey);
+         if (e != NULL) {
+            cout << "cmd_grow: error running attach_interior_sides("
+                 << robjkey << ").\nERROR: " << e << endl;
+         }
+
+         //TODO: fix remaining visible sides left over from grow cmd.
+         //GS[gi].objs[robjkey].tetra.remove_vis_face(rfacei);
+         //GS[gi].objs[robjkey].tetra.set_faceColors(Tetrahedron().fc_blue);
+         //GS[gi].objs[robjkey].tetra.faceColors[rfacei][0] = 0.8;
+         //GS[gi].objs[robjkey].tetra.faceColors[rfacei][2] = 0.2;
          //if (GS[gi].objs[robjkey].tetra.vis_faces.size() == 0) {
          //   GS[gi].remove_vis_obj(robjkey);
          //}
-         cout << "cmd_grow::" << e << "\n";
-         cout << "cmd_grow: removing face " << rfacei << ".\n";
-
-         GS[gi].objs[robjkey].tetra.remove_vis_face(rfacei);
-         if (GS[gi].objs[robjkey].tetra.vis_faces.size() == 0) {
-            GS[gi].remove_vis_obj(robjkey);
-         }
-
-         //cout << "cmd_grow: robjkey: " << robjkey << " face: " << rfacei;
-         //cout << " vis_fbools: " << GS[gi].objs[robjkey].tetra.vis_fbools[rfacei] << endl;
-         return;
+         //cout << "cmd_grow::" << e << "\n";
+         //cout << "cmd_grow: removing face " << rfacei << " from "
+         //     << "object (blue) " << robjkey << ".\n";
+         //return;
       }
    }
 }
@@ -812,7 +814,14 @@ void draw_cam_spheres() {
 
                      e = GS[gi].attach(j, fi, o);
                      if (e != NULL) {
-                        cout << "attach::" << e << "\n";
+                        cout << "draw_cam_spheres::" << e << "\n";
+                        cout << "draw_cam_spheres: running "
+                             << "attach_interior_sides(" << j << ").\n";
+                        e = NULL;
+                        e = GS[gi].attach_interior_sides(j);
+                        if (e != NULL) {
+                           cout << "draw_cam_spheres::" << e << "\n";
+                        }
                      }
 
                      SD = as_double(CMDS_STORE["n_click_distance"]);
