@@ -150,7 +150,6 @@ void Camera::pos_in_los(float distance, float& x, float& y, float& z) {
    z = _Z + (sin(_AX - M_PI/2) * cos(-_AY)) * distance;
 }
 
-
 // computes the right speeds to give to the given directions using trigonometric formulas
 void Camera::translation() {
 

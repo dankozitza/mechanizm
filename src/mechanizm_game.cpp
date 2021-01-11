@@ -55,6 +55,7 @@ void
    reset_sphere_distance();
 
 tools::Error random_motion(double t, Object &self);
+tools::Error player_gravity(double t, Object &self);
 
 Tetrahedron generate_tetra_from_side(Tetrahedron& source, int source_face);
 tools::Error save_map(string mapname);
@@ -82,6 +83,8 @@ int WIN = -1;
 static Camera CAM(2.0, 2.0, 3.5, 0.0, 0.0, 0.6, 0.0022);
 
 static mechanizm MECH;
+vector<Object> M_OBJS;
+int PO = 0;
 int count = 1; // cycles through 1/60th of a second
 
 commands IN_GAME_CMDS;
@@ -131,7 +134,14 @@ int main(int argc, char *argv[]) {
    vector<string> args;
    Error e = NULL;
 
-   //MECH.set_objects(objs);
+   Object tmp_player_obj("player_grav_obj", 1.0, player_gravity);
+   tmp_player_obj.setConstQ("AGM_GRAVITY", 9.8);
+   tmp_player_obj.setConstQ("AGM_FALLING", 0.0);
+   tmp_player_obj.setConstQ("AGM_FSTARTT", 3.0);
+   tmp_player_obj.setConstQ("AGM_FSTARTY", 5.0);
+   tmp_player_obj.translate_by(10.0, 0.0, 10.0);
+   M_OBJS.push_back(tmp_player_obj);
+   MECH.set_objects(M_OBJS);
    MECH.current_time = 0.0;
 
    // build handler for glut window / game save
@@ -574,6 +584,51 @@ tools::Error random_motion(double t, Object &self) {
    return NULL;
 }
 
+tools::Error player_gravity(double t, Object &self) {
+
+   GLfloat gravity = self.getConstQ("AGM_GRAVITY")[0];
+   GLfloat falling = self.getConstQ("AGM_FALLING")[0];
+   GLfloat fstartt = self.getConstQ("AGM_FSTARTT")[0];
+   GLfloat fstarty = self.getConstQ("AGM_FSTARTY")[0];
+
+   if (self.last_t < fstartt) {
+      self.last_t = fstartt;
+   }
+
+   GLfloat tt = t - fstartt;
+   GLfloat tlast_t = self.last_t - fstartt;
+
+   // check under cam x z position for collision with visible side
+   if (falling > 0.5)  {
+      // use AGM_FSTARTT and AGM_FSTARTY to calculate fall distance
+      //GLfloat after = t + ((GLfloat)1/(GLfloat)64);
+
+      Vertex npp = {0.0, 0.0, 0.0};
+
+
+      cout << "player_gravity: tt: " << tt << ", AGM_FALLING: " << falling << ", AGM_FSTARTT: " << fstartt << ".\n";
+
+      //// calculate approximate fall distance.
+      GLfloat movement = 0.5*gravity*tt*tt -
+                         0.5*gravity*tlast_t*tlast_t;
+      npp.y = -movement;
+
+      self.translate_by(
+            npp.x,
+            npp.y,
+            npp.z);
+
+      CAM.setY(self.tetra.center().y);
+   }
+   else {
+      //cout << "player_gravity: not falling\n";
+   }
+
+   self.last_t = t;
+
+   return NULL;
+}
+
 void help(string p_name) {
    cout << "\n";
    cout << fold(0, 80, p_name +
@@ -592,7 +647,7 @@ void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
 
    int drawn = 0;
 
-   if (draw_x_vertices != 0) {
+   if (draw_x_vertices > 0) {
       for (int pi = 0; pi < draw_x_vertices; pi++) {
          Sphere new_sphere(tetra.points[pi].x,
                            tetra.points[pi].y,
@@ -602,7 +657,12 @@ void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
       }
    }
    else if (draw_x_vertices < 0) {
-     return;
+      // draw player object at feet
+      Sphere new_sphere(M_OBJS[PO].tetra.center().x,
+                        M_OBJS[PO].tetra.center().y - 0.8,
+                        M_OBJS[PO].tetra.center().z,
+                        0.1369, 0.4, 0.8, 0.6);
+      draw_sphere(new_sphere);
    } 
 
    glBegin(GL_TRIANGLES);
@@ -1080,7 +1140,7 @@ void animation(void) {
    // 1/64th of a second
    e = MECH.run(0.015625, 0, 0.015625);
    if (e != NULL) {
-      cout << e;
+      cout << "mechanizm_game::animation::" << e << endl;
       return;
    }
    //cout << "count: " << count << " t: " << MECH.current_time << "\n";
@@ -1094,6 +1154,22 @@ void animation(void) {
    if (e != NULL) {
       cout << e;
       return;
+   }
+
+   // build AGM (artificial gravity module) functions and variables for
+   // player_gravity function
+   // move CAM vertically to player gravity object y value?
+   //Vertex c;
+   //M_OBJS[0].tetra.center(c);
+   //CAM.setY(c.y);
+   // move the player object M_OBJS[0] to cam position
+   
+   // use count to do this less often
+   M_OBJS[0].translate_by(-M_OBJS[0].tetra.points[0].x, -M_OBJS[0].tetra.points[0].y, -M_OBJS[0].tetra.points[0].z);
+   M_OBJS[0].translate_by(-M_OBJS[0].tetra.center().x, -M_OBJS[0].tetra.center().y, -M_OBJS[0].tetra.center().z);
+   M_OBJS[0].translate_by(CAM.getX(), CAM.getY(), CAM.getZ());
+   if (M_OBJS[0].getConstQ("AGM_FALLING")[0] < 0.5) {
+      M_OBJS[0].setConstQ("AGM_FSTARTY", CAM.getY());
    }
 }
 
@@ -1353,6 +1429,17 @@ keyboard(unsigned char c, int x, int y)
       spawn_glob.translate_by(nx, ny, nz);
       GS[spawn_glob.id] = spawn_glob;
       return;
+   }
+   if (c == 'c') { // begin falling sequence
+      GLfloat f = M_OBJS[PO].getConstQ("AGM_FALLING")[0];
+
+      if (f < 0.5) {
+         M_OBJS[PO].setConstQ("AGM_FALLING", 1.0);
+         M_OBJS[PO].setConstQ("AGM_FSTARTT", MECH.current_time);
+      }
+      else {
+         M_OBJS[PO].setConstQ("AGM_FALLING", 0.0);
+      }
    }
    if (c == '+') { // add to draw_x_vertices
       draw_x_vertices++;
