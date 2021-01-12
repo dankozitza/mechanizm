@@ -185,6 +185,11 @@ int main(int argc, char *argv[]) {
    CMDS_STORE["igcmd_mout_max_size"]   = "100";
    CMDS_STORE["igcmd_scroll_speed"]    = "5";
    CMDS_STORE["block_color"]           = "0.25 0.3 0.3";
+   CMDS_STORE["player_move_speed"]     = "0.001";
+
+   // X Y Z theta (ax) psi (ay) rotationSpeed translationSpeed
+   CAM = Camera(CAM.getX(), CAM.getY(), CAM.getZ(), 0.0, 0.0, 0.5,
+                  as_double(CMDS_STORE["player_move_speed"]));
 
    SD = as_double(CMDS_STORE["n_click_distance"]);
    Sphere selector_sphere_1(0.0, 0.0, 0.0, 0.0369, 0.4, 0.8, 0.6);
@@ -320,6 +325,10 @@ void cmd_set(vector<string>& argv) {
       msg += CMDS_STORE[argv[0]];
       menu_output.push_back(msg);
    }
+
+   // update cam in case settings are modified
+   CAM = Camera(CAM.getX(), CAM.getY(), CAM.getZ(), CAM.getAX(), CAM.getAY(),
+                  0.5, as_double(CMDS_STORE["player_move_speed"]));
 }
 
 void cmd_save(vector<string>& argv) {
@@ -589,7 +598,12 @@ tools::Error player_gravity(double t, Object &self) {
    // check for collision with object below cam, if collision is detected
    // move player above point of intersection if detected
    // loop through all visible sides, check if line intersects triangles
-   //if (count % 2 == 0) {
+   //if ((count + 1) % 2 == 0) {
+   //
+   GLfloat falling = self.getConstQ("AGM_FALLING")[0];
+   if (falling < 0.5)  {
+      return NULL;
+   }
 
    for (auto git = GS.begin(); git != GS.end(); git++) {
    string gi = git->first;
@@ -600,10 +614,11 @@ tools::Error player_gravity(double t, Object &self) {
 
          Vertex line[2];
          line[0] = M_OBJS[PO].tetra.center();
+         line[0].y = M_OBJS[PO].tetra.center().y + 0.5;
 
          line[1].x = M_OBJS[PO].tetra.center().x;
          line[1].z = M_OBJS[PO].tetra.center().z;
-         line[1].y = M_OBJS[PO].tetra.center().y - 1.0;
+         line[1].y = M_OBJS[PO].tetra.center().y - 1.2;
 
          glBegin(GL_LINE_LOOP);
          glVertex3f(
@@ -637,22 +652,21 @@ tools::Error player_gravity(double t, Object &self) {
                      line,
                      tripnts,
                      NULL)) {
-               cout << "player_gravity: intersection with object!\n";
-               M_OBJS[PO].setConstQ("AGM_FALLING", 0.0);
+               //cout << "player_gravity: intersection with object!\n";
+               //M_OBJS[PO].setConstQ("AGM_FALLING", 0.0);
+               M_OBJS[PO].translate_by(-M_OBJS[PO].tetra.center().x,
+                                       -M_OBJS[PO].tetra.center().y,
+                                       -M_OBJS[PO].tetra.center().z);
+               M_OBJS[PO].translate_by(CAM.getX(), new_cam_y, CAM.getZ());
                CAM.setY(new_cam_y);
-            }
-            //else {
-            //   //M_OBJS[PO].setConstQ("AGM_FALLING", 1.0);
 
-            //   //CAM.setY(new_cam_y);
-            //}
+               M_OBJS[PO].setConstQ("AGM_FSTARTT", MECH.current_time);
+            }
          }
       }
    }
-   //}
 
    GLfloat gravity = self.getConstQ("AGM_GRAVITY")[0];
-   GLfloat falling = self.getConstQ("AGM_FALLING")[0];
    GLfloat fstartt = self.getConstQ("AGM_FSTARTT")[0];
    GLfloat fstarty = self.getConstQ("AGM_FSTARTY")[0];
 
@@ -660,39 +674,22 @@ tools::Error player_gravity(double t, Object &self) {
       self.last_t = fstartt;
    }
 
+   // use AGM_FSTARTT to calculate fall distance
    GLfloat tt = t - fstartt;
    GLfloat tlast_t = self.last_t - fstartt;
 
-   if (falling > 0.5)  {
-      // use AGM_FSTARTT and AGM_FSTARTY to calculate fall distance
-      //GLfloat after = t + ((GLfloat)1/(GLfloat)64);
+   //cout << "player_gravity: tt: " << tt << ", AGM_FALLING: " << falling << ", AGM_FSTARTT: " << fstartt << ".\n";
 
-      Vertex npp = {0.0, 0.0, 0.0};
+   GLfloat movement = 0.5*gravity*tt*tt -
+                      0.5*gravity*tlast_t*tlast_t;
 
+   GLfloat camy = CAM.getY() - movement;
+   CAM.setY(camy);
 
-      cout << "player_gravity: tt: " << tt << ", AGM_FALLING: " << falling << ", AGM_FSTARTT: " << fstartt << ".\n";
-
-      //// calculate approximate fall distance.
-      GLfloat movement = 0.5*gravity*tt*tt -
-                         0.5*gravity*tlast_t*tlast_t;
-      npp.y = -movement;
-
-      self.translate_by(
-            npp.x,
-            npp.y,
-            npp.z);
-
-      GLfloat camy = CAM.getY() - movement;
-
-      CAM.setY(camy);
-   }
-   else {
-      //cout << "player_gravity: not falling\n";
-   }
-
-
+   self.translate_by(0.0, -movement, 0.0);
    self.last_t = t;
 
+   //} // end count block
    return NULL;
 }
 
@@ -1232,14 +1229,13 @@ void animation(void) {
    // move the player object M_OBJS[0] to cam position
    
    // use count to do this less often
-   if (count % 4 == 0) {
-      M_OBJS[0].translate_by(-M_OBJS[0].tetra.points[0].x, -M_OBJS[0].tetra.points[0].y, -M_OBJS[0].tetra.points[0].z);
+   //if (count % 2 == 0) {
       M_OBJS[0].translate_by(-M_OBJS[0].tetra.center().x, -M_OBJS[0].tetra.center().y, -M_OBJS[0].tetra.center().z);
       M_OBJS[0].translate_by(CAM.getX(), CAM.getY(), CAM.getZ());
       if (M_OBJS[0].getConstQ("AGM_FALLING")[0] < 0.5) {
          M_OBJS[0].setConstQ("AGM_FSTARTY", CAM.getY());
       }
-   }
+   //}
 }
 
 void g_pause(void) {
@@ -1499,7 +1495,7 @@ keyboard(unsigned char c, int x, int y)
       GS[spawn_glob.id] = spawn_glob;
       return;
    }
-   if (c == 'c') { // begin falling sequence
+   if (c == 'x' || c == 'X') { // begin falling sequence
       GLfloat f = M_OBJS[PO].getConstQ("AGM_FALLING")[0];
 
       if (f < 0.5) {
@@ -1509,6 +1505,8 @@ keyboard(unsigned char c, int x, int y)
       else {
          M_OBJS[PO].setConstQ("AGM_FALLING", 0.0);
       }
+   }
+   if (c == ' ') { // AGM jump
    }
    if (c == '+') { // add to draw_x_vertices
       draw_x_vertices++;

@@ -6,8 +6,11 @@ A block building game.
 
 ```text
 a s d f space c - movement
+x - enable AGM
 b - create a block
 e - open console
+
+Esc - grab/ungrab mouse
 
 Mouse right click opens the menu.
 
