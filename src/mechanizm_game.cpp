@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
 
    CMDS_STORE["n_click_speed"]         = "0.25";
    CMDS_STORE["n_click_max_distance"]  = "4.0";
-   CMDS_STORE["n_click_distance"]      = "1.25";
+   CMDS_STORE["n_click_distance"]      = "0.6";
    CMDS_STORE["map_name"]              = "map.json";
    CMDS_STORE["mapgen_initmap_rndmns"] = "0.0002";
    CMDS_STORE["mapgen_initmap_g_opt"]  = "r";
@@ -586,6 +586,71 @@ tools::Error random_motion(double t, Object &self) {
 
 tools::Error player_gravity(double t, Object &self) {
 
+   // check for collision with object below cam, if collision is detected
+   // move player above point of intersection if detected
+   // loop through all visible sides, check if line intersects triangles
+   //if (count % 2 == 0) {
+
+   for (auto git = GS.begin(); git != GS.end(); git++) {
+   string gi = git->first;
+
+      // check each visible object in glob GS[gi]
+      for (int voi = 0; voi < GS[gi].vis_objs.size(); voi++) {
+         string j = GS[gi].vis_objs[voi];
+
+         Vertex line[2];
+         line[0] = M_OBJS[PO].tetra.center();
+
+         line[1].x = M_OBJS[PO].tetra.center().x;
+         line[1].z = M_OBJS[PO].tetra.center().z;
+         line[1].y = M_OBJS[PO].tetra.center().y - 1.0;
+
+         glBegin(GL_LINE_LOOP);
+         glVertex3f(
+            line[0].x,
+            line[0].y,
+            line[0].z);
+         glVertex3f(
+            line[1].x,
+            line[1].y,
+            line[1].z);
+         glEnd();
+
+         // check each visable face
+         for (int vfi = 0; vfi < GS[gi].objs[j].tetra.vis_faces.size();
+               vfi++) {
+            int fi = GS[gi].objs[j].tetra.vis_faces[vfi];
+            Vertex tripnts[3];
+
+            GLfloat new_cam_y = GS[gi].objs[j].tetra.center().y + 0.8;
+
+            for (int tripti = 0; tripti < 3; tripti++) {
+               tripnts[tripti].x =
+                  *GS[gi].objs[j].tetra.face[fi].pnts[tripti][0];
+               tripnts[tripti].y =
+                  *GS[gi].objs[j].tetra.face[fi].pnts[tripti][1];
+               tripnts[tripti].z =
+                  *GS[gi].objs[j].tetra.face[fi].pnts[tripti][2];
+            }
+
+            if (tools::line_intersects_triangle(
+                     line,
+                     tripnts,
+                     NULL)) {
+               cout << "player_gravity: intersection with object!\n";
+               M_OBJS[PO].setConstQ("AGM_FALLING", 0.0);
+               CAM.setY(new_cam_y);
+            }
+            //else {
+            //   //M_OBJS[PO].setConstQ("AGM_FALLING", 1.0);
+
+            //   //CAM.setY(new_cam_y);
+            //}
+         }
+      }
+   }
+   //}
+
    GLfloat gravity = self.getConstQ("AGM_GRAVITY")[0];
    GLfloat falling = self.getConstQ("AGM_FALLING")[0];
    GLfloat fstartt = self.getConstQ("AGM_FSTARTT")[0];
@@ -598,7 +663,6 @@ tools::Error player_gravity(double t, Object &self) {
    GLfloat tt = t - fstartt;
    GLfloat tlast_t = self.last_t - fstartt;
 
-   // check under cam x z position for collision with visible side
    if (falling > 0.5)  {
       // use AGM_FSTARTT and AGM_FSTARTY to calculate fall distance
       //GLfloat after = t + ((GLfloat)1/(GLfloat)64);
@@ -618,11 +682,14 @@ tools::Error player_gravity(double t, Object &self) {
             npp.y,
             npp.z);
 
-      CAM.setY(self.tetra.center().y);
+      GLfloat camy = CAM.getY() - movement;
+
+      CAM.setY(camy);
    }
    else {
       //cout << "player_gravity: not falling\n";
    }
+
 
    self.last_t = t;
 
@@ -1165,11 +1232,13 @@ void animation(void) {
    // move the player object M_OBJS[0] to cam position
    
    // use count to do this less often
-   M_OBJS[0].translate_by(-M_OBJS[0].tetra.points[0].x, -M_OBJS[0].tetra.points[0].y, -M_OBJS[0].tetra.points[0].z);
-   M_OBJS[0].translate_by(-M_OBJS[0].tetra.center().x, -M_OBJS[0].tetra.center().y, -M_OBJS[0].tetra.center().z);
-   M_OBJS[0].translate_by(CAM.getX(), CAM.getY(), CAM.getZ());
-   if (M_OBJS[0].getConstQ("AGM_FALLING")[0] < 0.5) {
-      M_OBJS[0].setConstQ("AGM_FSTARTY", CAM.getY());
+   if (count % 4 == 0) {
+      M_OBJS[0].translate_by(-M_OBJS[0].tetra.points[0].x, -M_OBJS[0].tetra.points[0].y, -M_OBJS[0].tetra.points[0].z);
+      M_OBJS[0].translate_by(-M_OBJS[0].tetra.center().x, -M_OBJS[0].tetra.center().y, -M_OBJS[0].tetra.center().z);
+      M_OBJS[0].translate_by(CAM.getX(), CAM.getY(), CAM.getZ());
+      if (M_OBJS[0].getConstQ("AGM_FALLING")[0] < 0.5) {
+         M_OBJS[0].setConstQ("AGM_FSTARTY", CAM.getY());
+      }
    }
 }
 
