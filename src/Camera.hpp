@@ -32,6 +32,7 @@ class Camera {
       void pos_in_los(float distance, float& x, float& y, float& z);
       int last_mouse_pos_x;
       int last_mouse_pos_y;
+      bool agm_enabled;
 
 	private :
 	

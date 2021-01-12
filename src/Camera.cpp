@@ -19,11 +19,11 @@ Camera::Camera(
       float X, float Y, float Z, float AX, float AY,
       float rotationSpeed, float translationSpeed) : 
 
-	   _rotationSpeed(rotationSpeed),
-	   _translationSpeed(translationSpeed),
-	   _X(X),
-	   _Y(Y),
-	   _Z(Z),
+      _rotationSpeed(rotationSpeed),
+      _translationSpeed(translationSpeed),
+      _X(X),
+      _Y(Y),
+      _Z(Z),
       _AX(AX),
       _AY(AY),
       last_mouse_pos_x(0),
@@ -31,6 +31,7 @@ Camera::Camera(
    
    _time = glutGet(GLUT_ELAPSED_TIME);
    _shift = 1.0;
+   agm_enabled = false;
         
    for(int i=0 ; i<255 ; i++) { _keyboard[i] = false; }
         
@@ -84,53 +85,29 @@ bool Camera::pressKey(unsigned char c) {
    }
    else if (c != ' ')
       _shift = 1.0;
-	
-	if(c == 'd') {
+   
+   if(c == 'd') {
       _keyboard[c] = true;
-		
-     // _X += (cos(_AX) * cos(-_AY)) * _translationSpeed * _shift;
-     // _Z += (sin(_AX) * cos(-_AY)) * _translationSpeed * _shift;
-		
-	}
-	
+   }
+   
    else if(c == 'a') {
       _keyboard[c] = true;
-
-      //_X -= (cos(_AX) * cos(-_AY)) * _translationSpeed * _shift;
-      //_Z -= (sin(_AX) * cos(-_AY)) * _translationSpeed * _shift;
-
-	}
+   }
 
    else if(c == 'w') {
-	   _keyboard[c] = true;
-
-      //_X += (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * _shift;
-	   //_Y += sin(-_AY) * _translationSpeed * _shift;
-      //_Z += (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * _shift;
-	}
+      _keyboard[c] = true;
+   }
  
    else if(c == 's') {
-	   _keyboard[c] = true;
-
-      //_X -= (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * _shift;
-	   //_Y -= sin(-_AY) * _translationSpeed * _shift;
-      //_Z -= (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * _shift;
-	}
+      _keyboard[c] = true;
+   }
    
    else if (c == ' ') {
       _keyboard[c] = true;
-      //_X -= (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * _shift;
-      //_Y += cos(-_AY) * _translationSpeed * _shift;
-      //_Z -= (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * _shift;
-
    }
 
    else if (c == 'c') {
       _keyboard[c] = true;
-      //_X += (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * _shift;
-      //_Y -= cos(-_AY) * _translationSpeed * _shift;
-      //_Z += (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * _shift;
-
    }
    else {
       return false;
@@ -153,52 +130,59 @@ void Camera::pos_in_los(float distance, float& x, float& y, float& z) {
 // computes the right speeds to give to the given directions using trigonometric formulas
 void Camera::translation() {
 
-	float t = (float)(glutGet(GLUT_ELAPSED_TIME) - _time);
-	_time   = glutGet(GLUT_ELAPSED_TIME);
+   float t = (float)(glutGet(GLUT_ELAPSED_TIME) - _time);
+   _time   = glutGet(GLUT_ELAPSED_TIME);
 
-	if(_keyboard[100]) { // d
-		
-      _X += (cos(_AX) * cos(-_AY)) * _translationSpeed * t * _shift;
-      _Z += (sin(_AX) * cos(-_AY)) * _translationSpeed * t * _shift;
-		
-	}
-	
-	if(_keyboard[97]) { // a
+   if(_keyboard[100]) { // d
+      _X += cos(_AX) * _translationSpeed * t * _shift * 2;
+      _Z += sin(_AX) * _translationSpeed * t * _shift * 2;
+   }
+   
+   if(_keyboard[97]) { // a
+      _X -= cos(_AX) * _translationSpeed * t * _shift * 2;
+      _Z -= sin(_AX) * _translationSpeed * t * _shift * 2;
+   }
 
-      _X -= (cos(_AX) * cos(-_AY)) * _translationSpeed * t * _shift;
-      _Z -= (sin(_AX) * cos(-_AY)) * _translationSpeed * t * _shift;
+   if(_keyboard[119]) { // w
+    
+      if (agm_enabled == false) {
+         _X += (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift * 2;
+         _Y += sin(-_AY) * _translationSpeed * t * _shift * 2;
 
-		
-	}
-
-	if(_keyboard[119]) { // w
-	 
-      _X += (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift * 2;
-	   _Y += sin(-_AY) * _translationSpeed * t * _shift * 2;
-      _Z += (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift * 2;
-	}
-
+         _Z += (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift * 2;
+      }
+      else {
+         _X += cos(_AX - M_PI/2) * _translationSpeed * t * _shift * 2;
+         _Z += sin(_AX - M_PI/2) * _translationSpeed * t * _shift * 2;
+      }
+   }
  
-	if(_keyboard[115]) { // s
-	 
-      _X -= (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift;
-	   _Y -= sin(-_AY) * _translationSpeed * t * _shift;
-      _Z -= (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift;
-	}
+   if(_keyboard[115]) { // s
+    
+      if (agm_enabled == false) {
+         _X -= (cos(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift * 2;
+         _Y -= sin(-_AY) * _translationSpeed * t * _shift;
+         _Z -= (sin(_AX - M_PI/2) * cos(-_AY)) * _translationSpeed * t * _shift * 2;
+      }
+      else {
+         _X -= cos(_AX - M_PI/2) * _translationSpeed * t * _shift * 2;
+         _Z -= sin(_AX - M_PI/2) * _translationSpeed * t * _shift * 2;
+      }
+   }
    
    if (_keyboard[' ']) {
       
-      _X -= (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t * _shift;
-      _Y += cos(-_AY) * _translationSpeed * t * _shift;
-      _Z -= (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t * _shift;
+      _X -= (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t * _shift * 2;
+      _Y += cos(-_AY) * _translationSpeed * t * _shift * 2;
+      _Z -= (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t * _shift * 2;
 
    }
 
    if (_keyboard['c']) {
       
-      _X += (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t * _shift;
-      _Y -= cos(-_AY) * _translationSpeed * t * _shift;
-      _Z += (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t * _shift;
+      _X += (cos(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t * _shift * 2;
+      _Y -= cos(-_AY) * _translationSpeed * t * _shift * 2;
+      _Z += (sin(_AX - M_PI/2) * sin(-_AY)) * _translationSpeed * t * _shift * 2;
 
    }
 }

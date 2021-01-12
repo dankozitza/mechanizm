@@ -174,12 +174,14 @@ int main(int argc, char *argv[]) {
    // set up the in game command line
    vector<string> cmd_argv;
 
+   CMDS_STORE["agm_climb_spd"]         = "0.04";
    CMDS_STORE["n_click_speed"]         = "0.25";
    CMDS_STORE["n_click_max_distance"]  = "4.0";
    CMDS_STORE["n_click_distance"]      = "0.6";
    CMDS_STORE["map_name"]              = "map.json";
-   CMDS_STORE["mapgen_initmap_rndmns"] = "0.0002";
+   CMDS_STORE["mapgen_initmap_rndmns"] = "0.0005";
    CMDS_STORE["mapgen_initmap_g_opt"]  = "r";
+   CMDS_STORE["mapgen_initmap_size"]   = "300";
    CMDS_STORE["hotkey_g"]              = "grow 1";
    CMDS_STORE["hotkey_G"]              = "grow 500";
    CMDS_STORE["igcmd_mout_max_size"]   = "100";
@@ -192,7 +194,7 @@ int main(int argc, char *argv[]) {
                   as_double(CMDS_STORE["player_move_speed"]));
 
    SD = as_double(CMDS_STORE["n_click_distance"]);
-   Sphere selector_sphere_1(0.0, 0.0, 0.0, 0.0369, 0.4, 0.8, 0.6);
+   Sphere selector_sphere_1(0.0, 0.0, 0.0, 0.025, 0.4, 0.8, 0.6);
    SPHRS.push_back(selector_sphere_1);
 
    IN_GAME_CMDS.handle(
@@ -614,22 +616,11 @@ tools::Error player_gravity(double t, Object &self) {
 
          Vertex line[2];
          line[0] = M_OBJS[PO].tetra.center();
-         line[0].y = M_OBJS[PO].tetra.center().y + 0.5;
+         line[0].y = M_OBJS[PO].tetra.center().y + 0.3;
 
          line[1].x = M_OBJS[PO].tetra.center().x;
          line[1].z = M_OBJS[PO].tetra.center().z;
-         line[1].y = M_OBJS[PO].tetra.center().y - 1.2;
-
-         glBegin(GL_LINE_LOOP);
-         glVertex3f(
-            line[0].x,
-            line[0].y,
-            line[0].z);
-         glVertex3f(
-            line[1].x,
-            line[1].y,
-            line[1].z);
-         glEnd();
+         line[1].y = M_OBJS[PO].tetra.center().y - 1.0;
 
          // check each visable face
          for (int vfi = 0; vfi < GS[gi].objs[j].tetra.vis_faces.size();
@@ -637,7 +628,10 @@ tools::Error player_gravity(double t, Object &self) {
             int fi = GS[gi].objs[j].tetra.vis_faces[vfi];
             Vertex tripnts[3];
 
-            GLfloat new_cam_y = GS[gi].objs[j].tetra.center().y + 0.8;
+            // get cam position above center of intersecting face.
+            Vertex c;
+            GS[gi].objs[j].tetra.face[fi].center(c);
+            GLfloat new_cam_y = c.y + 0.85;
 
             for (int tripti = 0; tripti < 3; tripti++) {
                tripnts[tripti].x =
@@ -653,14 +647,22 @@ tools::Error player_gravity(double t, Object &self) {
                      tripnts,
                      NULL)) {
                //cout << "player_gravity: intersection with object!\n";
-               //M_OBJS[PO].setConstQ("AGM_FALLING", 0.0);
                M_OBJS[PO].translate_by(-M_OBJS[PO].tetra.center().x,
                                        -M_OBJS[PO].tetra.center().y,
                                        -M_OBJS[PO].tetra.center().z);
                M_OBJS[PO].translate_by(CAM.getX(), new_cam_y, CAM.getZ());
-               CAM.setY(new_cam_y);
+
+               GLfloat climb_mv = as_double(CMDS_STORE["agm_climb_spd"]);
+               if (CAM.getY() + climb_mv < new_cam_y) {
+                  CAM.setY((CAM.getY() + climb_mv));
+               }
+               else {
+                  CAM.setY(new_cam_y);
+               }
 
                M_OBJS[PO].setConstQ("AGM_FSTARTT", MECH.current_time);
+               // skip the rest because we are at rest on a surface
+               return NULL;
             }
          }
       }
@@ -1192,9 +1194,18 @@ setMatrix(int w, int h)
 void map_generation(void) {
    char buffer[100];
    sprintf(buffer, "initmapid%d", gen_map_cnt++);
+
+   char size_y[100];
+   sprintf(size_y, "%f", (GLfloat)(as_double(CMDS_STORE["mapgen_initmap_size"]) / 6.0));
+
+   cout << "map_generation: size_y: " << string(size_y) << endl;
+
    vector<string> targv = {buffer, "0", "0", "0",
       "-g", CMDS_STORE["mapgen_initmap_g_opt"], "-s", "10.0",
-      "-m", "1000", "100", "1000", CMDS_STORE["mapgen_initmap_rndmns"]};
+      "-m", CMDS_STORE["mapgen_initmap_size"],
+            string(size_y),
+            CMDS_STORE["mapgen_initmap_size"],
+      CMDS_STORE["mapgen_initmap_rndmns"]};
    cmd_load(targv);
 }
 
@@ -1212,7 +1223,7 @@ void animation(void) {
 
    if (count == 60) { // make up for the time lost
       e = MECH.run(0.046875, 0, 0.046875);
-      cout << "last t: " << MECH.current_time << "\n";
+      //cout << "last t: " << MECH.current_time << "\n";
 
    }
    if (e != NULL) {
@@ -1220,22 +1231,12 @@ void animation(void) {
       return;
    }
 
-   // build AGM (artificial gravity module) functions and variables for
-   // player_gravity function
-   // move CAM vertically to player gravity object y value?
-   //Vertex c;
-   //M_OBJS[0].tetra.center(c);
-   //CAM.setY(c.y);
    // move the player object M_OBJS[0] to cam position
-   
-   // use count to do this less often
-   //if (count % 2 == 0) {
-      M_OBJS[0].translate_by(-M_OBJS[0].tetra.center().x, -M_OBJS[0].tetra.center().y, -M_OBJS[0].tetra.center().z);
-      M_OBJS[0].translate_by(CAM.getX(), CAM.getY(), CAM.getZ());
-      if (M_OBJS[0].getConstQ("AGM_FALLING")[0] < 0.5) {
-         M_OBJS[0].setConstQ("AGM_FSTARTY", CAM.getY());
-      }
-   //}
+   M_OBJS[0].translate_by(-M_OBJS[0].tetra.center().x, -M_OBJS[0].tetra.center().y, -M_OBJS[0].tetra.center().z);
+   M_OBJS[0].translate_by(CAM.getX(), CAM.getY(), CAM.getZ());
+   if (M_OBJS[0].getConstQ("AGM_FALLING")[0] < 0.5) {
+      M_OBJS[0].setConstQ("AGM_FSTARTY", CAM.getY());
+   }
 }
 
 void g_pause(void) {
@@ -1473,21 +1474,6 @@ keyboard(unsigned char c, int x, int y)
       spawn_glob.id = id;
       spawn_glob.objs["object_1"].setConstQ("m", 1);
 
-      //switch (rand() % 3) {
-      //case 0:
-      //   cout << "1!\n";
-      //   spawned_test_object.function = random_motion;
-      //   break;
-      //case 1:
-      //   cout << "2!\n";
-      //   spawned_test_object.function = random_motion_2;
-      //   break;
-      //case 2:
-      //   cout << "2!\n";
-      //   spawned_test_object.function = random_motion_2;
-      //   break;
-      //}
-
       GLfloat nx, ny, nz;
       CAM.pos_in_los(SD, nx, ny, nz);
 
@@ -1495,15 +1481,25 @@ keyboard(unsigned char c, int x, int y)
       GS[spawn_glob.id] = spawn_glob;
       return;
    }
-   if (c == 'x' || c == 'X') { // begin falling sequence
+   if (c == 'x' || c == 'X') { // enable/disable artificial gravity module
       GLfloat f = M_OBJS[PO].getConstQ("AGM_FALLING")[0];
 
       if (f < 0.5) {
+         // make AGM_start_fall();
          M_OBJS[PO].setConstQ("AGM_FALLING", 1.0);
          M_OBJS[PO].setConstQ("AGM_FSTARTT", MECH.current_time);
+         CAM.agm_enabled = true;
+         menu_output.push_back("AGM Enabled");
+         timed_menu_display = 60;
+         draw_menu_lines = 1;
       }
       else {
+         // make AGM_stop_fall();
          M_OBJS[PO].setConstQ("AGM_FALLING", 0.0);
+         CAM.agm_enabled = false;
+         menu_output.push_back("AGM Disabled");
+         timed_menu_display = 60;
+         draw_menu_lines = 1;
       }
    }
    if (c == ' ') { // AGM jump
