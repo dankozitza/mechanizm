@@ -179,9 +179,9 @@ int main(int argc, char *argv[]) {
    CMDS_STORE["n_click_max_distance"]  = "4.0";
    CMDS_STORE["n_click_distance"]      = "0.6";
    CMDS_STORE["map_name"]              = "map.json";
-   CMDS_STORE["mapgen_initmap_rndmns"] = "0.0005";
-   CMDS_STORE["mapgen_initmap_g_opt"]  = "r";
-   CMDS_STORE["mapgen_initmap_size"]   = "300";
+   CMDS_STORE["mapgen_rndmns"] = "0.0005";
+   CMDS_STORE["mapgen_g_opt"]  = "r";
+   CMDS_STORE["mapgen_size"]   = "300";
    CMDS_STORE["hotkey_g"]              = "grow 1";
    CMDS_STORE["hotkey_G"]              = "grow 500";
    CMDS_STORE["igcmd_mout_max_size"]   = "100";
@@ -886,8 +886,11 @@ void draw_cam_spheres() {
 
                      string msg("selected glob: " + gi + "\nobject: " + j);
                      char buffer[100];
-                     sprintf(buffer, ", face %i, vis_faces: %i",
-                             fi, GS[gi].objs[j].tetra.vis_faces.size());
+                     sprintf(buffer,
+                             ", face %i, vis_faces: %i",
+                             fi,
+                             GS[gi].objs[j].tetra.vis_faces.size());
+
                      msg += buffer;
                      menu_output.push_back(msg);
                      timed_menu_display = 150;
@@ -897,6 +900,8 @@ void draw_cam_spheres() {
                      return;
                   }
                   else if (selector_function == "remove") {
+
+                     GS[gi].detach(j);
 
                      auto it = GS[gi].objs.find(j);
                      GS[gi].objs.erase(it);
@@ -1196,16 +1201,15 @@ void map_generation(void) {
    sprintf(buffer, "initmapid%d", gen_map_cnt++);
 
    char size_y[100];
-   sprintf(size_y, "%f", (GLfloat)(as_double(CMDS_STORE["mapgen_initmap_size"]) / 6.0));
-
-   cout << "map_generation: size_y: " << string(size_y) << endl;
+   sprintf(size_y, "%f",
+         (GLfloat)(as_double(CMDS_STORE["mapgen_size"]) / 6.0));
 
    vector<string> targv = {buffer, "0", "0", "0",
-      "-g", CMDS_STORE["mapgen_initmap_g_opt"], "-s", "10.0",
-      "-m", CMDS_STORE["mapgen_initmap_size"],
+      "-g", CMDS_STORE["mapgen_g_opt"], "-s", "10.0",
+      "-m", CMDS_STORE["mapgen_size"],
             string(size_y),
-            CMDS_STORE["mapgen_initmap_size"],
-      CMDS_STORE["mapgen_initmap_rndmns"]};
+            CMDS_STORE["mapgen_size"],
+      CMDS_STORE["mapgen_rndmns"]};
    cmd_load(targv);
 }
 

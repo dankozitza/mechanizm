@@ -32,6 +32,7 @@ class Glob {
       void initialize(Object& init_obj);
       void set_vis_objs(vector<string>& new_vis_objs);
       void remove_vis_obj(string obj_id);
+      void add_vis_obj(string obj_id);
       string getJSON();
 
       Vertex center();

@@ -55,6 +55,11 @@ void Glob::remove_vis_obj(string obj_id) {
       }
    }
    set_vis_objs(nvos);
+   return;
+}
+void Glob::add_vis_obj(string obj_id) {
+   vis_objs.push_back(obj_id);
+   return;
 }
 
 string Glob::getJSON() {
@@ -191,6 +196,44 @@ tools::Error Glob::attach_interior_sides(string new_obj_id) {
 
    }
 
+   return NULL;
+}
+
+tools::Error Glob::detach(string id) {
+   // loop through 'id' faces
+   for (int fi = 0; fi < 4; fi++) {
+
+      int objid2_fi = fi;
+      if (fi == 2) { objid2_fi = 3; }
+      if (fi == 3) { objid2_fi = 2; }
+
+      if (objs[id].tetra.vis_fbools[fi] == true) { continue; }
+
+      for (auto it = objs.begin(); it != objs.end(); it++) {
+         //it->second.tetra.rotate_abt_vert(v, ax, ay, az);
+         string objid2 = it->first;
+
+         if (id == objid2) { continue; }
+         if (objs[objid2].tetra.vis_fbools[objid2_fi] == true) { continue; }
+         
+         Vertex id_c, objid2_c;
+         objs[id].tetra.face[fi].center(id_c);
+         objs[objid2].tetra.face[objid2_fi].center(objid2_c);
+         if (verts_within_eps(
+                  id_c,
+                  objid2_c,
+                  0.08)) {
+
+            // make objs[objid2].face[objid2_fi] visible
+            if (objs[objid2].tetra.vis_faces.size() == 0) {
+               add_vis_obj(objid2);
+            }
+            objs[objid2].tetra.add_vis_face(objid2_fi);
+            break;
+         }
+      }
+   }
+   remove_vis_obj(id);
    return NULL;
 }
 

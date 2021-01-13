@@ -164,6 +164,18 @@ void Tetrahedron::remove_vis_face(int facei) {
       }
    }
    set_vis_faces(nvfs);
+   return;
+}
+
+void Tetrahedron::add_vis_face(int facei) {
+   vis_fbools[facei] = true;
+   for (int vfi = 0; vfi < vis_faces.size(); vfi++) {
+      // if face is visible done
+      if (vis_faces[vfi] == facei) { return; }
+   }
+
+   vis_faces.push_back(facei);
+   return;
 }
 
 void Tetrahedron::set_faceColors(const GLfloat new_faceColors[][3]) {
