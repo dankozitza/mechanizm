@@ -106,10 +106,10 @@ void
    cmd_help(vector<string>& argv),
    cmd_tp(vector<string>& argv),
    cmd_set(vector<string>& argv),
-   cmd_save(vector<string>& argv),
    cmd_grow(vector<string>& argv),
    cmd_stat(vector<string>& argv),
    cmd_load(vector<string>& argv),
+   cmd_save_map(vector<string>& argv),
    cmd_load_map(vector<string>& argv),
    cmd_reseed(vector<string>& argv),
    cmd_controls(vector<string>& argv);
@@ -218,10 +218,10 @@ int main(int argc, char *argv[]) {
          "Set called alone will print all values in the map. Called with \nonly a key argument it will display the value for that key. Called \nwith both key and value arguments will write the value to the map.");
 
    IN_GAME_CMDS.handle(
-         "save",
-         cmd_save,
+         "save_map",
+         cmd_save_map,
          "Save the map.",
-         "save [mapname]");
+         "save_map [mapname]");
 
    IN_GAME_CMDS.handle(
          "grow",
@@ -265,7 +265,7 @@ int main(int argc, char *argv[]) {
          "      x                 Toggle AGM.\n"
          "      Esc               Grab/ungrab mouse, exit console.\n"
          "      b                 Spawn a block.\n"
-         "      i j k l y n       Move selected block.\n"
+         "      i j k l h n       Move selected block.\n"
          "      +/-               Add or subtract number of points drawn.\n"
          "      1                 Set mouse left click mode to 'select'.\n"
          "      2                 Set mouse left click mode to 'remove'.\n"
@@ -350,7 +350,7 @@ void cmd_set(vector<string>& argv) {
                   0.5, as_double(CMDS_STORE["player_move_speed"]));
 }
 
-void cmd_save(vector<string>& argv) {
+void cmd_save_map(vector<string>& argv) {
    if (argv.size() > 0) {
       CMDS_STORE["map_name"] = argv[0];
    }
@@ -1070,9 +1070,6 @@ void mouse(int button, int state, int x, int y) {
             IGCMD_MOUT_SCROLL += scroll_speed;
          }
       }
-      //if (button == 1) {
-      //   MOUSE_GRAB = false;
-      //}
    }
 }
 
@@ -1116,7 +1113,6 @@ void draw_menu_output(float x, float y, float z, void *font) {
 }
 
 void drawScene(void) {
-   int i;
 
    if (MOUSE_GRAB && !DRAW_GLUT_MENU) {
       CAM.last_mouse_pos_x = 75;
@@ -1191,17 +1187,11 @@ void drawScene(void) {
          CAM.getY() - 0.5,
          CAM.getZ() + (sin(CAM.getAX() - 2*(M_PI/3)) * cos(-CAM.getAY()))*1.3,
          GLUT_BITMAP_9_BY_15);
-
-//         CAM.getX() + (cos(CAM.getAX() - M_PI/2) * cos(-CAM.getAY()))*1.3,
-//         (GLfloat) (CAM.getY() + sin(-CAM.getAY())*1.3 - 0.33),
-//         CAM.getZ() + (sin(CAM.getAX() - M_PI/2) * cos(-CAM.getAY()))*1.3,
    }
 
    glPopMatrix();
 
    glDisable(GL_STENCIL_TEST);
-
-   /* end of good stuff */
 
    glutSwapBuffers();
 }
@@ -1288,7 +1278,7 @@ void draw_glut_menu() {
    while (glutGet(GLUT_MENU_NUM_ITEMS) > 0) {
       glutRemoveMenuItem(1);
    }
- 
+
    if (MAP_GEN) {
       glutAddMenuEntry("1 - Generate Map", 0);
    }
@@ -1356,11 +1346,9 @@ keyboard(unsigned char c, int x, int y)
       prefix += "   ";
    }
 
-   // timed display of in game menu output on button-press menu
-
    if (menu_depth != 0) { // go into menu mode
 
-      if (menu_depth == 37) { // menu 37 is cmd line input
+      if (menu_depth == 37) { // menu 37 is command line input
          if (c != 13 && c != 8 && c != 27) { // 13 is Enter
             menu_input += c;
             //cout << (int)c << "\n";
@@ -1423,37 +1411,6 @@ keyboard(unsigned char c, int x, int y)
          }
          return;
       }
-
-      string msg;
-      char buffer [100];
-      sprintf(buffer, "\n*** Menu level: %i", menu_depth); msg += buffer;
-      msg += "  -  selected object: " + select_gobj;
-      sprintf(buffer, "  -  time: %f\n", MECH.current_time); msg += buffer;
-
-      // run menu 1 level buttons
-      if (c == 'e') {
-         menu_depth = 37;
-         draw_menu_lines = 20;
-         menu_input = "^> ";
-         cout << prefix << "entering command mode:\n";
-      }
-      if (c == 'q') {
-         cout << prefix << "exiting menu\n";
-         msg += prefix;
-         msg += "exiting menu\n";
-         menu_depth = 0;
-         draw_menu_lines = 20;
-      }
-      if (c == 27) {
-         cout << prefix << "exiting menu\n";
-         msg += prefix;
-         msg += "exiting menu\n";
-         menu_depth = 0;
-         timed_menu_display = 20;
-         draw_menu_lines = 20;
-      }
-      cout << msg;
-      menu_output.push_back(msg);
       return;
    }
 
@@ -1463,20 +1420,7 @@ keyboard(unsigned char c, int x, int y)
 
    // gameplay level controls
    char m0_buffer[100];
-   if (c == 'h' | c == '?') {
-      menu_output.push_back("\n   Controls:\n");
-      menu_output.push_back("      m -             open menu");
-      menu_output.push_back("      b -             spawn a cube");
-      menu_output.push_back("      v -             spawn a vertice");
-      menu_output.push_back("      i j k l y n -   move selected cube");
-      menu_output.push_back("      u o -           stretch selected cube");
-      menu_output.push_back("      0-9 -           select cube");
-      menu_output.push_back("      +/- -           add or subtract number of points drawn\n");
-      
-      timed_menu_display = 60;
-      return;
-   }
-   if (c == 'e') {
+   if (c == 'e' || c == '`') {
       menu_input = "^> ";
       menu_depth = 37;
       draw_menu_lines = 25;
@@ -1514,6 +1458,7 @@ keyboard(unsigned char c, int x, int y)
 
       if (f < 0.5) {
          // make AGM_start_fall();
+         ANIMATION = true;
          M_OBJS[PO].setConstQ("AGM_FALLING", 1.0);
          M_OBJS[PO].setConstQ("AGM_FSTARTT", MECH.current_time);
          CAM.agm_enabled = true;
@@ -1551,8 +1496,6 @@ keyboard(unsigned char c, int x, int y)
       return;
    }
 
-   Vertex center;
-
    switch (c) {
    case 27: // Esc
       if (MOUSE_GRAB) {
@@ -1562,31 +1505,23 @@ keyboard(unsigned char c, int x, int y)
          MOUSE_GRAB = true;
       }
       break;
-   case 93: // ]
-      //grow_side(selected_side, 1.0);
-      glutPostRedisplay();
-      break;
-   case 91: // [
-      //grow_side(selected_side, -1.0);
-      glutPostRedisplay();
-      break;
    case 'i':
-      GS[select_gobj].translate_by(0, 0, -0.1);
+      if (select_gobj != "") {GS[select_gobj].translate_by(0, 0, -0.1);}
       break;
    case 'j':
-      GS[select_gobj].translate_by(-0.1, 0, 0);
+      if (select_gobj != "") {GS[select_gobj].translate_by(-0.1, 0, 0);}
       break;
    case 'k':
-      GS[select_gobj].translate_by(0, 0, 0.1);
+      if (select_gobj != "") {GS[select_gobj].translate_by(0, 0, 0.1);}
       break;
    case 'l':
-      GS[select_gobj].translate_by(0.1, 0, 0);
+      if (select_gobj != "") {GS[select_gobj].translate_by(0.1, 0, 0);}
       break;
-   case 'y':
-      GS[select_gobj].translate_by(0, 0.1, 0);
+   case 'h':
+      if (select_gobj != "") {GS[select_gobj].translate_by(0, 0.1, 0);}
       break;
    case 'n':
-      GS[select_gobj].translate_by(0, -0.1, 0);
+      if (select_gobj != "") {GS[select_gobj].translate_by(0, -0.1, 0);}
       break;
    case 'o':
 //      GS[select_gobj].scale_by(1.1, 1.1, 1.1);
@@ -1595,25 +1530,34 @@ keyboard(unsigned char c, int x, int y)
 //      GS[select_gobj].scale_by(0.9, 0.9, 0.9);
       break;
    case 'I':
-      GS[select_gobj].rotate_abt_center(7.0*(M_PI/4.0), 0.0, 0.0);
+      if (select_gobj != "") {
+         GS[select_gobj].rotate_abt_center(7.0*(M_PI/4.0), 0.0, 0.0);
+      }
       break;
    case 'J':
-      GS[select_gobj].rotate_abt_center(0.0, M_PI/4.0, 0.0);
+      if (select_gobj != "") {
+         GS[select_gobj].rotate_abt_center(0.0, M_PI/4.0, 0.0);
+      }
       break;
    case 'K':
-      GS[select_gobj].rotate_abt_center(M_PI/4.0, 0.0, 0.0);
+      if (select_gobj != "") {
+         GS[select_gobj].rotate_abt_center(M_PI/4.0, 0.0, 0.0);
+      }
       break;
    case 'L':
-      GS[select_gobj].rotate_abt_center(0.0, 7.0*(M_PI/4.0), 0.0);
+      if (select_gobj != "") {
+         GS[select_gobj].rotate_abt_center(0.0, 7.0*(M_PI/4.0), 0.0);
+      }
       break;
    case 'U':
-      GS[select_gobj].rotate_abt_center(0.0, 0.0, M_PI/4.0);
+      if (select_gobj != "") {
+         GS[select_gobj].rotate_abt_center(0.0, 0.0, M_PI/4.0);
+      }
       break;
    case 'O':
-      GS[select_gobj].rotate_abt_center(0.0, 0.0, 7.0*(M_PI/4.0));
-      break;
-   case '`':
-      menu_depth = 1;
+      if (select_gobj != "") {
+         GS[select_gobj].rotate_abt_center(0.0, 0.0, 7.0*(M_PI/4.0));
+      }
       break;
    case '1':
       selector_function = "select";
@@ -1779,9 +1723,7 @@ tools::Error load_map(string mapname) {
    }
 
    for (auto jvit = jv.begin(); jvit != jv.end(); jvit++) {
-      cout << jvit.key().asString() << ", ";
       string gid = jvit.key().asString();
-
       string ioid = jv[gid]["g_objs"].begin().key().asString();
       Object obj(ioid);
       Glob nglb(obj);
