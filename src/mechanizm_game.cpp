@@ -111,7 +111,8 @@ void
    cmd_stat(vector<string>& argv),
    cmd_load(vector<string>& argv),
    cmd_load_map(vector<string>& argv),
-   cmd_reseed(vector<string>& argv);
+   cmd_reseed(vector<string>& argv),
+   cmd_controls(vector<string>& argv);
 
 int main(int argc, char *argv[]) {
 
@@ -253,6 +254,22 @@ int main(int argc, char *argv[]) {
          "Re-set the rng seed.",
          "reseed [double]",
          "Reseed sets the stored seed to the given double and runs srand.");
+
+   IN_GAME_CMDS.handle(
+         "controls",
+         cmd_controls,
+         "Enter 'help controls' for a list of controls.",
+         "help controls",
+         "Controls:\n      e                 Open console.\n"
+         "      a s d f space c   Movement.\n"
+         "      x                 Toggle AGM.\n"
+         "      Esc               Grab/ungrab mouse, exit console.\n"
+         "      b                 Spawn a block.\n"
+         "      i j k l y n       Move selected block.\n"
+         "      +/-               Add or subtract number of points drawn.\n"
+         "      1                 Set mouse left click mode to 'select'.\n"
+         "      2                 Set mouse left click mode to 'remove'.\n"
+         "      3                 Set mouse left click mode to 'build'.");
 
    glEnable(GL_BLEND);
    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -503,7 +520,7 @@ void cmd_load(vector<string>& argv) {
    }
    else {
       // get points to generate blocks
-      unsigned long int gen_obj_cnt = 1;
+      //unsigned long int gen_obj_cnt = 1;
       for (GLfloat xi = v.x - (sizex/2.0); xi < v.x+(sizex/2.0); xi += gsc) {
          for (GLfloat yi = v.y-(sizey/2.0); yi < v.y+(sizey/2.0); yi += gsc) {
             for (
@@ -549,6 +566,11 @@ void cmd_load(vector<string>& argv) {
 }
 
 void cmd_load_map(vector<string>& argv) {
+
+   GS.clear();
+   gen_obj_cnt = 0;
+   gen_map_cnt = 1;
+
    string mname = CMDS_STORE["map_name"];
    if (argv.size() > 0) {
       mname = argv[0];
@@ -569,6 +591,8 @@ void cmd_reseed(vector<string>& argv) {
    
    srand(as_double(CMDS_STORE["rng_seed"]));
 }
+
+void cmd_controls(vector<string>& argv) {return;}
 
 // a pointer to this function placed in the test_object_1 object. It sets the
 // current position as a function of time.
@@ -1339,7 +1363,7 @@ keyboard(unsigned char c, int x, int y)
       if (menu_depth == 37) { // menu 37 is cmd line input
          if (c != 13 && c != 8 && c != 27) { // 13 is Enter
             menu_input += c;
-            cout << (int)c << "\n";
+            //cout << (int)c << "\n";
          }
          else if (c == 8) { // backspace
             if (menu_input.size() > 3) {
@@ -1745,8 +1769,8 @@ tools::Error save_map(string mapname) {
 
 tools::Error load_map(string mapname) {
 
-   string msg = "load_map:";
    tools::Error e = NULL;
+   string msg = "load_map: ";
    Json::Value jv;
    e = load_json_value_from_file(jv, mapname);
    if (e != NULL) {
@@ -1763,16 +1787,65 @@ tools::Error load_map(string mapname) {
       Glob nglb(obj);
       nglb.id = gid;
 
-      unsigned long int i = 0;
       for (auto gobjit = jv[gid].begin(); gobjit != jv[gid].end(); gobjit++) {
          string gobjkey = gobjit.key().asString();
 
-         
+         if (gobjkey == "g_vis_objs") {
+            vector<string> vobjs;
+            for (int i = 0; i < jv[gid][gobjkey].size(); i++) {
+               vobjs.push_back(jv[gid][gobjkey][i].asString());
+            }
+            nglb.set_vis_objs(vobjs);
+         }
+         if (gobjkey == "g_objs") {
+            Json::Value g_objs = jv[gid][gobjkey];
+            for (auto g_objsit = g_objs.begin();
+                 g_objsit != g_objs.end(); g_objsit++) {
+               string obj_id = g_objsit.key().asString();
+
+               vector<string> m(2);
+               if (pmatches(m,
+                  obj_id, "(\\d+)$")) {
+                  if (gen_obj_cnt <= as_int(m[1])) {
+                     gen_obj_cnt = as_int(m[1]) + 1;
+                  }
+               }
+
+               Json::Value objval = *g_objsit;
+               Object nobj(obj_id);
+               nobj.shape = objval["obj_shape"].asString();
+
+               Json::Value tetraval = objval["obj_tetra"];
+               Json::Value pointsval = tetraval["points"];
+               for (int ii = 0; ii < 4; ii++) {
+                  Json::Value vertval = pointsval[ii];
+                  nobj.tetra.points[ii].x = vertval[0].asFloat();
+                  nobj.tetra.points[ii].y = vertval[1].asFloat();
+                  nobj.tetra.points[ii].z = vertval[2].asFloat();
+               }
+
+               vector<int> nvfaces;
+               Json::Value vfacesval = tetraval["vis_faces"];
+               for (int iii = 0; iii < vfacesval.size(); iii++) {
+                  nvfaces.push_back(vfacesval[iii].asInt());
+               }
+               nobj.tetra.set_vis_faces(nvfaces);
+
+               Json::Value facecolorsval = tetraval["faceColors"];
+               for (int ii = 0; ii < 4; ii++) {
+                  Json::Value fcval = facecolorsval[ii];
+                  nobj.tetra.faceColors[ii][0] = fcval[0].asFloat();
+                  nobj.tetra.faceColors[ii][1] = fcval[1].asFloat();
+                  nobj.tetra.faceColors[ii][2] = fcval[2].asFloat();
+               }
+
+               nglb.objs[obj_id] = nobj;
+            }
+         }
       }
 
-      cout << "load_map: " << nglb.getJSON() << endl;
+      GS[gid] = nglb;
    }
-
 
    return NULL;
 }
