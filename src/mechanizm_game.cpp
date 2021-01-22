@@ -721,8 +721,6 @@ tools::Error player_gravity(double t, Object &self) {
    GLfloat tt = t - fstartt;
    GLfloat tlast_t = self.last_t - fstartt;
 
-   //cout << "player_gravity: tt: " << tt << ", AGM_FALLING: " << falling << ", AGM_FSTARTT: " << fstartt << ".\n";
-
    GLfloat movement = 0.5*gravity*tt*tt -
                       0.5*gravity*tlast_t*tlast_t;
 
@@ -732,7 +730,6 @@ tools::Error player_gravity(double t, Object &self) {
    self.translate_by(0.0, -movement, 0.0);
    self.last_t = t;
 
-   //} // end count block
    return NULL;
 }
 
@@ -862,18 +859,26 @@ void draw_cam_spheres() {
       int i = -1;
       int sidx, sidy, sidz;
 
-      // use a load managed function to get selected object
+      // check for collision with nearby objects
+      Vertex cc;
+      cc.x = CAM.getX();
+      cc.y = CAM.getY();
+      cc.z = CAM.getZ();
+      string cc_om_key = om_get_section_key(cc);
 
-      // check for collision with glob
-      for (auto git = GS.begin(); git != GS.end(); git++) {
+      vector<string> sections;
+      om_get_nearby_sections(cc_om_key, sections);
 
-      string gi = git->first;
+      for (int si = 0; si < sections.size(); si++) {
 
-      // check each visible object in glob GS[gi]
-      for (int voi = 0; voi < GS[gi].vis_objs.size(); voi++) {
+      auto mit = M().find(sections[si]);
+      if (mit == M().end()) {continue;}
 
-         // get object id
-         string j = GS[gi].vis_objs[voi];
+      for (int omvi = 0; omvi < mit->second.size(); omvi++) {
+         string gi = mit->second[omvi].gid;
+         string j = mit->second[omvi].oid;
+
+         Tetrahedron tetra = GS[gi].objs[j].tetra;
 
          if (GS[gi].objs[j].shape == "tetrahedron") {
 
@@ -901,18 +906,15 @@ void draw_cam_spheres() {
             glEnd();
 
             // get triangle points of each visible face
-            for (int vfi = 0; vfi < GS[gi].objs[j].tetra.vis_faces.size();
+            for (int vfi = 0; vfi < tetra.vis_faces.size();
                  vfi++) {
                Vertex tripnts[3];
-               int fi = GS[gi].objs[j].tetra.vis_faces[vfi];
+               int fi = tetra.vis_faces[vfi];
 
                for (int tripti = 0; tripti < 3; tripti++) {
-                  tripnts[tripti].x =
-                     *GS[gi].objs[j].tetra.face[fi].pnts[tripti][0];
-                  tripnts[tripti].y =
-                     *GS[gi].objs[j].tetra.face[fi].pnts[tripti][1];
-                  tripnts[tripti].z =
-                     *GS[gi].objs[j].tetra.face[fi].pnts[tripti][2];
+                  tripnts[tripti].x = *tetra.face[fi].pnts[tripti][0];
+                  tripnts[tripti].y = *tetra.face[fi].pnts[tripti][1];
+                  tripnts[tripti].z = *tetra.face[fi].pnts[tripti][2];
                }
 
                if (tools::line_intersects_triangle(
@@ -930,7 +932,7 @@ void draw_cam_spheres() {
                      sprintf(buffer,
                              ", face %i, vis_faces: %i",
                              fi,
-                             GS[gi].objs[j].tetra.vis_faces.size());
+                             tetra.vis_faces.size());
 
                      msg += buffer;
                      menu_output.push_back(msg);
@@ -967,8 +969,7 @@ void draw_cam_spheres() {
                      select_obj = buffer;
 
                      Object o(buffer);
-                     o.tetra = generate_tetra_from_side(
-                                    GS[gi].objs[j].tetra, fi);
+                     o.tetra = generate_tetra_from_side(tetra, fi);
 
                      vector<string> m(3);
                      if (pmatches(m,
@@ -1007,7 +1008,7 @@ void draw_cam_spheres() {
 
          } // end of tetrahedron loop
       } // end of obect loop
-      } // end of glob collision loop
+      } // end of map section loop
    }
    else {
       CAM.pos_in_los(SD,
