@@ -12,7 +12,7 @@
 #include <unordered_map>
 #include <vector>
 #include "tools.hpp"
-#include "Object.hpp"
+#include "ObjectMap.hpp"
 #include "Tetrahedron.hpp"
 
 using namespace std;
@@ -36,11 +36,15 @@ class Object {
       GLfloat ay;
       GLfloat az;
 
-      string   id;
-      double   last_t; // used to integrate cube transformations using different
-                       // motion functions
+      string id;
+      string gid;
+      double last_t; // used to integrate cube transformations using different
+                     // motion functions
 
-//      vector<string> connected; // list of objects this object is connected to
+      bool om_tracking = false;
+      string last_om_key = "none";
+
+      //vector<string> connected; // list of objects this object is connected to
       // this function describes the objects motion as a function of time.
       // It will be used by mechanizm to get the objects position.
       // the reference passed to it is a reference to this very object.

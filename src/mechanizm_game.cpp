@@ -175,14 +175,14 @@ int main(int argc, char *argv[]) {
    // set up the in game command line
    vector<string> cmd_argv;
 
-   CMDS_STORE["agm_climb_spd"]         = "0.04";
+   CMDS_STORE["agm_climb_spd"]         = "0.05";
    CMDS_STORE["n_click_speed"]         = "0.25";
    CMDS_STORE["n_click_max_distance"]  = "4.0";
    CMDS_STORE["n_click_distance"]      = "0.6";
    CMDS_STORE["map_name"]              = "map.json";
-   CMDS_STORE["mapgen_rndmns"] = "0.0005";
-   CMDS_STORE["mapgen_g_opt"]  = "r";
-   CMDS_STORE["mapgen_size"]   = "300";
+   CMDS_STORE["mapgen_rndmns"]         = "0.0005";
+   CMDS_STORE["mapgen_g_opt"]          = "r";
+   CMDS_STORE["mapgen_size"]           = "500";
    CMDS_STORE["hotkey_g"]              = "grow 1";
    CMDS_STORE["hotkey_G"]              = "grow 500";
    CMDS_STORE["igcmd_mout_max_size"]   = "100";
@@ -429,9 +429,11 @@ void cmd_grow(vector<string>& argv) {
 
 void cmd_stat(vector<string>& argv) {
    // set GAME_STATS
+
    GAME_STATS["total_bodies"] = GS.size();
    GAME_STATS["total_blocks"] = 0;
    GAME_STATS["visible_blocks"] = 0;
+   GAME_STATS["mapped_sections"] = M().size();
    for (auto git = GS.begin(); git != GS.end(); git++) {
       GAME_STATS["total_blocks"] += GS[git->first].objs.size();
       GAME_STATS["visible_blocks"] += GS[git->first].vis_objs.size();
@@ -444,6 +446,8 @@ void cmd_stat(vector<string>& argv) {
       msg += buffer;
       menu_output.push_back(msg);
    }
+
+   return;
 }
 
 void cmd_load(vector<string>& argv) {
@@ -502,7 +506,7 @@ void cmd_load(vector<string>& argv) {
       // if name exists load or copy from gs, otherwise generate tetrahedron
       msg = "loading new tetrahedron " + name;
       Object obj(name + "_obj_0");
-      Glob g(obj);
+      Glob g(name, obj);
       Vertex c = obj.tetra.center();
       g.translate_by(-c.x, -c.y, -c.z);
 
@@ -537,13 +541,13 @@ void cmd_load(vector<string>& argv) {
                   cout << " at (" << xi << " " << yi << " " << zi << ")\n";
 
                   Object obj(g_obj_name);
-                  Glob g(obj);
+                  Glob g(g_obj_name, obj);
                   Vertex c = g.objs[g_obj_name].tetra.center();
                   g.translate_by(-c.x, -c.y, -c.z);
                   g.translate_by(xi, yi, zi);
-                  //g.objs[g_obj_name].setConstQ("v", {0.0, 0.0, -0.05});
                   GS[g_obj_name] = g;
-                  GS[g_obj_name].objs[g_obj_name].setConstQ("v", {0.0, 0.0, -0.05});
+                  GS[g_obj_name].objs[g_obj_name].setConstQ(
+                        "v", {0.0, 0.0, -0.05});
 
                   if (grow_i > 0) {
                      vector<string> tmp(1);
@@ -568,6 +572,7 @@ void cmd_load(vector<string>& argv) {
 void cmd_load_map(vector<string>& argv) {
 
    GS.clear();
+   M().clear();
    gen_obj_cnt = 0;
    gen_map_cnt = 1;
 
@@ -631,39 +636,51 @@ tools::Error player_gravity(double t, Object &self) {
       return NULL;
    }
 
-   for (auto git = GS.begin(); git != GS.end(); git++) {
-   string gi = git->first;
+   Vertex cc;
+   cc.x = CAM.getX();
+   cc.y = CAM.getY();
+   cc.z = CAM.getZ();
+   string cc_om_key = om_get_section_key(cc);
 
-      // check each visible object in glob GS[gi]
-      for (int voi = 0; voi < GS[gi].vis_objs.size(); voi++) {
-         string j = GS[gi].vis_objs[voi];
+   vector<string> sections;
+   om_get_nearby_sections(cc_om_key, sections);
+
+   for (int si = 0; si < sections.size(); si++) {
+
+      auto mit = M().find(sections[si]);
+      if (mit == M().end()) {continue;}
+
+      for (int omvi = 0; omvi < mit->second.size(); omvi++) {
+         string gi = mit->second[omvi].gid;
+         string j = mit->second[omvi].oid;
 
          Vertex line[2];
          line[0] = M_OBJS[PO].tetra.center();
-         line[0].y = M_OBJS[PO].tetra.center().y + 0.3;
+         line[0].y += 0.3;
 
          line[1].x = M_OBJS[PO].tetra.center().x;
          line[1].z = M_OBJS[PO].tetra.center().z;
          line[1].y = M_OBJS[PO].tetra.center().y - 1.0;
 
          // check each visable face
-         for (int vfi = 0; vfi < GS[gi].objs[j].tetra.vis_faces.size();
+         Tetrahedron tetra = GS[gi].objs[j].tetra;
+         for (int vfi = 0; vfi < tetra.vis_faces.size();
                vfi++) {
-            int fi = GS[gi].objs[j].tetra.vis_faces[vfi];
+            int fi = tetra.vis_faces[vfi];
             Vertex tripnts[3];
 
             // get cam position above center of intersecting face.
             Vertex c;
-            GS[gi].objs[j].tetra.face[fi].center(c);
+            tetra.face[fi].center(c);
             GLfloat new_cam_y = c.y + 0.85;
 
             for (int tripti = 0; tripti < 3; tripti++) {
                tripnts[tripti].x =
-                  *GS[gi].objs[j].tetra.face[fi].pnts[tripti][0];
+                  *tetra.face[fi].pnts[tripti][0];
                tripnts[tripti].y =
-                  *GS[gi].objs[j].tetra.face[fi].pnts[tripti][1];
+                  *tetra.face[fi].pnts[tripti][1];
                tripnts[tripti].z =
-                  *GS[gi].objs[j].tetra.face[fi].pnts[tripti][2];
+                  *tetra.face[fi].pnts[tripti][2];
             }
 
             if (tools::line_intersects_triangle(
@@ -927,9 +944,6 @@ void draw_cam_spheres() {
 
                      GS[gi].detach(j);
 
-                     auto it = GS[gi].objs.find(j);
-                     GS[gi].objs.erase(it);
-
                      SD = as_double(CMDS_STORE["n_click_distance"]);
                      SD_DONE = true;
 
@@ -937,6 +951,11 @@ void draw_cam_spheres() {
                            "glob: " + gi + ": removed object " + j);
                      timed_menu_display = 150;
                      draw_menu_lines = 1;
+
+                     if (GS[gi].objs.size() == 0) {
+                        auto it = GS.find(gi);
+                        GS.erase(it);
+                     }
 
                      return;
                   }
@@ -1414,9 +1433,6 @@ keyboard(unsigned char c, int x, int y)
       return;
    }
 
-   // may need incase player presses b
-   Object tmp("object_1");
-   Glob spawn_glob(tmp);
 
    // gameplay level controls
    char m0_buffer[100];
@@ -1432,6 +1448,9 @@ keyboard(unsigned char c, int x, int y)
       sprintf(n, "spawned_g_object_%i", GS.size());
       id = n;
 
+      Object tmp(id);
+      Glob spawn_glob(id, tmp);
+
       cout << prefix;
       cout << "spawning glob object: " << id << "\n";
 
@@ -1442,9 +1461,6 @@ keyboard(unsigned char c, int x, int y)
       timed_menu_display = 60;
 
       select_gobj = id;
-
-      spawn_glob.id = id;
-      spawn_glob.objs["object_1"].setConstQ("m", 1);
 
       GLfloat nx, ny, nz;
       CAM.pos_in_los(SD, nx, ny, nz);
@@ -1726,8 +1742,7 @@ tools::Error load_map(string mapname) {
       string gid = jvit.key().asString();
       string ioid = jv[gid]["g_objs"].begin().key().asString();
       Object obj(ioid);
-      Glob nglb(obj);
-      nglb.id = gid;
+      Glob nglb(gid, obj);
 
       for (auto gobjit = jv[gid].begin(); gobjit != jv[gid].end(); gobjit++) {
          string gobjkey = gobjit.key().asString();
@@ -1756,6 +1771,7 @@ tools::Error load_map(string mapname) {
                Json::Value objval = *g_objsit;
                Object nobj(obj_id);
                nobj.shape = objval["obj_shape"].asString();
+               nobj.gid = gid;
 
                Json::Value tetraval = objval["obj_tetra"];
                Json::Value pointsval = tetraval["points"];
@@ -1780,6 +1796,11 @@ tools::Error load_map(string mapname) {
                   nobj.tetra.faceColors[ii][1] = fcval[1].asFloat();
                   nobj.tetra.faceColors[ii][2] = fcval[2].asFloat();
                }
+
+               // populate object map
+               nobj.om_tracking = true;
+               nobj.last_om_key = om_get_section_key(nobj.tetra.center());
+               om_add_obj(nobj.gid, nobj.id, nobj.last_om_key);
 
                nglb.objs[obj_id] = nobj;
             }

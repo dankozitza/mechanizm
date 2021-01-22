@@ -126,6 +126,17 @@ string Object::getJSON() {
 void Object::translate_by(GLfloat x, GLfloat y, GLfloat z) {
    if (shape == "tetrahedron") {
       tetra.translate_by(x, y, z);
+      if (om_tracking) {
+         string new_om_key = om_get_section_key(tetra.center());
+
+         if (new_om_key != last_om_key) {
+            om_remove_obj(gid, id, last_om_key);
+            om_add_obj(gid, id, new_om_key);
+
+            last_om_key = new_om_key;
+         }
+      }
+
       return;
    }
    for (int i = 0; i < vertices; ++i) {
@@ -133,6 +144,8 @@ void Object::translate_by(GLfloat x, GLfloat y, GLfloat z) {
       cube[i][1] += y;
       cube[i][2] += z;
    }
+
+   return;
 }
 
 void Object::translate_by(GLfloat add_point[3]) {

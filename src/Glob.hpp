@@ -27,7 +27,7 @@ class Glob {
       vector<string> vis_objs;
 
       Glob();
-      Glob(Object& obj);
+      Glob(string nid, Object& obj);
 
       void initialize(Object& init_obj);
       void set_vis_objs(vector<string>& new_vis_objs);

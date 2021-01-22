@@ -5,27 +5,17 @@
 //
 
 #include "Glob.hpp"
-
-//Vertex init_v_tetra[4] = {
-//   {0.0, 0.0, 0.0},
-//   {1.0, 0.0, 0.0},
-//   {0.5, 0.0, 0.5},
-//   {0.5, 0.5, 0.5}};
-//
-//int init_faceIndex[4][3] = {
-//   0, 1, 2,
-//   0, 1, 3,
-//   0, 2, 3,
-//   1, 2, 3};
 #include "tools.hpp"
 using namespace tools;
 
 Glob::Glob() {
    Object init_obj("init_g_object_0");
+   id = "init_gid";
    initialize(init_obj);
 }
 
-Glob::Glob(Object& obj) {
+Glob::Glob(string nid, Object& obj) {
+   id = nid;
    initialize(obj);
 }
 
@@ -36,6 +26,9 @@ Glob::Glob(Object& obj) {
 void Glob::initialize(Object& obj) {
    objs.clear();
    vis_objs.clear();
+   // make sure glob objects are tracked in ObjectMap
+   obj.om_tracking = true;
+   obj.gid = id;
    objs[obj.id] = obj;
    vis_objs.push_back(obj.id);
 }
@@ -114,7 +107,10 @@ tools::Error Glob::attach(
       return error("ERROR!!! new object intersects source object\n");
    }
 
-   int new_obj_face = source_face;
+   new_obj.om_tracking = true;
+   new_obj.gid = id;
+   new_obj.last_om_key = om_get_section_key(new_obj.tetra.center());
+   om_add_obj(new_obj.gid, new_obj.id, new_obj.last_om_key);
 
    objs[new_obj.id] = new_obj;
    vis_objs.push_back(new_obj.id);
@@ -199,28 +195,28 @@ tools::Error Glob::attach_interior_sides(string new_obj_id) {
    return NULL;
 }
 
-tools::Error Glob::detach(string id) {
-   // loop through 'id' faces
+tools::Error Glob::detach(string oid) {
+   // loop through 'oid' faces
    for (int fi = 0; fi < 4; fi++) {
 
       int objid2_fi = fi;
       if (fi == 2) { objid2_fi = 3; }
       if (fi == 3) { objid2_fi = 2; }
 
-      if (objs[id].tetra.vis_fbools[fi] == true) { continue; }
+      if (objs[oid].tetra.vis_fbools[fi] == true) { continue; }
 
       for (auto it = objs.begin(); it != objs.end(); it++) {
          //it->second.tetra.rotate_abt_vert(v, ax, ay, az);
          string objid2 = it->first;
 
-         if (id == objid2) { continue; }
+         if (oid == objid2) { continue; }
          if (objs[objid2].tetra.vis_fbools[objid2_fi] == true) { continue; }
          
-         Vertex id_c, objid2_c;
-         objs[id].tetra.face[fi].center(id_c);
+         Vertex oid_c, objid2_c;
+         objs[oid].tetra.face[fi].center(oid_c);
          objs[objid2].tetra.face[objid2_fi].center(objid2_c);
          if (verts_within_eps(
-                  id_c,
+                  oid_c,
                   objid2_c,
                   0.08)) {
 
@@ -233,7 +229,12 @@ tools::Error Glob::detach(string id) {
          }
       }
    }
-   remove_vis_obj(id);
+   // remove all traces of oid
+   remove_vis_obj(oid);
+   om_remove_obj(id, oid, objs[oid].last_om_key);
+   auto it = objs.find(oid);
+   objs.erase(it);
+
    return NULL;
 }
 
@@ -263,7 +264,7 @@ tools::Error Glob::detach(string id) {
 
 void Glob::translate_by(GLfloat x, GLfloat y, GLfloat z) {
    for (auto it = objs.begin(); it != objs.end(); it++) {
-      it->second.tetra.translate_by(x, y, z);
+      it->second.translate_by(x, y, z);
    }
 }
 
