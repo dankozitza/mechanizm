@@ -261,7 +261,7 @@ int main(int argc, char *argv[]) {
          "Enter 'help controls' for a list of controls.",
          "help controls",
          "Controls:\n      e                 Open console.\n"
-         "      a s d f space c   Movement.\n"
+         "      w a s d space c   Movement.\n"
          "      x                 Toggle AGM.\n"
          "      Esc               Grab/ungrab mouse, exit console.\n"
          "      b                 Spawn a block.\n"
@@ -269,7 +269,9 @@ int main(int argc, char *argv[]) {
          "      +/-               Add or subtract number of points drawn.\n"
          "      1                 Set mouse left click mode to 'select'.\n"
          "      2                 Set mouse left click mode to 'remove'.\n"
-         "      3                 Set mouse left click mode to 'build'.");
+         "      3                 Set mouse left click mode to 'build'.\n"
+         "      4                 Set mouse left click mode to 'paint'.\n"
+         "      t                 Hold t and click in paint mode to copy color.\n");
 
    glEnable(GL_BLEND);
    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -971,7 +973,7 @@ void draw_cam_spheres() {
                      Object o(buffer);
                      o.tetra = generate_tetra_from_side(tetra, fi);
 
-                     vector<string> m(3);
+                     vector<string> m(4);
                      if (pmatches(m,
                         CMDS_STORE["block_color"], "(.+) (.+) (.+)")) {
 
@@ -996,6 +998,46 @@ void draw_cam_spheres() {
                         e = GS[gi].attach_interior_sides(j);
                         if (e != NULL) {
                            cout << "draw_cam_spheres::" << e << "\n";
+                        }
+                     }
+
+                     SD = as_double(CMDS_STORE["n_click_distance"]);
+                     SD_DONE = true;
+                     return;
+                  }
+                  if (selector_function == "paint") {
+                     select_gobj = gi;
+                     select_obj = j;
+
+                     vector<string> m(4);
+                     if (pmatches(m,
+                        CMDS_STORE["block_color"], "(.+) (.+) (.+)")) {
+
+                        GLfloat os = (GLfloat)(rand() % 10) / 100.0;
+
+                        if (CAM._keyboard['t'] == false) {
+                           for (int i = 0; i < 4; i++) {
+
+                              GS[gi].objs[j].tetra.faceColors[i][0] =
+                                 as_double(m[1]) + os;
+                              GS[gi].objs[j].tetra.faceColors[i][1] =
+                                 as_double(m[2]) + os;
+                              GS[gi].objs[j].tetra.faceColors[i][2] =
+                                 as_double(m[3]) + os;
+                           }
+                        } else {
+                           char buf[100];
+                           sprintf(buf, "%lf %lf %lf",
+                              GS[gi].objs[j].tetra.faceColors[0][0],
+                              GS[gi].objs[j].tetra.faceColors[0][1],
+                              GS[gi].objs[j].tetra.faceColors[0][2]
+                           );
+                           CMDS_STORE["block_color"] = string(buf);
+
+                           menu_output.push_back(
+                                 "copied color " + string(buf));
+                           timed_menu_display = 150;
+                           draw_menu_lines = 1;
                         }
                      }
 
@@ -1591,6 +1633,12 @@ keyboard(unsigned char c, int x, int y)
    case '3':
       selector_function = "build";
       menu_output.push_back("mouse function: build");
+      draw_menu_lines = 1;
+      timed_menu_display = 50;
+      break;
+   case '4':
+      selector_function = "paint";
+      menu_output.push_back("mouse function: paint");
       draw_menu_lines = 1;
       timed_menu_display = 50;
       break;

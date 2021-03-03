@@ -33,10 +33,11 @@ class Camera {
       int last_mouse_pos_x;
       int last_mouse_pos_y;
       bool agm_enabled;
+      bool  _keyboard[255]; // to know if one specific key is up or down
 
 	private :
 	
-		bool  _keyboard[255]; // to know if one specific key is up or down
+		//bool  _keyboard[255]; // to know if one specific key is up or down
 		float _rotationSpeed;
 		int   _time;
 		float _translationSpeed;

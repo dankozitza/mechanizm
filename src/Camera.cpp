@@ -83,8 +83,13 @@ bool Camera::pressKey(unsigned char c) {
       c += 32;
       _shift = 3.5;
    }
-   else if (c != ' ')
+   else if (c != ' ') {
       _shift = 1.0;
+   }
+
+   if (c == 't') {
+      _keyboard[c] = true;
+   }
    
    if(c == 'd') {
       _keyboard[c] = true;

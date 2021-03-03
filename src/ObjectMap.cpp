@@ -50,6 +50,12 @@ string om_get_section_key(Vertex center) {
    return string(buf);
 }
 
+void om_get_sections(string center, GLfloat radius,
+         vector<string>& sections) {
+
+   return;
+}
+
 void om_get_nearby_sections(string center, vector<string>& sections) {
 
    int delim_1 = -1;

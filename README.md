@@ -18,6 +18,7 @@ numbers: set mouse left click mode
 1 - select
 2 - remove
 3 - create a block adjacent to selected block
+4 - paint. hold t and click to copy color
 ```
 
 ### Dependencies
