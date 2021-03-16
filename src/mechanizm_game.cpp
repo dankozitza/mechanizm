@@ -25,7 +25,7 @@
 //#include <glm/detail/type_vec4.hpp>
 
 #include "Camera.hpp"
-#include "Glob.hpp" // includes Vertex, Tetrahedron, & Object
+#include "Group.hpp" // includes Vertex, Tetrahedron, & Object
 #include "Sphere.hpp"
 
 using namespace tools;
@@ -56,15 +56,16 @@ void
 
 tools::Error random_motion(double t, Object &self);
 tools::Error player_gravity(double t, Object &self);
+tools::Error gobj_physics(double t, Object &self);
 
 Tetrahedron generate_tetra_from_side(Tetrahedron& source, int source_face);
 tools::Error save_map(string mapname);
 tools::Error load_map(string mapname);
 
-unordered_map<string, Glob> GS;
+unordered_map<string, Group> GS;
 vector<Sphere> SPHRS;
-string select_gobj;
-string select_obj;
+string select_gobj = "none";
+string select_obj = "none";
 int select_face;
 long unsigned int gen_obj_cnt = 0;
 long unsigned int gen_map_cnt = 1;
@@ -83,7 +84,6 @@ int WIN = -1;
 static Camera CAM(2.0, 2.0, 3.5, 0.0, 0.0, 0.6, 0.0022);
 
 static mechanizm MECH;
-vector<Object> M_OBJS;
 int PO = 0;
 int count = 1; // cycles through 1/60th of a second
 
@@ -112,6 +112,8 @@ void
    cmd_save_map(vector<string>& argv),
    cmd_load_map(vector<string>& argv),
    cmd_reseed(vector<string>& argv),
+   cmd_info(vector<string>& argv),
+   cmd_physics(vector<string>& argv),
    cmd_controls(vector<string>& argv);
 
 int main(int argc, char *argv[]) {
@@ -136,13 +138,13 @@ int main(int argc, char *argv[]) {
    Error e = NULL;
 
    Object tmp_player_obj("player_grav_obj", 1.0, player_gravity);
+   tmp_player_obj.setConstQ("v", {0.0, 0.0, 0.0});
    tmp_player_obj.setConstQ("AGM_GRAVITY", 9.8);
    tmp_player_obj.setConstQ("AGM_FALLING", 0.0);
    tmp_player_obj.setConstQ("AGM_FSTARTT", 3.0);
    tmp_player_obj.setConstQ("AGM_FSTARTY", 5.0);
    tmp_player_obj.translate_by(10.0, 0.0, 10.0);
-   M_OBJS.push_back(tmp_player_obj);
-   MECH.set_objects(M_OBJS);
+   MECH.add_object(tmp_player_obj);
    MECH.current_time = 0.0;
 
    // build handler for glut window / game save
@@ -205,10 +207,10 @@ int main(int argc, char *argv[]) {
          "help [command]");
 
    IN_GAME_CMDS.handle(
-         "mo",
+         "tp",
          cmd_tp,
          "Teleport to the given coordinates.",
-         "mo x y z");
+         "tp x y z");
 
    IN_GAME_CMDS.handle(
          "set",
@@ -254,6 +256,23 @@ int main(int argc, char *argv[]) {
          "Re-set the rng seed.",
          "reseed [double]",
          "Reseed sets the stored seed to the given double and runs srand.");
+
+   IN_GAME_CMDS.handle(
+         "info",
+         cmd_info,
+         "Print information about selected object(s).",
+         "info");
+
+   IN_GAME_CMDS.handle(
+         "physics",
+         cmd_physics,
+         "Enable or disable physics simulation for selected object.",
+         "physics [enable/disable]",
+         "This command can be called in 3 ways:\n"
+         "   0 args -                - Toggle physics simulation.\n"
+         "   1 args - enable/disable - Turn physics on/off.\n"
+         "   4 args - <key> <floatx> <glfloaty> <glfloatz>\n"
+         "                           - Set quantity <key> to floatn.");
 
    IN_GAME_CMDS.handle(
          "controls",
@@ -508,7 +527,7 @@ void cmd_load(vector<string>& argv) {
       // if name exists load or copy from gs, otherwise generate tetrahedron
       msg = "loading new tetrahedron " + name;
       Object obj(name + "_obj_0");
-      Glob g(name, obj);
+      Group g(name, obj);
       Vertex c = obj.tetra.center();
       g.translate_by(-c.x, -c.y, -c.z);
 
@@ -543,7 +562,7 @@ void cmd_load(vector<string>& argv) {
                   cout << " at (" << xi << " " << yi << " " << zi << ")\n";
 
                   Object obj(g_obj_name);
-                  Glob g(g_obj_name, obj);
+                  Group g(g_obj_name, obj);
                   Vertex c = g.objs[g_obj_name].tetra.center();
                   g.translate_by(-c.x, -c.y, -c.z);
                   g.translate_by(xi, yi, zi);
@@ -597,6 +616,138 @@ void cmd_reseed(vector<string>& argv) {
    }
    
    srand(as_double(CMDS_STORE["rng_seed"]));
+   return;
+}
+
+void cmd_info(vector<string>& argv) {
+
+   if (select_gobj == "none") {
+      menu_output.push_back("No object selected.");
+      return;
+   }
+   // print physics event list and resolved/unresolved status
+   //if (argv.size() == 5) {
+   //   if (argv[0] == "setcqs") {
+   //      vector<GLfloat> tv;
+   //      tv.push_back(as_double(argv[2]));
+   //      tv.push_back(as_double(argv[3]));
+   //      tv.push_back(as_double(argv[4]));
+
+   //      vector<string> targ =  {"enable"};
+   //      if (GS[select_gobj].phys_obj == NULL) {cmd_physics(targ);}
+
+   //      GS[select_gobj].phys_obj->setConstQ(
+   //            argv[1], tv);
+   //      menu_output.push_back("cmd_info: setting value in CQS");
+   //   }
+
+   //   return;
+   //}
+
+   char buf[1000];
+   sprintf(buf, "selected group: %s\nselected object: %s\nobjects: %i\nvis_objs: %i\nphys_events: %i\nv- CQS -v\n",
+           select_gobj.c_str(), select_obj.c_str(),
+           GS[select_gobj].objs.size(), GS[select_gobj].vis_objs.size(), 0);
+
+   string msg = buf;
+
+   if (GS[select_gobj].phys_obj != NULL) {
+      for (auto it = GS[select_gobj].phys_obj->c_qs.begin();
+                it != GS[select_gobj].phys_obj->c_qs.end(); it++) {
+         msg += it->first + ": ";
+         for (int i = 0; i < it->second.size(); i++) {
+            sprintf(buf, "%lf ", it->second[i]);
+            msg += buf;
+         }
+         msg += "\n";
+      }
+   }
+
+   menu_output.push_back(msg);
+   return;
+}
+
+Object build_physics_object() {
+   Object phobj("physics_object", 1.0, gobj_physics);
+   phobj.setCQ("v", {0.0, 0.0, 0.0});
+   tools::Error n = phobj.enable_physics();
+   if (n != NULL) {menu_output.push_back(n);}
+   return phobj;
+}
+
+void cmd_physics(vector<string>& argv) {
+   tools::Error n = NULL;
+
+   if (select_gobj == "none") {
+      menu_output.push_back("No object selected.");
+      return;
+   }
+
+   Object tobj = build_physics_object();
+   tobj.gid = select_gobj;
+   tobj.group = &GS[select_gobj];
+
+   if (argv.size() == 0) {
+
+      if (GS[select_gobj].phys_obj == NULL) {
+         argv = {"enable"};
+      }
+      else if (
+            GS[select_gobj].phys_obj->getConstQ("g_obj_physics").size() == 1) {
+
+         if (
+         equal(GS[select_gobj].phys_obj->getConstQ("g_obj_physics")[0], 0.0)) {
+            argv = {"enable"};
+         }
+         else {
+            argv = {"disable"};
+         }
+      }
+   }
+
+   if (argv.size() == 1) {
+      if (argv[0] == "enable") {
+
+         if (GS[select_gobj].phys_obj != NULL) {
+            if (
+         GS[select_gobj].phys_obj->getConstQ("g_obj_physics").size() != 1) {
+               menu_output.push_back("physics: physics object corrupted!");
+            }
+
+            n = GS[select_gobj].phys_obj->enable_physics();
+            if (n != NULL) {menu_output.push_back(n);}
+            else {menu_output.push_back("physics enabled");}
+         }
+         else {
+            MECH.add_object(tobj);
+            GS[select_gobj].phys_obj = &MECH.objs[MECH.size-1];
+            menu_output.push_back("physics enabled");
+         }
+      }
+      else if (GS[select_gobj].phys_obj != NULL) {
+         n = GS[select_gobj].phys_obj->disable_physics();
+         if (n != NULL) {menu_output.push_back(n);}
+         else {menu_output.push_back("physics disabled");}
+      }
+      return;
+   }
+
+   if (argv.size() == 4) {
+      vector<GLfloat> tv;
+      tv.push_back(as_double(argv[1]));
+      tv.push_back(as_double(argv[2]));
+      tv.push_back(as_double(argv[3]));
+
+      vector<string> targ = {"enable"};
+      if (GS[select_gobj].phys_obj == NULL) {cmd_physics(targ);}
+
+      GS[select_gobj].phys_obj->setConstQ(argv[0], tv);
+      menu_output.push_back("cmd_physics: setting physics quantity");
+
+      return;
+   }
+
+   return;
 }
 
 void cmd_controls(vector<string>& argv) {return;}
@@ -626,6 +777,51 @@ tools::Error random_motion(double t, Object &self) {
    return NULL;
 }
 
+// gobj_physics M_OBJS motion function
+//
+// does work_n actions either running a physics event or checking for
+// intersection. instances that do not check for collisions will
+// work through physics events.
+
+tools::Error gobj_physics(double t, Object &self) {
+
+   // need reference to group
+   //
+   // use c_qs to store group init_pos
+   //
+   // check for intersection with second group
+   //    loop through visible objects and check for second group
+   //    in nearby sections
+   //
+   // use c_qs to configure physics objects
+   //
+   if (self.getConstQ("g_obj_physics")[0] == 1.0) {
+
+      // if velocity is set use that and return;
+      if (self.getConstQ("v").size() == 3) {
+
+         //move group
+         GLfloat incx = (GLfloat)(1.0/64.0) * self.getConstQ("v")[0];
+         GLfloat incy = (GLfloat)(1.0/64.0) * self.getConstQ("v")[1];
+         GLfloat incz = (GLfloat)(1.0/64.0) * self.getConstQ("v")[2];
+         // 1/64th of a second x velocity = distance
+
+         ((Group*)self.group)->translate_by(incx, incy, incz);
+         //GS[select_gobj].translate_by(incx, incy, incz);
+      }
+
+      // store index for objects in group and loop through work_n objects
+      // if physics is active get the nearest section of OM to
+      // check for collision
+      //
+      // loop though events and resolve them
+      //
+      // use glut to perform translations and rotations on group
+      // with the phys_events list
+   }
+   return NULL;
+}
+
 tools::Error player_gravity(double t, Object &self) {
 
    // check for collision with object below cam, if collision is detected
@@ -637,6 +833,17 @@ tools::Error player_gravity(double t, Object &self) {
    if (falling < 0.5)  {
       return NULL;
    }
+
+   GLfloat incx, incz = 0.0;
+   // check if player object has velocity and calculate distance to travel
+   if (self.getConstQ("v").size() == 3) {
+      incx = (GLfloat)(1.0/64.0) * self.getConstQ("v")[0];
+      incz = (GLfloat)(1.0/64.0) * self.getConstQ("v")[2];
+   }
+
+   // intersecting group and object id's
+   string ig;
+   string io;
 
    Vertex cc;
    cc.x = CAM.getX();
@@ -653,19 +860,19 @@ tools::Error player_gravity(double t, Object &self) {
       if (mit == M().end()) {continue;}
 
       for (int omvi = 0; omvi < mit->second.size(); omvi++) {
-         string gi = mit->second[omvi].gid;
-         string j = mit->second[omvi].oid;
+         ig = mit->second[omvi].gid;
+         io = mit->second[omvi].oid;
 
          Vertex line[2];
-         line[0] = M_OBJS[PO].tetra.center();
+         line[0] = self.tetra.center();
          line[0].y += 0.3;
 
-         line[1].x = M_OBJS[PO].tetra.center().x;
-         line[1].z = M_OBJS[PO].tetra.center().z;
-         line[1].y = M_OBJS[PO].tetra.center().y - 1.0;
+         line[1].x = self.tetra.center().x;
+         line[1].z = self.tetra.center().z;
+         line[1].y = self.tetra.center().y - 1.0;
 
          // check each visable face
-         Tetrahedron tetra = GS[gi].objs[j].tetra;
+         Tetrahedron tetra = GS[ig].objs[io].tetra;
          for (int vfi = 0; vfi < tetra.vis_faces.size();
                vfi++) {
             int fi = tetra.vis_faces[vfi];
@@ -689,27 +896,54 @@ tools::Error player_gravity(double t, Object &self) {
                      line,
                      tripnts,
                      NULL)) {
-               //cout << "player_gravity: intersection with object!\n";
-               M_OBJS[PO].translate_by(-M_OBJS[PO].tetra.center().x,
-                                       -M_OBJS[PO].tetra.center().y,
-                                       -M_OBJS[PO].tetra.center().z);
-               M_OBJS[PO].translate_by(CAM.getX(), new_cam_y, CAM.getZ());
+
+               self.translate_by(-self.tetra.center().x,
+                                 -self.tetra.center().y,
+                                 -self.tetra.center().z);
 
                GLfloat climb_mv = as_double(CMDS_STORE["agm_climb_spd"]);
                if (CAM.getY() + climb_mv < new_cam_y) {
+                  self.translate_by(
+                        CAM.getX() + incx, CAM.getY() + climb_mv,
+                        CAM.getZ() + incz);
                   CAM.setY((CAM.getY() + climb_mv));
                }
                else {
+                  self.translate_by(
+                        CAM.getX() + incx, new_cam_y, CAM.getZ() + incz);
                   CAM.setY(new_cam_y);
                }
 
-               M_OBJS[PO].setConstQ("AGM_FSTARTT", MECH.current_time);
+               CAM.setX(CAM.getX() + incx);
+               CAM.setZ(CAM.getZ() + incz);
+
+               self.setConstQ("AGM_FSTARTT", MECH.current_time);
+
+               //cout << "player_gravity: HERE\n";
                // skip the rest because we are at rest on a surface
+               //
+               // if intersecting group has velocity copy x and z to this v
+               if (GS[ig].phys_obj == NULL) {
+                  self.setCQ("v", {0.0, 0.0, 0.0});
+               }
+               else if(
+                  GS[ig].phys_obj->getConstQ("g_obj_physics").size() == 1 &&
+                  equal(
+                     GS[ig].phys_obj->getConstQ("g_obj_physics")[0], 1.0) &&
+                  GS[ig].phys_obj->getConstQ("v").size() == 3) {
+
+                  self.setCQ("v", GS[ig].phys_obj->getConstQ("v"));
+               }
+               else {
+                  self.setCQ("v", {0.0, 0.0, 0.0});
+               }
                return NULL;
             }
          }
       }
    }
+
+   // in keyboard change velocity of player object when animation is on
 
    GLfloat gravity = self.getConstQ("AGM_GRAVITY")[0];
    GLfloat fstartt = self.getConstQ("AGM_FSTARTT")[0];
@@ -727,9 +961,11 @@ tools::Error player_gravity(double t, Object &self) {
                       0.5*gravity*tlast_t*tlast_t;
 
    GLfloat camy = CAM.getY() - movement;
+   CAM.setX(CAM.getX() + incx);
    CAM.setY(camy);
+   CAM.setZ(CAM.getZ() + incz);
 
-   self.translate_by(0.0, -movement, 0.0);
+   self.translate_by(incx, -movement, incz);
    self.last_t = t;
 
    return NULL;
@@ -763,11 +999,11 @@ void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
       }
    }
    else if (draw_x_vertices < 0) {
-      // draw player object at feet
-      Sphere new_sphere(M_OBJS[PO].tetra.center().x,
-                        M_OBJS[PO].tetra.center().y - 0.8,
-                        M_OBJS[PO].tetra.center().z,
+      Sphere new_sphere(MECH.objs[PO].tetra.center().x,
+                        MECH.objs[PO].tetra.center().y - 0.8,
+                        MECH.objs[PO].tetra.center().z,
                         0.1369, 0.4, 0.8, 0.6);
+
       draw_sphere(new_sphere);
    } 
 
@@ -924,12 +1160,12 @@ void draw_cam_spheres() {
                         tripnts,
                         NULL)) {
 
-                  // glob: gi object: j
+                  // group: gi object: j
                   if (selector_function == "select") {
                      select_gobj = gi;
                      select_obj = j;
 
-                     string msg("selected glob: " + gi + "\nobject: " + j);
+                     string msg("selected group: " + gi + "\nobject: " + j);
                      char buffer[100];
                      sprintf(buffer,
                              ", face %i, vis_faces: %i",
@@ -952,7 +1188,7 @@ void draw_cam_spheres() {
                      SD_DONE = true;
 
                      menu_output.push_back(
-                           "glob: " + gi + ": removed object " + j);
+                           "group: " + gi + ": removed object " + j);
                      timed_menu_display = 150;
                      draw_menu_lines = 1;
 
@@ -1221,7 +1457,7 @@ void drawScene(void) {
    glStencilOp(GL_INVERT, GL_INVERT, GL_INVERT);
    glColor3f(1.0, 1.0, 0.0);
 
-   // draw visible triangles in globs map
+   // draw visible triangles in group map
    for (auto glit = GS.begin(); glit != GS.end(); glit++) {
       string gid = glit->first;
 
@@ -1311,11 +1547,11 @@ void animation(void) {
       return;
    }
 
-   // move the player object M_OBJS[0] to cam position
-   M_OBJS[0].translate_by(-M_OBJS[0].tetra.center().x, -M_OBJS[0].tetra.center().y, -M_OBJS[0].tetra.center().z);
-   M_OBJS[0].translate_by(CAM.getX(), CAM.getY(), CAM.getZ());
-   if (M_OBJS[0].getConstQ("AGM_FALLING")[0] < 0.5) {
-      M_OBJS[0].setConstQ("AGM_FSTARTY", CAM.getY());
+   // move the player object MECH.objs[0] to cam position
+   MECH.objs[0].translate_by(-MECH.objs[0].tetra.center().x, -MECH.objs[0].tetra.center().y, -MECH.objs[0].tetra.center().z);
+   MECH.objs[0].translate_by(CAM.getX(), CAM.getY(), CAM.getZ());
+   if (MECH.objs[0].getConstQ("AGM_FALLING")[0] < 0.5) {
+      MECH.objs[0].setConstQ("AGM_FSTARTY", CAM.getY());
    }
 }
 
@@ -1492,13 +1728,13 @@ keyboard(unsigned char c, int x, int y)
       id = n;
 
       Object tmp(id);
-      Glob spawn_glob(id, tmp);
+      Group spawn_group(id, tmp);
 
       cout << prefix;
-      cout << "spawning glob object: " << id << "\n";
+      cout << "spawning group object: " << id << "\n";
 
       string msg = prefix;
-      msg += "spawning glob object: " + id + "\n";
+      msg += "spawning group object: " + id + "\n";
       menu_output.push_back(msg);
       draw_menu_lines = 2;
       timed_menu_display = 60;
@@ -1508,26 +1744,26 @@ keyboard(unsigned char c, int x, int y)
       GLfloat nx, ny, nz;
       CAM.pos_in_los(SD, nx, ny, nz);
 
-      spawn_glob.translate_by(nx, ny, nz);
-      GS[spawn_glob.id] = spawn_glob;
+      spawn_group.translate_by(nx, ny, nz);
+      GS[spawn_group.id] = spawn_group;
       return;
    }
    if (c == 'x' || c == 'X') { // enable/disable artificial gravity module
-      GLfloat f = M_OBJS[PO].getConstQ("AGM_FALLING")[0];
+      GLfloat f = MECH.objs[PO].getConstQ("AGM_FALLING")[0];
 
       if (f < 0.5) {
          // make AGM_start_fall();
          ANIMATION = true;
-         M_OBJS[PO].setConstQ("AGM_FALLING", 1.0);
-         M_OBJS[PO].setConstQ("AGM_FSTARTT", MECH.current_time);
+         MECH.objs[PO].setConstQ("AGM_FALLING", 1.0);
+         MECH.objs[PO].setConstQ("AGM_FSTARTT", MECH.current_time);
          CAM.agm_enabled = true;
          menu_output.push_back("AGM Enabled");
          timed_menu_display = 60;
          draw_menu_lines = 1;
       }
       else {
-         // make AGM_stop_fall();
-         M_OBJS[PO].setConstQ("AGM_FALLING", 0.0);
+         MECH.objs[PO].setConstQ("AGM_FALLING", 0.0);
+         MECH.objs[PO].setConstQ("v", {0.0, 0.0, 0.0});
          CAM.agm_enabled = false;
          menu_output.push_back("AGM Disabled");
          timed_menu_display = 60;
@@ -1691,7 +1927,7 @@ Tetrahedron generate_tetra_from_side(
    Tetrahedron new_tetra;
    // reflect opposite point across selected side
 
-   // temporary vector placed at position of opposite point
+   // temporary vertex placed at position of opposite point
    Vertex opp_v;
    // get the index of the vertex that is reflected
    int opp_v_i = 4;
@@ -1791,7 +2027,7 @@ tools::Error load_map(string mapname) {
       string gid = jvit.key().asString();
       string ioid = jv[gid]["g_objs"].begin().key().asString();
       Object obj(ioid);
-      Glob nglb(gid, obj);
+      Group nglb(gid, obj);
 
       for (auto gobjit = jv[gid].begin(); gobjit != jv[gid].end(); gobjit++) {
          string gobjkey = gobjit.key().asString();

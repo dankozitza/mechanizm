@@ -66,11 +66,13 @@ void Object::initialize(string identity, Function func) {
    id = identity;
    last_t = 0.0;
    function = func;
+   //c_qs["g_obj_physics"].push_back(0.0);
 
    // these quantities can be initialized without worrying about them breaking
    // the physics equations. Mainly initial values.
    //c_qs["posi"] = {cube[0][0], cube[0][1], cube[0][2]};
    //c_qs["vi"].resize(3);
+   return;
 }
 
 Object::Object() {
@@ -216,17 +218,56 @@ GLfloat Object::magnitude(vector<GLfloat> q) {
    return r;
 }
 
+//#include "Group.hpp"
+
+tools::Error Object::enable_physics() {
+   setConstQ("g_obj_physics", 1.0);
+
+   if (group == NULL) {
+      return tools::error("Object::enable_physics: group is NULL");
+   }
+
+   //vector<GLfloat> tmpv;
+   //tmpv.push_back(((Group*)group)->center().x);
+   //tmpv.push_back(((Group*)group)->center().y);
+   //tmpv.push_back(((Group*)group)->center().z);
+   //setConstQ("posi", tmpv);
+   return NULL;
+}
+
+tools::Error Object::disable_physics() {
+   setConstQ("g_obj_physics", 0.0);
+   return NULL;
+}
+
+void Object::setCQ(string name, GLfloat q) {
+   return setConstQ(name, q);
+}
+
 void Object::setConstQ(string name, GLfloat q) {
    vector<GLfloat> tmp;
    tmp.push_back(q);
    setConstQ(name, tmp);
+   return;
+}
+
+void Object::setCQ(string name, vector<GLfloat> q) {
+   return setConstQ(name, q);
 }
 
 void Object::setConstQ(string name, vector<GLfloat> q) {
    c_qs[name] = q;
+   return;
+}
+
+vector<GLfloat> Object::getCQ(string name) {
+   return getConstQ(name);
 }
 
 vector<GLfloat> Object::getConstQ(string name) {
+   if (c_qs.size() == 0) {
+      cout << "c_qs is empty\n";
+   }
    return c_qs[name];
 }
 

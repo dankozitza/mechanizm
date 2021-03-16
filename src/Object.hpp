@@ -15,13 +15,23 @@
 #include "ObjectMap.hpp"
 #include "Tetrahedron.hpp"
 
-using namespace std;
+//using namespace std;
+
+struct phys_event {
+   string obj_id;
+   double init_t;
+   GLfloat cx, cy, cz;
+   GLfloat ax, ay, az;
+   GLfloat dx, dy, dz;
+};
 
 class Object {
 
    public:
 
       typedef tools::Error (*Function)(double, Object&);
+
+      vector<phys_event> events;
 
       string shape = "tetrahedron";
 
@@ -38,6 +48,7 @@ class Object {
 
       string id;
       string gid;
+      void   *group;
       double last_t; // used to integrate cube transformations using different
                      // motion functions
 
@@ -64,6 +75,9 @@ class Object {
       // cube transformations
       void translate_by(GLfloat x, GLfloat y, GLfloat z);
       void translate_by(GLfloat add_point[3]);
+      void translate_part(size_t tg_i, unsigned long work,
+                                  GLfloat x, GLfloat y, GLfloat z);
+      void translate_part(size_t tg_i, unsigned long work, GLfloat add_vert);
       void multiply_by(GLfloat x, GLfloat y, GLfloat z);
       void multiply_vert_by(int vertex_index, GLfloat x, GLfloat y, GLfloat z);
       void scale_by(GLfloat x, GLfloat y, GLfloat z);
@@ -74,7 +88,12 @@ class Object {
       // element of the vector c_qs[name].
       //
       void setConstQ(string name, GLfloat q);
+      void setCQ(string name, GLfloat q);
+
       void setConstQ(string name, vector<GLfloat> q);
+      void setCQ(string name, vector<GLfloat> q);
+
+      vector<GLfloat> getCQ(string name);
       vector<GLfloat> getConstQ(string name);
 
       // these functions will try in multiple ways to calculate the quantity
@@ -89,6 +108,13 @@ class Object {
       bool get_p(vector<GLfloat> &p);   // momentum
 
       GLfloat magnitude(vector<GLfloat> q);
+
+      tools::Error enable_physics();
+      tools::Error disable_physics();
+      //tools::Error addevent(string oid, double init_t,
+                            //GLfloat cx, cy, cz,
+                            //GLfloat ax, ay, az,
+                            //GLfloat dx, dy, dz);
 
       //tools::Error tryhard_motion(double t, Object &self);
 

@@ -1,29 +1,29 @@
 //
-// Glob.cpp
+// Group.cpp
 //
 // Created by Daniel Kozitza
 //
 
-#include "Glob.hpp"
+#include "Group.hpp"
 #include "tools.hpp"
 using namespace tools;
 
-Glob::Glob() {
+Group::Group() {
    Object init_obj("init_g_object_0");
    id = "init_gid";
    initialize(init_obj);
 }
 
-Glob::Glob(string nid, Object& obj) {
+Group::Group(string nid, Object& obj) {
    id = nid;
    initialize(obj);
 }
 
-//Glob::Glob(const Glob& other) {
+//Group::Group(const Group& other) {
 //   *this = other;
 //}
 
-void Glob::initialize(Object& obj) {
+void Group::initialize(Object& obj) {
    objs.clear();
    vis_objs.clear();
    // make sure glob objects are tracked in ObjectMap
@@ -33,14 +33,14 @@ void Glob::initialize(Object& obj) {
    vis_objs.push_back(obj.id);
 }
 
-void Glob::set_vis_objs(vector<string>& new_vis_objs) {
+void Group::set_vis_objs(vector<string>& new_vis_objs) {
    vis_objs.resize(new_vis_objs.size());
    for (int voi = 0; voi < new_vis_objs.size(); voi++) {
       vis_objs[voi] = new_vis_objs[voi];
    }
 }
 
-void Glob::remove_vis_obj(string obj_id) {
+void Group::remove_vis_obj(string obj_id) {
    vector<string> nvos;
    for (int voi = 0; voi < vis_objs.size(); voi++) {
       if (vis_objs[voi] != obj_id) {
@@ -50,12 +50,12 @@ void Glob::remove_vis_obj(string obj_id) {
    set_vis_objs(nvos);
    return;
 }
-void Glob::add_vis_obj(string obj_id) {
+void Group::add_vis_obj(string obj_id) {
    vis_objs.push_back(obj_id);
    return;
 }
 
-string Glob::getJSON() {
+string Group::getJSON() {
    string r;
    r = "{\n\"g_id\": \"" + id + "\",\n";
 
@@ -81,7 +81,7 @@ string Glob::getJSON() {
    return r;
 }
 
-Vertex Glob::center() {
+Vertex Group::center() {
    Vertex ret;
 
    // loop through objects, get average point of all
@@ -98,7 +98,7 @@ Vertex Glob::center() {
    return ret;
 }
 
-tools::Error Glob::attach(
+tools::Error Group::attach(
       string source_id, int source_face, Object& new_obj) {
 
    if (verts_within_eps(objs[source_id].tetra.center(), new_obj.tetra.center(),
@@ -118,7 +118,7 @@ tools::Error Glob::attach(
    return attach_interior_sides(new_obj.id);
 }
 
-tools::Error Glob::attach_interior_sides(string new_obj_id) {
+tools::Error Group::attach_interior_sides(string new_obj_id) {
 
    for (int voit = 0; voit < vis_objs.size(); voit++) {
 
@@ -195,7 +195,7 @@ tools::Error Glob::attach_interior_sides(string new_obj_id) {
    return NULL;
 }
 
-tools::Error Glob::detach(string oid) {
+tools::Error Group::detach(string oid) {
    // loop through 'oid' faces
    for (int fi = 0; fi < 4; fi++) {
 
@@ -238,7 +238,7 @@ tools::Error Glob::detach(string oid) {
    return NULL;
 }
 
-//void Glob::rotate_abt_vert(
+//void Group::rotate_abt_vert(
 //      Vertex& vert, GLfloat AX, GLfloat AY, GLfloat AZ) {
 //   AXsum += AX;
 //   AYsum += AY;
@@ -249,26 +249,26 @@ tools::Error Glob::detach(string oid) {
 //   }
 //}
 
-//void Glob::rotate_abt_zero(GLfloat AX, GLfloat AY, GLfloat AZ) {
+//void Group::rotate_abt_zero(GLfloat AX, GLfloat AY, GLfloat AZ) {
 //   AXsum += AX;
 //   AYsum += AY;
 //   AZsum += AZ;
 //   rotate_abt_zero_ns(AX, AY, AZ);
 //}
 
-//void Glob::rotate_abt_zero_ns(GLfloat AX, GLfloat AY, GLfloat AZ) {
+//void Group::rotate_abt_zero_ns(GLfloat AX, GLfloat AY, GLfloat AZ) {
 //   for (int pi = 1; pi < vertices; pi++) {
 //      points[pi].rotate_about(points[0], AX, AY, AZ);
 //   }
 //}
 
-void Glob::translate_by(GLfloat x, GLfloat y, GLfloat z) {
+void Group::translate_by(GLfloat x, GLfloat y, GLfloat z) {
    for (auto it = objs.begin(); it != objs.end(); it++) {
       it->second.translate_by(x, y, z);
    }
 }
 
-void Glob::rotate_abt_center(GLfloat ax, GLfloat ay, GLfloat az) {
+void Group::rotate_abt_center(GLfloat ax, GLfloat ay, GLfloat az) {
    Vertex v = center();
    for (auto it = objs.begin(); it != objs.end(); it++) {
       it->second.tetra.rotate_abt_vert(v, ax, ay, az);

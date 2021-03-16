@@ -1,10 +1,10 @@
-# 1ad4bba67e2096be049e3c37c1879f92
+# 35a1c88c1c42354770b5e6489ed38ff0
 # Generated with vfnmkmc by the mc program.
 PREFIX=/usr/local
 CFLAGS=-O$(O)  -std=c++11
 O=2
 LFLAGS= -l GL -l GLU -l glut -l jsoncpp
-OBJS=objs/Block.o objs/Map.o objs/Glob.o objs/Sphere.o objs/mechanizm.o objs/mechanizm_game.o objs/Triangle.o objs/ObjectMap.o objs/Object.o objs/commands.o objs/Tetrahedron.o objs/options.o objs/Camera.o objs/Vertex.o objs/MapSection.o objs/Side.o objs/ogl_utils.o objs/system.o objs/vectors.o objs/strings.o objs/json_utils.o objs/pcre_utils.o objs/utils.o objs/doubles.o objs/radix.o
+OBJS=objs/Block.o objs/Group.o objs/Map.o objs/Sphere.o objs/mechanizm.o objs/mechanizm_game.o objs/Triangle.o objs/ObjectMap.o objs/Object.o objs/commands.o objs/Tetrahedron.o objs/options.o objs/Camera.o objs/Vertex.o objs/MapSection.o objs/Side.o objs/ogl_utils.o objs/system.o objs/vectors.o objs/strings.o objs/json_utils.o objs/pcre_utils.o objs/utils.o objs/doubles.o objs/radix.o
 
 
 .PHONY: all
@@ -18,36 +18,37 @@ objs/Block.o: src/Block.cpp src/Block.hpp src/Side.hpp src/tools.hpp \
  src/Vertex.hpp
 	@ echo "    CXX  src/Block.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Block.cpp" -o $@
+objs/Group.o: src/Group.cpp src/Group.hpp src/tools.hpp src/Vertex.hpp \
+ src/Triangle.hpp src/Object.hpp src/ObjectMap.hpp src/Tetrahedron.hpp
+	@ echo "    CXX  src/Group.cpp"
+	@ $(CXX) $(CFLAGS) -c "src/Group.cpp" -o $@
 objs/Map.o: src/Map.cpp src/Map.hpp src/tools.hpp src/Vertex.hpp \
  src/MapSection.hpp src/Block.hpp src/Side.hpp src/Camera.hpp src/Q.hpp
 	@ echo "    CXX  src/Map.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Map.cpp" -o $@
-objs/Glob.o: src/Glob.cpp src/Glob.hpp src/tools.hpp src/Vertex.hpp \
- src/Triangle.hpp src/Object.hpp src/Tetrahedron.hpp
-	@ echo "    CXX  src/Glob.cpp"
-	@ $(CXX) $(CFLAGS) -c "src/Glob.cpp" -o $@
 objs/Sphere.o: src/Sphere.cpp src/Sphere.hpp
 	@ echo "    CXX  src/Sphere.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Sphere.cpp" -o $@
 objs/mechanizm.o: src/mechanizm.cpp src/mechanizm.hpp src/tools.hpp \
- src/Vertex.hpp src/Object.hpp src/Tetrahedron.hpp src/Triangle.hpp
+ src/Vertex.hpp src/Object.hpp src/ObjectMap.hpp src/Tetrahedron.hpp \
+ src/Triangle.hpp
 	@ echo "    CXX  src/mechanizm.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/mechanizm.cpp" -o $@
 objs/mechanizm_game.o: src/mechanizm_game.cpp src/commands.hpp src/tools.hpp \
- src/Vertex.hpp src/mechanizm.hpp src/Object.hpp src/Tetrahedron.hpp \
- src/Triangle.hpp src/options.hpp src/Camera.hpp src/Glob.hpp \
- src/Sphere.hpp
+ src/Vertex.hpp src/mechanizm.hpp src/Object.hpp src/ObjectMap.hpp \
+ src/Tetrahedron.hpp src/Triangle.hpp src/options.hpp src/Camera.hpp \
+ src/Group.hpp src/Sphere.hpp
 	@ echo "    CXX  src/mechanizm_game.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/mechanizm_game.cpp" -o $@
 objs/Triangle.o: src/Triangle.cpp src/Triangle.hpp src/Vertex.hpp
 	@ echo "    CXX  src/Triangle.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Triangle.cpp" -o $@
 objs/ObjectMap.o: src/ObjectMap.cpp src/ObjectMap.hpp src/tools.hpp \
- src/Vertex.hpp src/Object.hpp src/Tetrahedron.hpp src/Triangle.hpp
+ src/Vertex.hpp
 	@ echo "    CXX  src/ObjectMap.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/ObjectMap.cpp" -o $@
 objs/Object.o: src/Object.cpp src/Object.hpp src/tools.hpp src/Vertex.hpp \
- src/Tetrahedron.hpp src/Triangle.hpp
+ src/ObjectMap.hpp src/Tetrahedron.hpp src/Triangle.hpp
 	@ echo "    CXX  src/Object.cpp"
 	@ $(CXX) $(CFLAGS) -c "src/Object.cpp" -o $@
 objs/commands.o: src/commands.cpp src/commands.hpp src/tools.hpp \
