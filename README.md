@@ -5,7 +5,7 @@ A block building game.
 ### Controls
 
 ```text
-a s d f space c - movement
+w a s d space c - movement
 x - enable AGM
 b - create a block
 e - open console
