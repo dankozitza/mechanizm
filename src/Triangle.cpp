@@ -42,7 +42,7 @@ void Triangle::set_points(
 
 }
 
-void Triangle::translate_by(GLfloat x, GLfloat y, GLfloat z) {
+void Triangle::translate(GLfloat x, GLfloat y, GLfloat z) {
    for (int i = 0; i < verts; ++i) {
       *pnts[i][0] += x;
       *pnts[i][1] += y;
@@ -50,7 +50,7 @@ void Triangle::translate_by(GLfloat x, GLfloat y, GLfloat z) {
    }
 }
 
-void Triangle::translate_by(GLfloat add_pnts[3]) {
+void Triangle::translate(GLfloat add_pnts[3]) {
    for (int i = 0; i < verts; ++i) {
       *pnts[i][0] += add_pnts[0];
       *pnts[i][1] += add_pnts[1];

@@ -39,18 +39,18 @@ tools::Error tryhard_motion(double t, Object &self) {
    vi   = self.c_qs["vi"];
    if (self.get_v(v)) {
       self.set_cube(init_cube);
-      self.translate_by(
+      self.translate(
             posi[0] + v[0] * t,
             posi[1] + v[1] * t,
             posi[2] + v[2] * t);
    }
    else if (self.get_a(a)) {
       //self.set_cube(init_cube);
-      self.translate_by(
+      self.translate(
          vi[0] * t + a[0] * t * t,
          vi[1] * t + a[1] * t * t,
          vi[2] * t + a[2] * t * t);
-//      self.translate_by(
+//      self.translate(
 //         posi[0] + vi[0] * t + a[0] * t * t,
 //         posi[1] + vi[1] * t + a[1] * t * t,
 //         posi[2] + vi[2] * t + a[2] * t * t);
@@ -125,9 +125,9 @@ string Object::getJSON() {
    return r;
 }
 
-void Object::translate_by(GLfloat x, GLfloat y, GLfloat z) {
+void Object::translate(GLfloat x, GLfloat y, GLfloat z) {
    if (shape == "tetrahedron") {
-      tetra.translate_by(x, y, z);
+      tetra.translate(x, y, z);
       if (om_tracking) {
          string new_om_key = om_get_section_key(tetra.center());
 
@@ -150,9 +150,9 @@ void Object::translate_by(GLfloat x, GLfloat y, GLfloat z) {
    return;
 }
 
-void Object::translate_by(GLfloat add_point[3]) {
+void Object::translate(GLfloat add_point[3]) {
    if (shape == "tetrahedron") {
-      tetra.translate_by(add_point[0], add_point[1], add_point[2]);
+      tetra.translate(add_point[0], add_point[1], add_point[2]);
       return;
    }
    for (int i = 0; i < vertices; ++i) {
@@ -199,7 +199,7 @@ void Object::multiply_vert_by(int vertex_index, GLfloat x, GLfloat y, GLfloat z)
 void Object::scale_by(GLfloat x, GLfloat y, GLfloat z) {
    GLfloat tmp[3] = {cube[0][0], cube[0][1], cube[0][2]};
 
-   translate_by(-1 * tmp[0], -1 * tmp[1], -1 * tmp[2]);
+   translate(-1 * tmp[0], -1 * tmp[1], -1 * tmp[2]);
    multiply_vert_by(1, x,   1.0, 1.0);
    multiply_vert_by(2, x,   1.0, z);
    multiply_vert_by(3, 1.0, 1.0, z);
@@ -207,7 +207,7 @@ void Object::scale_by(GLfloat x, GLfloat y, GLfloat z) {
    multiply_vert_by(5, x,   y,   z);
    multiply_vert_by(6, 1.0, y,   z);
    multiply_vert_by(7, 1.0, y,   1.0);
-   translate_by(tmp[0], tmp[1], tmp[2]);
+   translate(tmp[0], tmp[1], tmp[2]);
 }
 
 GLfloat Object::magnitude(vector<GLfloat> q) {

@@ -51,6 +51,7 @@ namespace tools {
    string fold(int indent_width, int max_line_width, string s);
    int as_int(string& str);
    double as_double(string& str);
+   string as_string(GLfloat f);
    //bool matches(string s, string str_re);
    //bool matches(string results[], string s, string str_re);
    //bool matches(vector<string>& results, string s, string str_re);

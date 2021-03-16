@@ -262,9 +262,9 @@ tools::Error Group::detach(string oid) {
 //   }
 //}
 
-void Group::translate_by(GLfloat x, GLfloat y, GLfloat z) {
+void Group::translate(GLfloat x, GLfloat y, GLfloat z) {
    for (auto it = objs.begin(); it != objs.end(); it++) {
-      it->second.translate_by(x, y, z);
+      it->second.translate(x, y, z);
    }
 }
 

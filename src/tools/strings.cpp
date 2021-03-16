@@ -107,6 +107,14 @@ double tools::as_double(string& str) {
    return jv.asDouble();
 }
 
+string tools::as_string(GLfloat f) {
+   string ret;
+   char buf[100];
+   sprintf(buf, "%lf", f);
+   ret = buf;
+   return ret;
+}
+
 
 //
 //// matches

@@ -33,9 +33,9 @@ using namespace tools;
 void
    animation(void),
    setMatrix(int w, int h),
-   map_generation(void),
+   generate_map(void),
    pricion(void),
-   g_pause(void),
+   mech_idle(void),
    help(string prog_name),
    menu(int choice),
    resize(int w, int h),
@@ -87,8 +87,8 @@ static mechanizm MECH;
 int PO = 0;
 int count = 1; // cycles through 1/60th of a second
 
-commands IN_GAME_CMDS;
-map<string, string> CMDS_STORE;
+commands GAME_CMDS;
+map<string, string> CMDS_ENV;
 int IGCMD_MOUT_SCROLL = 0;
 map<string, unsigned long> GAME_STATS;
 GLfloat SD; // current distance of the selection sphere
@@ -98,7 +98,7 @@ bool DRAW_GLUT_MENU = false;
 
 // menu options
 bool MAP_GEN = false;
-bool ANIMATION = false;
+bool PHYSICS = false;
 bool MOUSE_GRAB = false;
 
 // commands for the in-game cli
@@ -120,9 +120,9 @@ int main(int argc, char *argv[]) {
 
    char buf[100];
    sprintf(buf, "%d", time(NULL));
-   CMDS_STORE["rng_seed"] = buf;
+   CMDS_ENV["rng_seed"] = buf;
 
-   srand(as_double(CMDS_STORE["rng_seed"]));
+   srand(as_double(CMDS_ENV["rng_seed"]));
    string prog_name = string(argv[0]);
    options opt;
    bool quiet       = false;
@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
    tmp_player_obj.setConstQ("AGM_FALLING", 0.0);
    tmp_player_obj.setConstQ("AGM_FSTARTT", 3.0);
    tmp_player_obj.setConstQ("AGM_FSTARTY", 5.0);
-   tmp_player_obj.translate_by(10.0, 0.0, 10.0);
+   tmp_player_obj.translate(10.0, 0.0, 10.0);
    MECH.add_object(tmp_player_obj);
    MECH.current_time = 0.0;
 
@@ -171,99 +171,102 @@ int main(int argc, char *argv[]) {
 
    if (seed_b) {
       srand(as_double(seed_argv[0]));
-      CMDS_STORE["rng_seed"] = seed_argv[0];
+      CMDS_ENV["rng_seed"] = seed_argv[0];
    }
 
    // set up the in game command line
    vector<string> cmd_argv;
 
-   CMDS_STORE["agm_climb_spd"]         = "0.05";
-   CMDS_STORE["n_click_speed"]         = "0.25";
-   CMDS_STORE["n_click_max_distance"]  = "4.0";
-   CMDS_STORE["n_click_distance"]      = "0.6";
-   CMDS_STORE["map_name"]              = "map.json";
-   CMDS_STORE["mapgen_rndmns"]         = "0.0005";
-   CMDS_STORE["mapgen_g_opt"]          = "r";
-   CMDS_STORE["mapgen_size"]           = "500";
-   CMDS_STORE["hotkey_g"]              = "grow 1";
-   CMDS_STORE["hotkey_G"]              = "grow 500";
-   CMDS_STORE["igcmd_mout_max_size"]   = "100";
-   CMDS_STORE["igcmd_scroll_speed"]    = "5";
-   CMDS_STORE["block_color"]           = "0.25 0.3 0.3";
-   CMDS_STORE["player_move_speed"]     = "0.001";
+   CMDS_ENV["agm_climb_spd"]         = "0.8";
+   CMDS_ENV["n_click_speed"]         = "0.25";
+   CMDS_ENV["n_click_max_distance"]  = "4.0";
+   CMDS_ENV["n_click_distance"]      = "0.6";
+   CMDS_ENV["map_name"]              = "map.json";
+   CMDS_ENV["mapgen_rndmns"]         = "0.0004";
+   CMDS_ENV["mapgen_g_opt"]          = "r";
+   CMDS_ENV["mapgen_size"]           = "800";
+   CMDS_ENV["hotkey_g"]              = "grow 1";
+   CMDS_ENV["hotkey_G"]              = "grow 500";
+   CMDS_ENV["igcmd_mout_max_size"]   = "100";
+   CMDS_ENV["igcmd_scroll_speed"]    = "5";
+   CMDS_ENV["block_color"]           = "0.25 0.3 0.3";
+   CMDS_ENV["player_move_speed"]     = "0.001";
 
    // X Y Z theta (ax) psi (ay) rotationSpeed translationSpeed
    CAM = Camera(CAM.getX(), CAM.getY(), CAM.getZ(), 0.0, 0.0, 0.5,
-                  as_double(CMDS_STORE["player_move_speed"]));
+                  as_double(CMDS_ENV["player_move_speed"]));
 
-   SD = as_double(CMDS_STORE["n_click_distance"]);
+   SD = as_double(CMDS_ENV["n_click_distance"]);
    Sphere selector_sphere_1(0.0, 0.0, 0.0, 0.025, 0.4, 0.8, 0.6);
    SPHRS.push_back(selector_sphere_1);
 
-   IN_GAME_CMDS.handle(
+   GAME_CMDS.handle(
          "help",
          cmd_help,
          "\nThis is the in-game command line interface.",
          "help [command]");
 
-   IN_GAME_CMDS.handle(
+   GAME_CMDS.handle(
          "tp",
          cmd_tp,
          "Teleport to the given coordinates.",
          "tp x y z");
 
-   IN_GAME_CMDS.handle(
+   GAME_CMDS.handle(
          "set",
          cmd_set,
-         "Set a value in CMDS_STORE.",
+         "Set a value in CMDS_ENV.",
          "set [key [value]]",
-         "Set called alone will print all values in the map. Called with \nonly a key argument it will display the value for that key. Called \nwith both key and value arguments will write the value to the map.");
+         "This command can be called in 3 ways:\n"
+         "   0 args -               - Print all values in the map.\n"
+         "   1 args - <key>         - Print the value for key.\n"
+         "   2 args - <key> <value> - Write the value to the map.");
 
-   IN_GAME_CMDS.handle(
+   GAME_CMDS.handle(
          "save_map",
          cmd_save_map,
          "Save the map.",
          "save_map [mapname]");
 
-   IN_GAME_CMDS.handle(
+   GAME_CMDS.handle(
          "grow",
          cmd_grow,
          "Generate x tetrahedrons from selected object.",
          "grow [x]");
 
-   IN_GAME_CMDS.handle(
+   GAME_CMDS.handle(
          "stat",
          cmd_stat,
          "Display game stats.",
          "stat");
 
-   IN_GAME_CMDS.handle(
+   GAME_CMDS.handle(
          "load",
          cmd_load,
          "Load an object into the game.",
          "load [name] [x] [y] [z]",
          "Options:\n   -m [sizex] [sizey] [sizez] [randomness]\n      Load a matrix of objects centered at x,y,z with dimentions\n      sizex, sizey, sizez. randomness is a float from\n      0 to 1 that describes the likelyhood of an object being loaded.\n   -s [unit_size]\n      Sets the unit size of the 3d grid. default: 1.0\n   -g [count]\n      Grow each object count new blocks. `-g r` selects a\n      random count from 0 to 1000.");
 
-   IN_GAME_CMDS.handle(
+   GAME_CMDS.handle(
          "load_map",
          cmd_load_map,
          "Load a saved map from the given json file.",
          "load_map [file_name.json]");
 
-   IN_GAME_CMDS.handle(
+   GAME_CMDS.handle(
          "reseed",
          cmd_reseed,
          "Re-set the rng seed.",
          "reseed [double]",
          "Reseed sets the stored seed to the given double and runs srand.");
 
-   IN_GAME_CMDS.handle(
+   GAME_CMDS.handle(
          "info",
          cmd_info,
          "Print information about selected object(s).",
          "info");
 
-   IN_GAME_CMDS.handle(
+   GAME_CMDS.handle(
          "physics",
          cmd_physics,
          "Enable or disable physics simulation for selected object.",
@@ -271,17 +274,18 @@ int main(int argc, char *argv[]) {
          "This command can be called in 3 ways:\n"
          "   0 args -                - Toggle physics simulation.\n"
          "   1 args - enable/disable - Turn physics on/off.\n"
-         "   4 args - <key> <floatx> <glfloaty> <glfloatz>\n"
+         "   4 args - <key> <floatx> <floaty> <floatz>\n"
          "                           - Set quantity <key> to floatn.");
 
-   IN_GAME_CMDS.handle(
+   GAME_CMDS.handle(
          "controls",
          cmd_controls,
          "Enter 'help controls' for a list of controls.",
          "help controls",
          "Controls:\n      e                 Open console.\n"
          "      w a s d space c   Movement.\n"
-         "      x                 Toggle AGM.\n"
+         "      r                 Toggle PHYSICS.\n"
+         "      x                 Toggle AGM. (physics must be enabled)\n"
          "      Esc               Grab/ungrab mouse, exit console.\n"
          "      b                 Spawn a block.\n"
          "      i j k l h n       Move selected block.\n"
@@ -303,7 +307,7 @@ int main(int argc, char *argv[]) {
    glutInitDisplayMode(GLUT_RGB | GLUT_STENCIL | GLUT_DOUBLE | GLUT_DEPTH);
    WIN = glutCreateWindow("Mechanizm");
 
-   glutIdleFunc(g_pause);
+   glutIdleFunc(mech_idle);
    glutDisplayFunc(drawScene);
    glutMouseFunc(mouse);
    glutMotionFunc(mouse_motion);
@@ -320,7 +324,7 @@ int main(int argc, char *argv[]) {
 }
 
 void cmd_help(vector<string>& argv) {
-   IN_GAME_CMDS.better_default_help(argv);
+   GAME_CMDS.better_default_help(argv);
    for (int i = 0; i < argv.size(); i++) {;
       menu_output.push_back(argv[i]);
    }
@@ -336,7 +340,7 @@ void cmd_set(vector<string>& argv) {
    string msg;
    map<string, string>::iterator it;
    if (argv.size() == 0) {
-      for (it = CMDS_STORE.begin(); it != CMDS_STORE.end(); it++) {
+      for (it = CMDS_ENV.begin(); it != CMDS_ENV.end(); it++) {
          msg = it->first;
          msg += ": ";
          msg += it->second;
@@ -344,8 +348,8 @@ void cmd_set(vector<string>& argv) {
       }
    }
    else if (argv.size() == 1) {
-      it = CMDS_STORE.find(argv[0]);
-      if (it != CMDS_STORE.end()) {
+      it = CMDS_ENV.find(argv[0]);
+      if (it != CMDS_ENV.end()) {
          msg = it->first;
          msg += ": ";
          msg += it->second;
@@ -358,26 +362,26 @@ void cmd_set(vector<string>& argv) {
          argv[1] += " " + argv[i];
       }
 
-      CMDS_STORE[argv[0]] = argv[1];
+      CMDS_ENV[argv[0]] = argv[1];
       msg = "setting ";
       msg += argv[0];
       msg += ": ";
-      msg += CMDS_STORE[argv[0]];
+      msg += CMDS_ENV[argv[0]];
       menu_output.push_back(msg);
    }
 
    // update cam in case settings are modified
    CAM = Camera(CAM.getX(), CAM.getY(), CAM.getZ(), CAM.getAX(), CAM.getAY(),
-                  0.5, as_double(CMDS_STORE["player_move_speed"]));
+                  0.5, as_double(CMDS_ENV["player_move_speed"]));
 }
 
 void cmd_save_map(vector<string>& argv) {
    if (argv.size() > 0) {
-      CMDS_STORE["map_name"] = argv[0];
+      CMDS_ENV["map_name"] = argv[0];
    }
 
-   menu_output.push_back("saving map: " + CMDS_STORE["map_name"]);
-   save_map(CMDS_STORE["map_name"]);
+   menu_output.push_back("saving map: " + CMDS_ENV["map_name"]);
+   save_map(CMDS_ENV["map_name"]);
 }
 
 void cmd_grow(vector<string>& argv) {
@@ -529,9 +533,9 @@ void cmd_load(vector<string>& argv) {
       Object obj(name + "_obj_0");
       Group g(name, obj);
       Vertex c = obj.tetra.center();
-      g.translate_by(-c.x, -c.y, -c.z);
+      g.translate(-c.x, -c.y, -c.z);
 
-      g.translate_by(v.x, v.y, v.z);
+      g.translate(v.x, v.y, v.z);
       GS[name] = g;
       select_gobj = name;
 
@@ -564,8 +568,8 @@ void cmd_load(vector<string>& argv) {
                   Object obj(g_obj_name);
                   Group g(g_obj_name, obj);
                   Vertex c = g.objs[g_obj_name].tetra.center();
-                  g.translate_by(-c.x, -c.y, -c.z);
-                  g.translate_by(xi, yi, zi);
+                  g.translate(-c.x, -c.y, -c.z);
+                  g.translate(xi, yi, zi);
                   GS[g_obj_name] = g;
                   GS[g_obj_name].objs[g_obj_name].setConstQ(
                         "v", {0.0, 0.0, -0.05});
@@ -597,7 +601,7 @@ void cmd_load_map(vector<string>& argv) {
    gen_obj_cnt = 0;
    gen_map_cnt = 1;
 
-   string mname = CMDS_STORE["map_name"];
+   string mname = CMDS_ENV["map_name"];
    if (argv.size() > 0) {
       mname = argv[0];
    }
@@ -612,10 +616,10 @@ void cmd_load_map(vector<string>& argv) {
 
 void cmd_reseed(vector<string>& argv) {
    if (argv.size() >= 1) {
-      CMDS_STORE["rng_seed"] = argv[0];
+      CMDS_ENV["rng_seed"] = argv[0];
    }
    
-   srand(as_double(CMDS_STORE["rng_seed"]));
+   srand(as_double(CMDS_ENV["rng_seed"]));
    return;
 }
 
@@ -711,23 +715,23 @@ void cmd_physics(vector<string>& argv) {
          if (GS[select_gobj].phys_obj != NULL) {
             if (
          GS[select_gobj].phys_obj->getConstQ("g_obj_physics").size() != 1) {
-               menu_output.push_back("physics: physics object corrupted!");
+               menu_output.push_back("physics object corrupted!");
             }
 
             n = GS[select_gobj].phys_obj->enable_physics();
             if (n != NULL) {menu_output.push_back(n);}
-            else {menu_output.push_back("physics enabled");}
+            else {menu_output.push_back(select_gobj + ": physics enabled");}
          }
          else {
             MECH.add_object(tobj);
             GS[select_gobj].phys_obj = &MECH.objs[MECH.size-1];
-            menu_output.push_back("physics enabled");
+            menu_output.push_back(select_gobj + ": physics enabled");
          }
       }
       else if (GS[select_gobj].phys_obj != NULL) {
          n = GS[select_gobj].phys_obj->disable_physics();
          if (n != NULL) {menu_output.push_back(n);}
-         else {menu_output.push_back("physics disabled");}
+         else {menu_output.push_back(select_gobj + ": physics disabled");}
       }
       return;
    }
@@ -769,7 +773,7 @@ tools::Error random_motion(double t, Object &self) {
       z = 0.007;
    }
 
-   self.translate_by(
+   self.translate(
          x,
          y,
          z);
@@ -785,8 +789,6 @@ tools::Error random_motion(double t, Object &self) {
 
 tools::Error gobj_physics(double t, Object &self) {
 
-   // need reference to group
-   //
    // use c_qs to store group init_pos
    //
    // check for intersection with second group
@@ -806,8 +808,8 @@ tools::Error gobj_physics(double t, Object &self) {
          GLfloat incz = (GLfloat)(1.0/64.0) * self.getConstQ("v")[2];
          // 1/64th of a second x velocity = distance
 
-         ((Group*)self.group)->translate_by(incx, incy, incz);
-         //GS[select_gobj].translate_by(incx, incy, incz);
+         ((Group*)self.group)->translate(incx, incy, incz);
+         //GS[select_gobj].translate(incx, incy, incz);
       }
 
       // store index for objects in group and loop through work_n objects
@@ -815,9 +817,6 @@ tools::Error gobj_physics(double t, Object &self) {
       // check for collision
       //
       // loop though events and resolve them
-      //
-      // use glut to perform translations and rotations on group
-      // with the phys_events list
    }
    return NULL;
 }
@@ -897,19 +896,19 @@ tools::Error player_gravity(double t, Object &self) {
                      tripnts,
                      NULL)) {
 
-               self.translate_by(-self.tetra.center().x,
+               self.translate(-self.tetra.center().x,
                                  -self.tetra.center().y,
                                  -self.tetra.center().z);
 
-               GLfloat climb_mv = as_double(CMDS_STORE["agm_climb_spd"]);
+               GLfloat climb_mv = as_double(CMDS_ENV["agm_climb_spd"]);
                if (CAM.getY() + climb_mv < new_cam_y) {
-                  self.translate_by(
+                  self.translate(
                         CAM.getX() + incx, CAM.getY() + climb_mv,
                         CAM.getZ() + incz);
                   CAM.setY((CAM.getY() + climb_mv));
                }
                else {
-                  self.translate_by(
+                  self.translate(
                         CAM.getX() + incx, new_cam_y, CAM.getZ() + incz);
                   CAM.setY(new_cam_y);
                }
@@ -965,7 +964,7 @@ tools::Error player_gravity(double t, Object &self) {
    CAM.setY(camy);
    CAM.setZ(CAM.getZ() + incz);
 
-   self.translate_by(incx, -movement, incz);
+   self.translate(incx, -movement, incz);
    self.last_t = t;
 
    return NULL;
@@ -1024,10 +1023,6 @@ void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
             tmpv.z);
 
          drawn++;
-         //if (drawn > draw_x_vertices) {
-         //   glEnd();
-         //   return;
-         //}
       }
 
       if (gsid == select_gobj && obid == select_obj) {
@@ -1072,9 +1067,9 @@ void draw_cam_spheres() {
    // if left click is pressed calculate the distance
    if (SD_DONE == false) {
 
-      GLfloat n_d = as_double(CMDS_STORE["n_click_distance"]);
-      GLfloat n_s = as_double(CMDS_STORE["n_click_speed"]);
-      GLfloat n_m_d = as_double(CMDS_STORE["n_click_max_distance"]);
+      GLfloat n_d = as_double(CMDS_ENV["n_click_distance"]);
+      GLfloat n_s = as_double(CMDS_ENV["n_click_speed"]);
+      GLfloat n_m_d = as_double(CMDS_ENV["n_click_max_distance"]);
 
       GLfloat nsx, nsy, nsz;
 
@@ -1184,7 +1179,7 @@ void draw_cam_spheres() {
 
                      GS[gi].detach(j);
 
-                     SD = as_double(CMDS_STORE["n_click_distance"]);
+                     SD = as_double(CMDS_ENV["n_click_distance"]);
                      SD_DONE = true;
 
                      menu_output.push_back(
@@ -1211,7 +1206,7 @@ void draw_cam_spheres() {
 
                      vector<string> m(4);
                      if (pmatches(m,
-                        CMDS_STORE["block_color"], "(.+) (.+) (.+)")) {
+                        CMDS_ENV["block_color"], "(.+) (.+) (.+)")) {
 
                         GLfloat os = (GLfloat)(rand() % 10) / 100.0;
 
@@ -1237,7 +1232,7 @@ void draw_cam_spheres() {
                         }
                      }
 
-                     SD = as_double(CMDS_STORE["n_click_distance"]);
+                     SD = as_double(CMDS_ENV["n_click_distance"]);
                      SD_DONE = true;
                      return;
                   }
@@ -1247,7 +1242,7 @@ void draw_cam_spheres() {
 
                      vector<string> m(4);
                      if (pmatches(m,
-                        CMDS_STORE["block_color"], "(.+) (.+) (.+)")) {
+                        CMDS_ENV["block_color"], "(.+) (.+) (.+)")) {
 
                         GLfloat os = (GLfloat)(rand() % 10) / 100.0;
 
@@ -1268,7 +1263,7 @@ void draw_cam_spheres() {
                               GS[gi].objs[j].tetra.faceColors[0][1],
                               GS[gi].objs[j].tetra.faceColors[0][2]
                            );
-                           CMDS_STORE["block_color"] = string(buf);
+                           CMDS_ENV["block_color"] = string(buf);
 
                            menu_output.push_back(
                                  "copied color " + string(buf));
@@ -1277,7 +1272,7 @@ void draw_cam_spheres() {
                         }
                      }
 
-                     SD = as_double(CMDS_STORE["n_click_distance"]);
+                     SD = as_double(CMDS_ENV["n_click_distance"]);
                      SD_DONE = true;
                      return;
                   }
@@ -1320,7 +1315,7 @@ void draw_sphere(Sphere& s) {
 }
 
 void reset_sphere_distance() {
-   SD = as_double(CMDS_STORE["n_click_distance"]);
+   SD = as_double(CMDS_ENV["n_click_distance"]);
    if (mouse_left_state == 1) SD_DONE = true;
 }
 
@@ -1342,7 +1337,7 @@ void mouse(int button, int state, int x, int y) {
          SD_DONE = false;
       }
       else {
-         SD = as_double(CMDS_STORE["n_click_distance"]);
+         SD = as_double(CMDS_ENV["n_click_distance"]);
       }
    }
    else if (button == 0 && state == 1) {
@@ -1350,7 +1345,7 @@ void mouse(int button, int state, int x, int y) {
    }
 
    if (state == 0) {
-      int scroll_speed = as_int(CMDS_STORE["igcmd_scroll_speed"]);
+      int scroll_speed = as_int(CMDS_ENV["igcmd_scroll_speed"]);
       if (button == 4) {
          if (IGCMD_MOUT_SCROLL - scroll_speed < 0) {
             IGCMD_MOUT_SCROLL = 0;
@@ -1361,7 +1356,7 @@ void mouse(int button, int state, int x, int y) {
       }
       if (button == 3) {
          if (IGCMD_MOUT_SCROLL + scroll_speed >=
-            as_int(CMDS_STORE["igcmd_mout_max_size"])) {
+            as_int(CMDS_ENV["igcmd_mout_max_size"])) {
             IGCMD_MOUT_SCROLL = 0;
          }
          else {
@@ -1388,7 +1383,7 @@ void draw_bitmap_string(
 
 void draw_menu_output(float x, float y, float z, void *font) {
 
-   int max_lines = as_int(CMDS_STORE["igcmd_mout_max_size"]);
+   int max_lines = as_int(CMDS_ENV["igcmd_mout_max_size"]);
    newlines_to_indices(menu_output);
 
    while (menu_output.size() > max_lines) {
@@ -1508,20 +1503,25 @@ setMatrix(int w, int h)
    glLoadIdentity();
 }
 
-void map_generation(void) {
+void generate_map(void) {
    char buffer[100];
    sprintf(buffer, "initmapid%d", gen_map_cnt++);
 
-   char size_y[100];
-   sprintf(size_y, "%f",
-         (GLfloat)(as_double(CMDS_STORE["mapgen_size"]) / 6.0));
+   string x, y, z;
+   x = as_string(CAM.getX());
+   y = as_string(CAM.getY());
+   z = as_string(CAM.getZ());
 
-   vector<string> targv = {buffer, "0", "0", "0",
-      "-g", CMDS_STORE["mapgen_g_opt"], "-s", "10.0",
-      "-m", CMDS_STORE["mapgen_size"],
+   char size_y[100];
+   sprintf(size_y, "%lf",
+         (GLfloat)(as_double(CMDS_ENV["mapgen_size"]) / 6.0));
+
+   vector<string> targv = {buffer, x, y, z,
+      "-g", CMDS_ENV["mapgen_g_opt"], "-s", "10.0",
+      "-m", CMDS_ENV["mapgen_size"],
             string(size_y),
-            CMDS_STORE["mapgen_size"],
-      CMDS_STORE["mapgen_rndmns"]};
+            CMDS_ENV["mapgen_size"],
+            CMDS_ENV["mapgen_rndmns"]};
    cmd_load(targv);
 }
 
@@ -1535,32 +1535,30 @@ void animation(void) {
       return;
    }
    //cout << "count: " << count << " t: " << MECH.current_time << "\n";
-   //glutPostRedisplay();
 
-   if (count == 60) { // make up for the time lost
+   if (count == 60) {
       e = MECH.run(0.046875, 0, 0.046875);
       //cout << "last t: " << MECH.current_time << "\n";
-
    }
    if (e != NULL) {
       cout << e;
       return;
    }
 
-   // move the player object MECH.objs[0] to cam position
-   MECH.objs[0].translate_by(-MECH.objs[0].tetra.center().x, -MECH.objs[0].tetra.center().y, -MECH.objs[0].tetra.center().z);
-   MECH.objs[0].translate_by(CAM.getX(), CAM.getY(), CAM.getZ());
-   if (MECH.objs[0].getConstQ("AGM_FALLING")[0] < 0.5) {
-      MECH.objs[0].setConstQ("AGM_FSTARTY", CAM.getY());
+   // move the player object MECH.objs[PO] to cam position
+   MECH.objs[PO].translate(-MECH.objs[PO].tetra.center().x, -MECH.objs[PO].tetra.center().y, -MECH.objs[PO].tetra.center().z);
+   MECH.objs[PO].translate(CAM.getX(), CAM.getY(), CAM.getZ());
+   if (MECH.objs[PO].getConstQ("AGM_FALLING")[PO] < 0.5) {
+      MECH.objs[PO].setConstQ("AGM_FSTARTY", CAM.getY());
    }
 }
 
-void g_pause(void) {
+void mech_idle(void) {
    if (MAP_GEN) {
       MAP_GEN = false;
-      map_generation();
+      generate_map();
    }
-   if (ANIMATION) {
+   if (PHYSICS) {
       animation();
    }
 
@@ -1577,24 +1575,9 @@ void draw_glut_menu() {
       glutRemoveMenuItem(1);
    }
 
-   if (MAP_GEN) {
-      glutAddMenuEntry("1 - Generate Map", 0);
-   }
-   else {
-      glutAddMenuEntry("0 - Generate Map", 0);
-   }
-   if (ANIMATION) {
-      glutAddMenuEntry("1 - Animation", 1);
-   }
-   else {
-      glutAddMenuEntry("0 - Animation", 1);
-   }
-   if (MOUSE_GRAB) {
-      glutAddMenuEntry("1 - Ungrab Mouse", 2);
-   }
-   else {
-      glutAddMenuEntry("0 - Grab Mouse", 2);
-   }
+   glutAddMenuEntry("Generate Map", 0);
+   glutAddMenuEntry("Physics", 1);
+   glutAddMenuEntry("Mouse", 2);
 }
 
 // mouse right click menu
@@ -1609,13 +1592,19 @@ void menu(int choice) {
          MAP_GEN = true;
       }
       break;
-   case 1: // Animation
+   case 1: // Physics
       count = 0;
-      if (ANIMATION) {
-         ANIMATION = false;
+      if (PHYSICS) {
+         PHYSICS = false;
+         menu_output.push_back("PHYSICS Disabled");
+         timed_menu_display = 60;
+         draw_menu_lines = 1;
       }
       else {
-         ANIMATION = true;
+         PHYSICS = true;
+         menu_output.push_back("PHYSICS Enabled");
+         timed_menu_display = 60;
+         draw_menu_lines = 1;
       }
       break;
    case 2: // Grab Mouse
@@ -1656,11 +1645,12 @@ keyboard(unsigned char c, int x, int y)
                menu_input.resize(menu_input.size()-1);
             }
          }
-         else if (c == 27) { // ESC
+         else if (c == 27) { // Esc
             menu_output.push_back("exiting menu");
             menu_depth = 0;
-            timed_menu_display = 20;
+            timed_menu_display = 5;
             draw_menu_lines = 20;
+            CAM.unlockAY();
             return;
          }
          else  {
@@ -1700,8 +1690,8 @@ keyboard(unsigned char c, int x, int y)
             menu_input = "^> ";
 
             string msg = "CMDS: Unknown command: `";
-            IN_GAME_CMDS.run(cmd, cmd_argv);
-            if (cmd != "help" && cmd != "" && !IN_GAME_CMDS.resolved()) {
+            GAME_CMDS.run(cmd, cmd_argv);
+            if (cmd != "help" && cmd != "" && !GAME_CMDS.resolved()) {
                msg += cmd;
                msg += "`";
                menu_output.push_back(msg);
@@ -1719,6 +1709,7 @@ keyboard(unsigned char c, int x, int y)
       menu_input = "^> ";
       menu_depth = 37;
       draw_menu_lines = 25;
+      CAM.lockAY(0);
       return;
    }
    if (c == 'b') {
@@ -1744,20 +1735,37 @@ keyboard(unsigned char c, int x, int y)
       GLfloat nx, ny, nz;
       CAM.pos_in_los(SD, nx, ny, nz);
 
-      spawn_group.translate_by(nx, ny, nz);
+      spawn_group.translate(nx, ny, nz);
       GS[spawn_group.id] = spawn_group;
       return;
+   }
+   if (c == 'r' || c == 'R') {
+      if (PHYSICS) {
+         PHYSICS = false;
+         menu_output.push_back("Physics Disabled");
+         timed_menu_display = 60;
+         draw_menu_lines = 1;
+      }
+      else {
+         PHYSICS = true;
+         menu_output.push_back("Physics Enabled");
+         timed_menu_display = 60;
+         draw_menu_lines = 1;
+      }
    }
    if (c == 'x' || c == 'X') { // enable/disable artificial gravity module
       GLfloat f = MECH.objs[PO].getConstQ("AGM_FALLING")[0];
 
       if (f < 0.5) {
-         // make AGM_start_fall();
-         ANIMATION = true;
-         MECH.objs[PO].setConstQ("AGM_FALLING", 1.0);
-         MECH.objs[PO].setConstQ("AGM_FSTARTT", MECH.current_time);
-         CAM.agm_enabled = true;
-         menu_output.push_back("AGM Enabled");
+         if (!PHYSICS) {
+            menu_output.push_back("Error: Enable Physics");
+         }
+         else {
+            MECH.objs[PO].setConstQ("AGM_FALLING", 1.0);
+            MECH.objs[PO].setConstQ("AGM_FSTARTT", MECH.current_time);
+            CAM.agm_enabled = true;
+            menu_output.push_back("AGM Enabled");
+         }
          timed_menu_display = 60;
          draw_menu_lines = 1;
       }
@@ -1801,22 +1809,22 @@ keyboard(unsigned char c, int x, int y)
       }
       break;
    case 'i':
-      if (select_gobj != "") {GS[select_gobj].translate_by(0, 0, -0.1);}
+      if (select_gobj != "") {GS[select_gobj].translate(0, 0, -0.1);}
       break;
    case 'j':
-      if (select_gobj != "") {GS[select_gobj].translate_by(-0.1, 0, 0);}
+      if (select_gobj != "") {GS[select_gobj].translate(-0.1, 0, 0);}
       break;
    case 'k':
-      if (select_gobj != "") {GS[select_gobj].translate_by(0, 0, 0.1);}
+      if (select_gobj != "") {GS[select_gobj].translate(0, 0, 0.1);}
       break;
    case 'l':
-      if (select_gobj != "") {GS[select_gobj].translate_by(0.1, 0, 0);}
+      if (select_gobj != "") {GS[select_gobj].translate(0.1, 0, 0);}
       break;
    case 'h':
-      if (select_gobj != "") {GS[select_gobj].translate_by(0, 0.1, 0);}
+      if (select_gobj != "") {GS[select_gobj].translate(0, 0.1, 0);}
       break;
    case 'n':
-      if (select_gobj != "") {GS[select_gobj].translate_by(0, -0.1, 0);}
+      if (select_gobj != "") {GS[select_gobj].translate(0, -0.1, 0);}
       break;
    case 'o':
 //      GS[select_gobj].scale_by(1.1, 1.1, 1.1);
@@ -1886,7 +1894,7 @@ keyboard(unsigned char c, int x, int y)
       }
 
       // loop through config and find hotkey entries
-      for (auto it = CMDS_STORE.begin(); it != CMDS_STORE.end(); it++) {
+      for (auto it = CMDS_ENV.begin(); it != CMDS_ENV.end(); it++) {
          string key = it->first;
 
          if (key.size() == 8 && key.substr(0, 6) == "hotkey") {
@@ -1894,12 +1902,12 @@ keyboard(unsigned char c, int x, int y)
 
             if (hkey[0] == c) {
                
-               string cmd = CMDS_STORE[key];
+               string cmd = CMDS_ENV[key];
                if (cmd.substr(0, 4) == "grow") {
                   // run grow command
                   vector<string> cmd_argv;
                   cmd_argv.push_back(cmd.substr(5, 50));
-                  IN_GAME_CMDS.run("grow", cmd_argv);
+                  GAME_CMDS.run("grow", cmd_argv);
                }
             }
          }

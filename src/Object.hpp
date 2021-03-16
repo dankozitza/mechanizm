@@ -73,8 +73,8 @@ class Object {
       string getJSON();
 
       // cube transformations
-      void translate_by(GLfloat x, GLfloat y, GLfloat z);
-      void translate_by(GLfloat add_point[3]);
+      void translate(GLfloat x, GLfloat y, GLfloat z);
+      void translate(GLfloat add_point[3]);
       void translate_part(size_t tg_i, unsigned long work,
                                   GLfloat x, GLfloat y, GLfloat z);
       void translate_part(size_t tg_i, unsigned long work, GLfloat add_vert);

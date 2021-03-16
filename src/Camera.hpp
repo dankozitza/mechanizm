@@ -11,6 +11,7 @@
 
 class Camera {
 
+      
 	public :
 	
 		Camera(float, float, float, float, float, float, float);
@@ -22,6 +23,8 @@ class Camera {
 		float getZ()						{ return _Z; }
       float getAX()                 { return _AX; }
       float getAY()                 { return _AY; }
+      void lockAY(float nayf); // ignore input and keep AY at forward
+      void unlockAY();
 		void rotation(int, int);
 		void setKeyboard(int i, bool etat);
 		void setX(float X)					{ _X = X; }
@@ -37,7 +40,8 @@ class Camera {
 
 	private :
 	
-		//bool  _keyboard[255]; // to know if one specific key is up or down
+      float AY_lock_f = 0.0;
+      bool  AY_lock_b = false;
 		float _rotationSpeed;
 		int   _time;
 		float _translationSpeed;

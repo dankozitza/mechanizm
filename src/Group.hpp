@@ -25,14 +25,6 @@ class Group {
 
       Object *phys_obj = NULL;
 
-      // add force events to the phys_block physevents list.
-      //
-      // need generic force function for phys_block motion function that has
-      //    obj_id, direction, starttime, energy
-      // phys_block motion function checks time and runs oneshot forces at
-      // their starttime. 
-      //Object::Function function = NULL;
-
       string id;
       unordered_map<string, Object> objs;
       vector<string> vis_objs;
@@ -53,7 +45,7 @@ class Group {
       tools::Error detach(string id);
 
       // TODO: void move_to(GLfloat x, GLfloat y, GLfloat z);
-      void translate_by(GLfloat x, GLfloat y, GLfloat z);
+      void translate(GLfloat x, GLfloat y, GLfloat z);
       void rotate_abt_center(GLfloat ax, GLfloat ay, GLfloat az);
 
       // loop through visible triangles and attach all that are within

@@ -58,13 +58,8 @@ void Tetrahedron::initialize() {
    set_points(init_v_tetra);
    init_triangles();
    set_vis_faces_all();
-   GLfloat grayness = rand() % 15 + 20;
+   GLfloat grayness = rand() % 10 + 15;
    for (int i = 0; i < vertices; i++) {
-      // mostly blue
-      //faceColors[i][0] = rand() % 70 / 100.0;
-      //faceColors[i][1] = rand() % 70 / 100.0;
-      //faceColors[i][2] = 1.0;
-      //random dark
       faceColors[i][0] = grayness / 100.0;
       faceColors[i][1] = grayness / 100.0;
       faceColors[i][2] = grayness / 100.0;
@@ -206,7 +201,7 @@ void Tetrahedron::center(Vertex& c) {
    c.z = (points[0].z + points[1].z + points[2].z + points[3].z) / 4.0;
 }
 
-void Tetrahedron::translate_by(GLfloat x, GLfloat y, GLfloat z) {
+void Tetrahedron::translate(GLfloat x, GLfloat y, GLfloat z) {
    for (int i = 0; i < vertices; ++i) {
       points[i][0] += x;
       points[i][1] += y;
@@ -214,7 +209,7 @@ void Tetrahedron::translate_by(GLfloat x, GLfloat y, GLfloat z) {
    }
 }
 
-void Tetrahedron::translate_by(GLfloat add_points[3]) {
+void Tetrahedron::translate(GLfloat add_points[3]) {
    for (int i = 0; i < vertices; ++i) {
       points[i][0] += add_points[0];
       points[i][1] += add_points[1];

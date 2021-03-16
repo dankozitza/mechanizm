@@ -34,7 +34,18 @@ Camera::Camera(
    agm_enabled = false;
         
    for(int i=0 ; i<255 ; i++) { _keyboard[i] = false; }
-        
+
+   return;
+}
+
+void Camera::lockAY(float nayf) {
+   AY_lock_f = nayf;
+   AY_lock_b = true;
+   return;
+}
+
+void Camera::unlockAY() {
+   AY_lock_b = false;
 }
 
 void Camera::rotation(int x, int y) {
@@ -66,8 +77,14 @@ void Camera::rotation(int x, int y) {
    if (_AY + 3.141592654 * diffy / 180 < -2 * M_PI)
       _AY += 2 * M_PI;
 
+   if (AY_lock_b) {
+      _AY = AY_lock_f;
+   }
+   else {
+      _AY += (3.141592654 * diffy / 180) * _rotationSpeed;
+   }
+
    _AX += (3.141592654 * diffx / 180) * _rotationSpeed;
-   _AY += (3.141592654 * diffy / 180) * _rotationSpeed;
 }
 
 void Camera::setKeyboard(int i, bool etat) {

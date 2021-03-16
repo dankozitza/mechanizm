@@ -71,8 +71,8 @@ class Tetrahedron {
       void rotate_abt_zero_ns(GLfloat AX, GLfloat AY, GLfloat AZ);
       Vertex center();
       void center(Vertex& c);
-      void translate_by(GLfloat x, GLfloat y, GLfloat z);
-      void translate_by(GLfloat add_points[3]);
+      void translate(GLfloat x, GLfloat y, GLfloat z);
+      void translate(GLfloat add_points[3]);
       void multiply_by(GLfloat x, GLfloat y, GLfloat z);
       void multiply_vert_by(int vertex_index, GLfloat x, GLfloat y, GLfloat z);
       std::string getJSON();
