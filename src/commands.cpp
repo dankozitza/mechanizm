@@ -178,11 +178,11 @@ void commands::better_default_help(vector<string>& argv) {
             tmp += it->first;
             tmp += "  -  ";
             tmp += it->second.synopsis;
-            tmp += "\n";
+            //tmp += "\n";
             vout.push_back(tmp);
          }
 
-         tmp = "Use \"help [command]\" for more information about a command.";
+         tmp = "\nUse \"help [command]\" for more information about a command.";
          tmp += "\n";
          vout.push_back(tmp);
       }
@@ -240,6 +240,23 @@ void commands::handle(
 
 void commands::run(string cmd, vector<string>& arguments) {
    map<string, Command>::iterator it = cmds.find(cmd);
+
+   for (int i = 0; i < arguments.size(); i++) {
+      string m[3];
+      if (pmatches(m, arguments[i], "r\\((.+),(.+)\\)")) {
+         GLfloat a = as_double(m[1]);
+         GLfloat b = as_double(m[2]);
+
+         long unsigned int multiplier = 100;
+         while (b * multiplier < 1000) {multiplier *= 10;}
+         a = a * multiplier;
+         b = b * multiplier;
+         GLfloat r = rand() % (long int)b + (long int)a;
+         r = r / multiplier;
+         arguments[i] = as_string(r);
+         cout << "commands: got random number: " << r << endl;
+      }
+   }
 
    // if help has been defined by the user do not run default_help
    if (cmd == "help" && it == cmds.end())

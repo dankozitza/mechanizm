@@ -61,3 +61,18 @@ bool tools::verts_within_eps(Vertex v1, Vertex v2, GLfloat eps) {
    }
    return false;
 }
+
+GLfloat tools::brtns(string sbrightness, string sinput) {
+   return brtns(as_double(sbrightness), as_double(sinput));
+}
+GLfloat tools::brtns(string sbrightness, GLfloat input) {
+   return brtns(as_double(sbrightness), input);
+}
+GLfloat tools::brtns(GLfloat brightness, GLfloat input) {
+   GLfloat nf = input;
+
+   if (nf + brightness < 1.0) {
+      return nf + brightness;
+   }
+   return nf;
+}

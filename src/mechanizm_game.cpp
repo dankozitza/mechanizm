@@ -95,6 +95,7 @@ GLfloat SD; // current distance of the selection sphere
 bool SD_DONE = true;
 
 bool DRAW_GLUT_MENU = false;
+GLfloat BRTNS = 0.0;
 
 // menu options
 bool MAP_GEN = false;
@@ -114,6 +115,7 @@ void
    cmd_reseed(vector<string>& argv),
    cmd_info(vector<string>& argv),
    cmd_physics(vector<string>& argv),
+   cmd_foreach(vector<string>& argv),
    cmd_controls(vector<string>& argv);
 
 int main(int argc, char *argv[]) {
@@ -178,13 +180,14 @@ int main(int argc, char *argv[]) {
    vector<string> cmd_argv;
 
    CMDS_ENV["agm_climb_spd"]         = "0.8";
+   CMDS_ENV["brightness"]            = "0.0";
    CMDS_ENV["n_click_speed"]         = "0.25";
    CMDS_ENV["n_click_max_distance"]  = "4.0";
    CMDS_ENV["n_click_distance"]      = "0.6";
    CMDS_ENV["map_name"]              = "map.json";
-   CMDS_ENV["mapgen_rndmns"]         = "0.0004";
+   CMDS_ENV["mapgen_rndmns"]         = "0.0002";
    CMDS_ENV["mapgen_g_opt"]          = "r";
-   CMDS_ENV["mapgen_size"]           = "800";
+   CMDS_ENV["mapgen_size"]           = "600";
    CMDS_ENV["hotkey_g"]              = "grow 1";
    CMDS_ENV["hotkey_G"]              = "grow 500";
    CMDS_ENV["igcmd_mout_max_size"]   = "100";
@@ -278,6 +281,12 @@ int main(int argc, char *argv[]) {
          "                           - Set quantity <key> to floatn.");
 
    GAME_CMDS.handle(
+         "foreach",
+         cmd_foreach,
+         "Iterate over a list and execute given command.",
+         "foreach <group> [command] [argn...]");
+
+   GAME_CMDS.handle(
          "controls",
          cmd_controls,
          "Enter 'help controls' for a list of controls.",
@@ -368,6 +377,8 @@ void cmd_set(vector<string>& argv) {
       msg += ": ";
       msg += CMDS_ENV[argv[0]];
       menu_output.push_back(msg);
+
+      if (argv[0] == "brightness") {BRTNS = as_double(argv[1]);}
    }
 
    // update cam in case settings are modified
@@ -414,6 +425,7 @@ void cmd_grow(vector<string>& argv) {
       if (GS[gi].objs[robjkey].tetra.vis_faces.size() < 1) {
          cout << "cmd_grow: ERROR random object "
               << robjkey << " has no vis faces\n";
+         return;
       }
 
       int rvfacei = rand() % GS[gi].objs[robjkey].tetra.vis_faces.size();
@@ -754,6 +766,41 @@ void cmd_physics(vector<string>& argv) {
    return;
 }
 
+void cmd_foreach(vector<string>& argv) {
+
+   if (argv.size() < 2) {
+      menu_output.push_back("foreach: Invalid argument sequence.");
+      return;
+   }
+
+   string cmd = argv[1];
+   vector<string> nargv = {};
+   for (int i = 2; i < argv.size(); i++) {
+      nargv.push_back(argv[i]);
+   }
+
+   string osgobj = select_gobj;
+
+   if (argv[0] == "group") {
+      for (auto it = GS.begin(); it != GS.end(); it++) {
+         vector<string> cargv(nargv.size());
+         for (int i = 0; i < nargv.size(); i++) {
+            cargv[i] = (const string)nargv[i];
+         }
+         select_gobj = it->second.id;
+         GAME_CMDS.run(cmd, cargv);
+         if (!GAME_CMDS.resolved()) {
+            menu_output.push_back("unknown command: " + cmd);
+            select_gobj = osgobj;
+            return;
+         }
+         cout << "nargv: " << nargv << endl;
+      }
+   }
+   select_gobj = osgobj;
+   return;
+}
+
 void cmd_controls(vector<string>& argv) {return;}
 
 // a pointer to this function placed in the test_object_1 object. It sets the
@@ -1010,7 +1057,10 @@ void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
    for (int vfi = 0; vfi < tetra.vis_faces.size(); vfi++) {
       int fi = tetra.vis_faces[vfi];
 
-      glColor3fv(tetra.faceColors[fi]);
+      glColor3f(brtns(BRTNS, tetra.faceColors[fi][0]),
+                brtns(BRTNS, tetra.faceColors[fi][1]),
+                brtns(BRTNS, tetra.faceColors[fi][2]));
+      //glColor3fv(tetra.faceColors[fi]);
       for (int pi = 0; pi < 3; pi++) {
          Vertex tmpv;
          tmpv.x = *tetra.face[fi].pnts[pi][0];

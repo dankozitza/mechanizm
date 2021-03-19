@@ -58,7 +58,7 @@ void Tetrahedron::initialize() {
    set_points(init_v_tetra);
    init_triangles();
    set_vis_faces_all();
-   GLfloat grayness = rand() % 10 + 15;
+   GLfloat grayness = rand() % 15 + 10;
    for (int i = 0; i < vertices; i++) {
       faceColors[i][0] = grayness / 100.0;
       faceColors[i][1] = grayness / 100.0;

@@ -107,15 +107,20 @@ tools::Error Group::attach(
       return error("ERROR!!! new object intersects source object\n");
    }
 
+   objs[new_obj.id] = new_obj;
+   vis_objs.push_back(new_obj.id);
+
+   tools::Error n = attach_interior_sides(new_obj.id);
+   if (n != NULL) {
+      return tools::error("Group::attach::" + string(n));
+   }
+
    new_obj.om_tracking = true;
    new_obj.gid = id;
    new_obj.last_om_key = om_get_section_key(new_obj.tetra.center());
    om_add_obj(new_obj.gid, new_obj.id, new_obj.last_om_key);
 
-   objs[new_obj.id] = new_obj;
-   vis_objs.push_back(new_obj.id);
-
-   return attach_interior_sides(new_obj.id);
+   return n;
 }
 
 tools::Error Group::attach_interior_sides(string new_obj_id) {
@@ -132,6 +137,8 @@ tools::Error Group::attach_interior_sides(string new_obj_id) {
 
          objs[new_obj_id].tetra.vis_faces.resize(0);
          objs[new_obj_id].tetra.set_vis_faces(objs[new_obj_id].tetra.vis_faces);
+         auto it = objs.find(new_obj_id);
+         objs.erase(it);
          remove_vis_obj(new_obj_id);
 
          // TODO: fix unwanted remaining visible sides
@@ -171,9 +178,9 @@ tools::Error Group::attach_interior_sides(string new_obj_id) {
                }
             }
 
-            if (objs[objid].tetra.vis_fbools[ofi] == true) {
+            //if (objs[objid].tetra.vis_fbools[ofi] == true) {
                remove_vfs.push_back(ovfi);
-            }
+            //}
          }
       } // end ovfi loop
 

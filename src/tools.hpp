@@ -52,6 +52,7 @@ namespace tools {
    int as_int(string& str);
    double as_double(string& str);
    string as_string(GLfloat f);
+   //GLfloat as_glfloat(string& str);
    //bool matches(string s, string str_re);
    //bool matches(string results[], string s, string str_re);
    //bool matches(vector<string>& results, string s, string str_re);
@@ -96,6 +97,9 @@ namespace tools {
    bool line_intersects_triangle(
          Vertex line[2], Vertex tri[3], Vertex* point);
    bool verts_within_eps(Vertex v1, Vertex v2, GLfloat eps);
+   GLfloat brtns(string sbrightness, string sinput);
+   GLfloat brtns(string sbrightness, GLfloat input);
+   GLfloat brtns(GLfloat brightness, GLfloat input);
 }
 
 #endif

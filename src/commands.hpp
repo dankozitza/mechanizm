@@ -12,7 +12,7 @@
 #include <vector>
 #include "tools.hpp"
 
-using namespace std;
+using namespace tools;
 
 class commands {
 
