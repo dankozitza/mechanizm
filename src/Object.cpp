@@ -66,12 +66,7 @@ void Object::initialize(string identity, Function func) {
    id = identity;
    last_t = 0.0;
    function = func;
-   //c_qs["g_obj_physics"].push_back(0.0);
 
-   // these quantities can be initialized without worrying about them breaking
-   // the physics equations. Mainly initial values.
-   //c_qs["posi"] = {cube[0][0], cube[0][1], cube[0][2]};
-   //c_qs["vi"].resize(3);
    return;
 }
 
@@ -218,25 +213,17 @@ GLfloat Object::magnitude(vector<GLfloat> q) {
    return r;
 }
 
-//#include "Group.hpp"
-
 tools::Error Object::enable_physics() {
-   setConstQ("g_obj_physics", 1.0);
+   physics_b = true;
 
    if (group == NULL) {
       return tools::error("Object::enable_physics: group is NULL");
    }
-
-   //vector<GLfloat> tmpv;
-   //tmpv.push_back(((Group*)group)->center().x);
-   //tmpv.push_back(((Group*)group)->center().y);
-   //tmpv.push_back(((Group*)group)->center().z);
-   //setConstQ("posi", tmpv);
    return NULL;
 }
 
 tools::Error Object::disable_physics() {
-   setConstQ("g_obj_physics", 0.0);
+   physics_b = false;
    return NULL;
 }
 

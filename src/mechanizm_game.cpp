@@ -641,29 +641,16 @@ void cmd_info(vector<string>& argv) {
       menu_output.push_back("No object selected.");
       return;
    }
-   // print physics event list and resolved/unresolved status
-   //if (argv.size() == 5) {
-   //   if (argv[0] == "setcqs") {
-   //      vector<GLfloat> tv;
-   //      tv.push_back(as_double(argv[2]));
-   //      tv.push_back(as_double(argv[3]));
-   //      tv.push_back(as_double(argv[4]));
-
-   //      vector<string> targ =  {"enable"};
-   //      if (GS[select_gobj].phys_obj == NULL) {cmd_physics(targ);}
-
-   //      GS[select_gobj].phys_obj->setConstQ(
-   //            argv[1], tv);
-   //      menu_output.push_back("cmd_info: setting value in CQS");
-   //   }
-
-   //   return;
-   //}
+   string physics_s = "false";
+   if (GS[select_gobj].phys_obj != NULL) {
+      if (GS[select_gobj].phys_obj->physics_b) {physics_s = "true";}
+   }
 
    char buf[1000];
-   sprintf(buf, "selected group: %s\nselected object: %s\nobjects: %i\nvis_objs: %i\nphys_events: %i\nv- CQS -v\n",
+   sprintf(buf, "selected group: %s\nselected object: %s\nobjects: %i\nvis_objs: %i\nphysics enabled: %s\nphysics events: %i\nv- CQS -v\n",
            select_gobj.c_str(), select_obj.c_str(),
-           GS[select_gobj].objs.size(), GS[select_gobj].vis_objs.size(), 0);
+           GS[select_gobj].objs.size(), GS[select_gobj].vis_objs.size(),
+           physics_s.c_str(), 0);
 
    string msg = buf;
 
@@ -708,16 +695,11 @@ void cmd_physics(vector<string>& argv) {
       if (GS[select_gobj].phys_obj == NULL) {
          argv = {"enable"};
       }
-      else if (
-            GS[select_gobj].phys_obj->getConstQ("g_obj_physics").size() == 1) {
-
-         if (
-         equal(GS[select_gobj].phys_obj->getConstQ("g_obj_physics")[0], 0.0)) {
-            argv = {"enable"};
-         }
-         else {
-            argv = {"disable"};
-         }
+      else if (GS[select_gobj].phys_obj->physics_b == false) {
+         argv = {"enable"};
+      }
+      else {
+         argv = {"disable"};
       }
    }
 
@@ -725,10 +707,6 @@ void cmd_physics(vector<string>& argv) {
       if (argv[0] == "enable") {
 
          if (GS[select_gobj].phys_obj != NULL) {
-            if (
-         GS[select_gobj].phys_obj->getConstQ("g_obj_physics").size() != 1) {
-               menu_output.push_back("physics object corrupted!");
-            }
 
             n = GS[select_gobj].phys_obj->enable_physics();
             if (n != NULL) {menu_output.push_back(n);}
@@ -840,7 +818,7 @@ tools::Error gobj_physics(double t, Object &self) {
    //
    // use c_qs to configure physics objects
    //
-   if (self.getConstQ("g_obj_physics")[0] == 1.0) {
+   if (self.physics_b == true) {
 
       // if velocity is set use that and return;
       if (self.getConstQ("v").size() == 3) {
@@ -961,18 +939,12 @@ tools::Error player_gravity(double t, Object &self) {
 
                self.setConstQ("AGM_FSTARTT", MECH.current_time);
 
-               //cout << "player_gravity: HERE\n";
-               // skip the rest because we are at rest on a surface
-               //
                // if intersecting group has velocity copy x and z to this v
                if (GS[ig].phys_obj == NULL) {
                   self.setCQ("v", {0.0, 0.0, 0.0});
                }
-               else if(
-                  GS[ig].phys_obj->getConstQ("g_obj_physics").size() == 1 &&
-                  equal(
-                     GS[ig].phys_obj->getConstQ("g_obj_physics")[0], 1.0) &&
-                  GS[ig].phys_obj->getConstQ("v").size() == 3) {
+               else if(GS[ig].phys_obj->physics_b == true && 
+                       GS[ig].phys_obj->getConstQ("v").size() == 3) {
 
                   self.setCQ("v", GS[ig].phys_obj->getConstQ("v"));
                }

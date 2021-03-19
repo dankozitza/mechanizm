@@ -149,7 +149,7 @@ class Object {
       //    us       - coefficient of static friction
       //    uk       - coefficient of kinetic friction
       //    ipos     - initial position
-      // 
+      bool physics_b = false; 
       unordered_map<string, vector<GLfloat>> c_qs;
 };
 

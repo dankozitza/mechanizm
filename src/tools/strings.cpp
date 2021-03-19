@@ -127,7 +127,8 @@ string tools::eval_rand(string &s) {
       while (b * multiplier < 1000) {multiplier *= 10;}
       a = a * multiplier;
       b = b * multiplier;
-      GLfloat rglf = rand() % (long int)b + (long int)a;
+      long int range = floor(abs(a-b));
+      GLfloat rglf = rand() % range + (long int)a;
       rglf = rglf / multiplier;
       r = as_string(rglf);
    }
