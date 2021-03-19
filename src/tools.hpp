@@ -52,6 +52,7 @@ namespace tools {
    int as_int(string& str);
    double as_double(string& str);
    string as_string(GLfloat f);
+   string eval_rand(string &s);
    //GLfloat as_glfloat(string& str);
    //bool matches(string s, string str_re);
    //bool matches(string results[], string s, string str_re);

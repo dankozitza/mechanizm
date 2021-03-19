@@ -115,6 +115,26 @@ string tools::as_string(GLfloat f) {
    return ret;
 }
 
+string tools::eval_rand(string &s) {
+   string r = s;
+
+   string m[3];
+   if (pmatches(m, r, "r\\((.+),(.+)\\)")) {
+      GLfloat a = as_double(m[1]);
+      GLfloat b = as_double(m[2]);
+
+      long unsigned int multiplier = 100;
+      while (b * multiplier < 1000) {multiplier *= 10;}
+      a = a * multiplier;
+      b = b * multiplier;
+      GLfloat rglf = rand() % (long int)b + (long int)a;
+      rglf = rglf / multiplier;
+      r = as_string(rglf);
+   }
+
+   return r;
+}
+
 
 //
 //// matches

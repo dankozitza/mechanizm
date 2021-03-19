@@ -284,7 +284,7 @@ int main(int argc, char *argv[]) {
          "foreach",
          cmd_foreach,
          "Iterate over a list and execute given command.",
-         "foreach <group> [command] [argn...]");
+         "foreach <group> <command> [argn...]");
 
    GAME_CMDS.handle(
          "controls",
@@ -775,17 +775,14 @@ void cmd_foreach(vector<string>& argv) {
 
    string cmd = argv[1];
    vector<string> nargv = {};
-   for (int i = 2; i < argv.size(); i++) {
-      nargv.push_back(argv[i]);
-   }
+   for (int i = 2; i < argv.size(); i++) {nargv.push_back(argv[i]);}
 
    string osgobj = select_gobj;
-
    if (argv[0] == "group") {
       for (auto it = GS.begin(); it != GS.end(); it++) {
          vector<string> cargv(nargv.size());
          for (int i = 0; i < nargv.size(); i++) {
-            cargv[i] = (const string)nargv[i];
+            cargv[i] = eval_rand(nargv[i]);
          }
          select_gobj = it->second.id;
          GAME_CMDS.run(cmd, cargv);
@@ -794,7 +791,6 @@ void cmd_foreach(vector<string>& argv) {
             select_gobj = osgobj;
             return;
          }
-         cout << "nargv: " << nargv << endl;
       }
    }
    select_gobj = osgobj;
@@ -1698,7 +1694,7 @@ keyboard(unsigned char c, int x, int y)
          else if (c == 27) { // Esc
             menu_output.push_back("exiting menu");
             menu_depth = 0;
-            timed_menu_display = 5;
+            timed_menu_display = 0;
             draw_menu_lines = 20;
             CAM.unlockAY();
             return;
