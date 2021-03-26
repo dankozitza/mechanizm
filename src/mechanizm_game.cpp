@@ -43,6 +43,7 @@ void
    mouse_motion(int x, int y),
    keyboard(unsigned char c, int x, int y),
    keyboard_up(unsigned char c, int x, int y),
+   special_input(int key, int x, int y),
    motion(int x, int y),
    drawScene(void),
    drawWireframe(int objs_index, int face),
@@ -76,6 +77,8 @@ int timed_menu_display = 0;
 int draw_menu_lines = 10;
 string menu_input;
 vector<string> menu_output;
+vector<string> menu_history;
+size_t mhinc;
 int block_count = 1;
 int mouse_left_state = 1;
 int WIN = -1;
@@ -336,6 +339,7 @@ int main(int argc, char *argv[]) {
    glutAttachMenu(GLUT_RIGHT_BUTTON);
    glutKeyboardFunc(keyboard);
    glutKeyboardUpFunc(keyboard_up);
+   glutSpecialFunc(special_input);
    glutMainLoop();
 
    return 0;
@@ -647,7 +651,7 @@ void cmd_reseed(vector<string>& argv) {
    if (argv.size() >= 1) {
       CMDS_ENV["rng_seed"] = argv[0];
    }
-   
+
    srand(as_double(CMDS_ENV["rng_seed"]));
    return;
 }
@@ -1113,7 +1117,7 @@ void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
                         0.1369, 0.4, 0.8, 0.6);
 
       draw_sphere(new_sphere);
-   } 
+   }
 
    glBegin(GL_TRIANGLES);
    for (int vfi = 0; vfi < tetra.vis_faces.size(); vfi++) {
@@ -1162,11 +1166,11 @@ void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
 void draw_circle(float cx, float cy, float r, int num_segments) {
    glBegin(GL_LINE_LOOP);
    for (int ii = 0; ii < num_segments; ii++)   {
-      //get the current angle 
+      //get the current angle
       float theta = 2.0f * 3.1415926f * float(ii) / float(num_segments);
-      float x = r * cosf(theta);//calculate the x component 
-      float y = r * sinf(theta);//calculate the y component 
-      glVertex2f(x + cx, y + cy);//output vertex 
+      float x = r * cosf(theta);//calculate the x component
+      float y = r * sinf(theta);//calculate the y component
+      glVertex2f(x + cx, y + cy);//output vertex
    }
    glEnd();
 }
@@ -1745,14 +1749,11 @@ keyboard(unsigned char c, int x, int y)
       prefix += "   ";
    }
 
-   cout << "key: " << (int)c << endl;
-
    if (menu_depth != 0) { // go into menu mode
 
       if (menu_depth == 37) { // menu 37 is command line input
          if (c != 13 && c != 8 && c != 27) { // 13 is Enter
             menu_input += c;
-            //cout << (int)c << "\n";
          }
          else if (c == 8) { // backspace
             if (menu_input.size() > 3) {
@@ -1768,6 +1769,9 @@ keyboard(unsigned char c, int x, int y)
             return;
          }
          else  {
+            menu_history.push_back(menu_input);
+            mhinc = menu_history.size();
+
             menu_input[0] = ' ';
             menu_input[1] = ' ';
 
@@ -1824,6 +1828,7 @@ keyboard(unsigned char c, int x, int y)
       menu_depth = 37;
       draw_menu_lines = 25;
       CAM.lockAY(0);
+      mhinc = menu_history.size();
       return;
    }
    if (c == 'b') {
@@ -1930,7 +1935,6 @@ keyboard(unsigned char c, int x, int y)
             vector<GLfloat> v = GS[select_gobj].phys_obj->getCQ("v");
             v[0] += cos(CAM.getAX()-M_PI/2) * 0.25;
             v[2] += sin(CAM.getAX()-M_PI/2) * 0.25;
-            //v[2] -= 0.25;
             GS[select_gobj].phys_obj->setCQ("v", v);
          }
          else {GS[select_gobj].translate(0, 0, -1.0);}
@@ -1944,42 +1948,39 @@ keyboard(unsigned char c, int x, int y)
             vector<GLfloat> v = GS[select_gobj].phys_obj->getCQ("v");
             v[0] -= cos(CAM.getAX()) * 0.25;
             v[2] -= sin(CAM.getAX()) * 0.25;
-            //v[0] -= 0.25;
             GS[select_gobj].phys_obj->setCQ("v", v);
          }
          else {GS[select_gobj].translate(-1.0, 0, 0);}
       }
       break;
    case 'k':
-      if (select_gobj != "") {
+      if (select_gobj != "none") {
          if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
              GS[select_gobj].phys_obj->physics_b == true) {
 
             vector<GLfloat> v = GS[select_gobj].phys_obj->getCQ("v");
             v[0] -= cos(CAM.getAX()-M_PI/2) * 0.25;
             v[2] -= sin(CAM.getAX()-M_PI/2) * 0.25;
-            //v[2] += 0.25;
             GS[select_gobj].phys_obj->setCQ("v", v);
          }
          else {GS[select_gobj].translate(0, 0, 1.0);}
       }
       break;
    case 'l':
-      if (select_gobj != "") {
+      if (select_gobj != "none") {
          if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
              GS[select_gobj].phys_obj->physics_b == true) {
 
             vector<GLfloat> v = GS[select_gobj].phys_obj->getCQ("v");
             v[0] += cos(CAM.getAX()) * 0.25;
             v[2] += sin(CAM.getAX()) * 0.25;
-            //v[0] += 0.25;
             GS[select_gobj].phys_obj->setCQ("v", v);
          }
          else {GS[select_gobj].translate(1.0, 0, 0);}
       }
       break;
    case 'h':
-      if (select_gobj != "") {
+      if (select_gobj != "none") {
          if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
              GS[select_gobj].phys_obj->physics_b == true) {
 
@@ -1991,7 +1992,7 @@ keyboard(unsigned char c, int x, int y)
       }
       break;
    case 'n':
-      if (select_gobj != "") {
+      if (select_gobj != "none") {
          if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
              GS[select_gobj].phys_obj->physics_b == true) {
 
@@ -2009,13 +2010,12 @@ keyboard(unsigned char c, int x, int y)
 //      GS[select_gobj].scale_by(0.9, 0.9, 0.9);
       break;
    case 'I':
-      if (select_gobj != "") {
+      if (select_gobj != "none") {
          if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
              GS[select_gobj].phys_obj->physics_b == true) {
             vector<GLfloat> av = GS[select_gobj].phys_obj->getCQ("av");
             av[0] -= cos(CAM.getAX()) * 0.1;
             av[2] -= sin(CAM.getAX()) * 0.1;
-            //av[0] -= 0.05;
             GS[select_gobj].phys_obj->setCQ("av", av);
          }
          else {
@@ -2024,7 +2024,7 @@ keyboard(unsigned char c, int x, int y)
       }
       break;
    case 'J':
-      if (select_gobj != "") {
+      if (select_gobj != "none") {
          if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
              GS[select_gobj].phys_obj->physics_b == true) {
 
@@ -2038,7 +2038,7 @@ keyboard(unsigned char c, int x, int y)
       }
       break;
    case 'K':
-      if (select_gobj != "") {
+      if (select_gobj != "none") {
          if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
              GS[select_gobj].phys_obj->physics_b == true) {
 
@@ -2046,7 +2046,6 @@ keyboard(unsigned char c, int x, int y)
             av[0] += cos(CAM.getAX()) * 0.1;
             av[2] += sin(CAM.getAX()) * 0.1;
 
-            //av[0] += 0.05;
             GS[select_gobj].phys_obj->setCQ("av", av);
          }
          else {
@@ -2055,7 +2054,7 @@ keyboard(unsigned char c, int x, int y)
       }
       break;
    case 'L':
-      if (select_gobj != "") {
+      if (select_gobj != "none") {
          if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
              GS[select_gobj].phys_obj->physics_b == true) {
 
@@ -2070,7 +2069,7 @@ keyboard(unsigned char c, int x, int y)
       }
       break;
    case 'U':
-      if (select_gobj != "") {
+      if (select_gobj != "none") {
          if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
              GS[select_gobj].phys_obj->physics_b == true) {
 
@@ -2086,7 +2085,7 @@ keyboard(unsigned char c, int x, int y)
       }
       break;
    case 'O':
-      if (select_gobj != "") {
+      if (select_gobj != "none") {
          if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
              GS[select_gobj].phys_obj->physics_b == true) {
 
@@ -2140,7 +2139,7 @@ keyboard(unsigned char c, int x, int y)
             string hkey = key.substr(7, 1);
 
             if (hkey[0] == c) {
-               
+
                string cmd = CMDS_ENV[key];
                if (cmd.substr(0, 4) == "grow") {
                   // run grow command
@@ -2160,6 +2159,26 @@ void keyboard_up(unsigned char c, int x, int y) {
    CAM.setKeyboard(c, false);
    glutPostRedisplay();
 }
+
+void special_input(int key, int x, int y) {
+   switch(key) {
+
+      case GLUT_KEY_UP:
+         if (mhinc > 0) {mhinc--;}
+         menu_input = menu_history[mhinc];
+      break;
+      case GLUT_KEY_DOWN:
+         if (mhinc < menu_history.size()-1) {mhinc++;}
+         menu_input = menu_history[mhinc];
+      break;
+      //case GLUT_KEY_LEFT:
+      //break;
+      //case GLUT_KEY_RIGHT:
+      //break;
+   }
+   return;
+}
+
 
 void
 resize(int w, int h)
@@ -2201,9 +2220,9 @@ Tetrahedron generate_tetra_from_side(
    Vertex new_v = v - u;
 
    // loop through source face indices copy points for each face
-   
+
    if (source_face == 0) {
-      new_tetra.points[0] = 
+      new_tetra.points[0] =
          source_tetra.points[source_tetra.faceIndex[source_face][1]];
       new_tetra.points[1] =
          source_tetra.points[source_tetra.faceIndex[source_face][0]];
@@ -2212,12 +2231,12 @@ Tetrahedron generate_tetra_from_side(
       new_tetra.points[3] = new_v;
    }
    if (source_face == 1) {
-      new_tetra.points[0] = 
+      new_tetra.points[0] =
          source_tetra.points[source_tetra.faceIndex[source_face][1]];
       new_tetra.points[1] =
          source_tetra.points[source_tetra.faceIndex[source_face][0]];
       new_tetra.points[2] = new_v;
-      new_tetra.points[3] = 
+      new_tetra.points[3] =
          source_tetra.points[source_tetra.faceIndex[source_face][2]];
    }
    if (source_face == 2) {
@@ -2226,7 +2245,7 @@ Tetrahedron generate_tetra_from_side(
          source_tetra.points[source_tetra.faceIndex[source_face][0]];
       new_tetra.points[2] =
          source_tetra.points[source_tetra.faceIndex[source_face][1]];
-      new_tetra.points[3] = 
+      new_tetra.points[3] =
          source_tetra.points[source_tetra.faceIndex[source_face][2]];
    }
    if (source_face == 3) {
@@ -2235,7 +2254,7 @@ Tetrahedron generate_tetra_from_side(
       new_tetra.points[1] = new_v;
       new_tetra.points[2] =
          source_tetra.points[source_tetra.faceIndex[source_face][1]];
-      new_tetra.points[3] = 
+      new_tetra.points[3] =
          source_tetra.points[source_tetra.faceIndex[source_face][2]];
    }
 
