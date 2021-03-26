@@ -30,6 +30,8 @@ class Camera {
 		void setX(float X)					{ _X = X; }
 		void setY(float Y)					{ _Y = Y; }
 		void setZ(float Z)					{ _Z = Z; }
+      void setAX(float AX)             { _AX = AX; }
+      void setAY(float AY)             { _AY = AY; }
 		void translation();	
       bool pressKey(unsigned char c);
       void pos_in_los(float distance, float& x, float& y, float& z);

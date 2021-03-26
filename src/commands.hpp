@@ -24,6 +24,7 @@ class commands {
          string synopsis;
          string usage;
          string description;
+         bool evaluate_rand;
       };
 
       typedef map<string, Command>::iterator cmds_iter;
@@ -46,13 +47,15 @@ class commands {
             void (*func)(),
             string synopsis,
             string usage,
-            string description = "");
+            string description = "",
+            bool eval_rand_b = false);
       void handle(
             string cmd,
             void (*func)(vector<string>&),
             string synopsis,
             string usage,
-            string description = "");
+            string description = "",
+            bool eval_rand_b = false);
       void run(string cmd, vector<string>& arguments);
       void default_help(vector<string>& arg);
       void better_default_help(vector<string>& arg);

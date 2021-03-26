@@ -221,9 +221,11 @@ void commands::handle(
       void (*func)(vector<string>&),
       string synopsis,
       string usage,
-      string description) {
+      string description,
+      bool eval_rand_b) {
 
-   Command tmp = {dummy_func, func, true, synopsis, usage, description};
+   Command tmp = {dummy_func, func, true, synopsis,
+                  usage, description, eval_rand_b};
    cmds[cmd]   = tmp;
 }
 
@@ -232,14 +234,22 @@ void commands::handle(
       void (*func)(),
       string synopsis,
       string usage,
-      string description) {
+      string description,
+      bool eval_rand_b) {
 
-   Command tmp = {func, dummy_func, false, synopsis, usage, description};
+   Command tmp = {func, dummy_func, false, synopsis,
+                  usage, description, eval_rand_b};
    cmds[cmd]   = tmp;
 }
 
 void commands::run(string cmd, vector<string>& arguments) {
    map<string, Command>::iterator it = cmds.find(cmd);
+
+   if (it->second.evaluate_rand == true) {
+      for (int i = 0; i < arguments.size(); i++) {
+         arguments[i] = eval_rand(arguments[i]);
+      }
+   }
 
    // if help has been defined by the user do not run default_help
    if (cmd == "help" && it == cmds.end())

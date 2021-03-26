@@ -50,6 +50,7 @@ namespace tools {
    // strings.cpp
    string fold(int indent_width, int max_line_width, string s);
    int as_int(string& str);
+   unsigned int as_uint(string& str);
    double as_double(string& str);
    string as_string(GLfloat f);
    string eval_rand(string &s);

@@ -54,6 +54,8 @@ class Object {
 
       bool om_tracking = false;
       string last_om_key = "none";
+      unsigned int maxwork = 100;
+      unsigned int work = 0;
 
       //vector<string> connected; // list of objects this object is connected to
       // this function describes the objects motion as a function of time.
@@ -81,6 +83,7 @@ class Object {
       void multiply_by(GLfloat x, GLfloat y, GLfloat z);
       void multiply_vert_by(int vertex_index, GLfloat x, GLfloat y, GLfloat z);
       void scale_by(GLfloat x, GLfloat y, GLfloat z);
+      void rotate_abt_vert(Vertex& v, GLfloat ax, GLfloat ay, GLfloat az);
 
       // getters and setters for the constant quantities vector, c_qs
       //

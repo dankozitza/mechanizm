@@ -124,12 +124,18 @@ void Object::translate(GLfloat x, GLfloat y, GLfloat z) {
    if (shape == "tetrahedron") {
       tetra.translate(x, y, z);
       if (om_tracking) {
+
+         if (tetra.vis_faces.size() == 0) {
+            om_tracking = false;
+            om_remove_obj(gid, id, last_om_key);
+            return;
+         }
+
          string new_om_key = om_get_section_key(tetra.center());
 
          if (new_om_key != last_om_key) {
             om_remove_obj(gid, id, last_om_key);
             om_add_obj(gid, id, new_om_key);
-
             last_om_key = new_om_key;
          }
       }
@@ -213,8 +219,32 @@ GLfloat Object::magnitude(vector<GLfloat> q) {
    return r;
 }
 
+void Object::rotate_abt_vert(Vertex& v, GLfloat ax, GLfloat ay, GLfloat az) {
+
+   if (om_tracking) {
+
+      if (tetra.vis_faces.size() == 0) {
+         om_tracking = false;
+         om_remove_obj(gid, id, last_om_key);
+         return;
+      }
+
+      string new_om_key = om_get_section_key(tetra.center());
+
+      if (new_om_key != last_om_key) {
+         om_remove_obj(gid, id, last_om_key);
+         om_add_obj(gid, id, new_om_key);
+         last_om_key = new_om_key;
+      }
+   }
+
+   return tetra.rotate_abt_vert(v, ax, ay, az);
+}
+
 tools::Error Object::enable_physics() {
    physics_b = true;
+
+   if (work == 0) {work = maxwork;}
 
    if (group == NULL) {
       return tools::error("Object::enable_physics: group is NULL");

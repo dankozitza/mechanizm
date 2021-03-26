@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
    CMDS_ENV["agm_climb_spd"]         = "0.8";
    CMDS_ENV["brightness"]            = "0.0";
    CMDS_ENV["n_click_speed"]         = "0.25";
-   CMDS_ENV["n_click_max_distance"]  = "4.0";
+   CMDS_ENV["n_click_max_distance"]  = "6.0";
    CMDS_ENV["n_click_distance"]      = "0.6";
    CMDS_ENV["map_name"]              = "map.json";
    CMDS_ENV["mapgen_rndmns"]         = "0.0002";
@@ -194,6 +194,7 @@ int main(int argc, char *argv[]) {
    CMDS_ENV["igcmd_scroll_speed"]    = "5";
    CMDS_ENV["block_color"]           = "0.25 0.3 0.3";
    CMDS_ENV["player_move_speed"]     = "0.001";
+   CMDS_ENV["phys_max_work"]         = "100";
 
    // X Y Z theta (ax) psi (ay) rotationSpeed translationSpeed
    CAM = Camera(CAM.getX(), CAM.getY(), CAM.getZ(), 0.0, 0.0, 0.5,
@@ -213,7 +214,9 @@ int main(int argc, char *argv[]) {
          "tp",
          cmd_tp,
          "Teleport to the given coordinates.",
-         "tp x y z");
+         "tp x y z",
+         "",
+         true);
 
    GAME_CMDS.handle(
          "set",
@@ -223,7 +226,8 @@ int main(int argc, char *argv[]) {
          "This command can be called in 3 ways:\n"
          "   0 args -               - Print all values in the map.\n"
          "   1 args - <key>         - Print the value for key.\n"
-         "   2 args - <key> <value> - Write the value to the map.");
+         "   2 args - <key> <value> - Write the value to the map.",
+         true);
 
    GAME_CMDS.handle(
          "save_map",
@@ -235,7 +239,9 @@ int main(int argc, char *argv[]) {
          "grow",
          cmd_grow,
          "Generate x tetrahedrons from selected object.",
-         "grow [x]");
+         "grow [x]",
+         "",
+         true);
 
    GAME_CMDS.handle(
          "stat",
@@ -248,7 +254,8 @@ int main(int argc, char *argv[]) {
          cmd_load,
          "Load an object into the game.",
          "load [name] [x] [y] [z]",
-         "Options:\n   -m [sizex] [sizey] [sizez] [randomness]\n      Load a matrix of objects centered at x,y,z with dimentions\n      sizex, sizey, sizez. randomness is a float from\n      0 to 1 that describes the likelyhood of an object being loaded.\n   -s [unit_size]\n      Sets the unit size of the 3d grid. default: 1.0\n   -g [count]\n      Grow each object count new blocks. `-g r` selects a\n      random count from 0 to 1000.");
+         "Options:\n   -m [sizex] [sizey] [sizez] [randomness]\n      Load a matrix of objects centered at x,y,z with dimentions\n      sizex, sizey, sizez. randomness is a float from\n      0 to 1 that describes the likelyhood of an object being loaded.\n   -s [unit_size]\n      Sets the unit size of the 3d grid. default: 1.0\n   -g [count]\n      Grow each object count new blocks. `-g r` selects a\n      random count from 0 to 1000.",
+         true);
 
    GAME_CMDS.handle(
          "load_map",
@@ -261,7 +268,8 @@ int main(int argc, char *argv[]) {
          cmd_reseed,
          "Re-set the rng seed.",
          "reseed [double]",
-         "Reseed sets the stored seed to the given double and runs srand.");
+         "Reseed sets the stored seed to the given double and runs srand.",
+         true);
 
    GAME_CMDS.handle(
          "info",
@@ -278,7 +286,8 @@ int main(int argc, char *argv[]) {
          "   0 args -                - Toggle physics simulation.\n"
          "   1 args - enable/disable - Turn physics on/off.\n"
          "   4 args - <key> <floatx> <floaty> <floatz>\n"
-         "                           - Set quantity <key> to floatn.");
+         "                           - Set quantity <key> to floatn.",
+         true);
 
    GAME_CMDS.handle(
          "foreach",
@@ -379,6 +388,14 @@ void cmd_set(vector<string>& argv) {
       menu_output.push_back(msg);
 
       if (argv[0] == "brightness") {BRTNS = as_double(argv[1]);}
+      if (argv[0] == "phys_max_work") {
+         unsigned int mw = as_uint(CMDS_ENV[argv[0]]);
+         for (auto gsit = GS.begin(); gsit != GS.end(); gsit++) {
+            if (gsit->second.phys_obj != NULL) {
+               gsit->second.phys_obj->maxwork = mw;
+            }
+         }
+      }
    }
 
    // update cam in case settings are modified
@@ -673,6 +690,8 @@ void cmd_info(vector<string>& argv) {
 Object build_physics_object() {
    Object phobj("physics_object", 1.0, gobj_physics);
    phobj.setCQ("v", {0.0, 0.0, 0.0});
+   phobj.setCQ("av", {0.0, 0.0, 0.0});
+   phobj.maxwork = as_uint(CMDS_ENV["phys_max_work"]);
    tools::Error n = phobj.enable_physics();
    if (n != NULL) {menu_output.push_back(n);}
    return phobj;
@@ -689,6 +708,8 @@ void cmd_physics(vector<string>& argv) {
    Object tobj = build_physics_object();
    tobj.gid = select_gobj;
    tobj.group = &GS[select_gobj];
+   Vertex c = GS[select_gobj].center();
+   tobj.c_qs["ipos"] = {c.x, c.y, c.z};
 
    if (argv.size() == 0) {
 
@@ -760,7 +781,7 @@ void cmd_foreach(vector<string>& argv) {
       for (auto it = GS.begin(); it != GS.end(); it++) {
          vector<string> cargv(nargv.size());
          for (int i = 0; i < nargv.size(); i++) {
-            cargv[i] = eval_rand(nargv[i]);
+            cargv[i] = nargv[i];//eval_rand(nargv[i]);
          }
          select_gobj = it->second.id;
          GAME_CMDS.run(cmd, cargv);
@@ -802,7 +823,7 @@ tools::Error random_motion(double t, Object &self) {
    return NULL;
 }
 
-// gobj_physics M_OBJS motion function
+// gobj_physics MECH.obj motion function
 //
 // does work_n actions either running a physics event or checking for
 // intersection. instances that do not check for collisions will
@@ -810,27 +831,85 @@ tools::Error random_motion(double t, Object &self) {
 
 tools::Error gobj_physics(double t, Object &self) {
 
-   // use c_qs to store group init_pos
-   //
-   // check for intersection with second group
-   //    loop through visible objects and check for second group
-   //    in nearby sections
-   //
-   // use c_qs to configure physics objects
-   //
+   Group *g = (Group*)self.group;
+
    if (self.physics_b == true) {
 
       // if velocity is set use that and return;
       if (self.getConstQ("v").size() == 3) {
 
          //move group
-         GLfloat incx = (GLfloat)(1.0/64.0) * self.getConstQ("v")[0];
-         GLfloat incy = (GLfloat)(1.0/64.0) * self.getConstQ("v")[1];
-         GLfloat incz = (GLfloat)(1.0/64.0) * self.getConstQ("v")[2];
+         vector<GLfloat>::iterator vit = self.c_qs["v"].begin();
+         GLfloat incx = (GLfloat)(1.0/64.0) * (*vit); vit++;
+         GLfloat incy = (GLfloat)(1.0/64.0) * (*vit); vit++;
+         GLfloat incz = (GLfloat)(1.0/64.0) * (*vit);
          // 1/64th of a second x velocity = distance
 
          ((Group*)self.group)->translate(incx, incy, incz);
-         //GS[select_gobj].translate(incx, incy, incz);
+      }
+
+      if (self.getConstQ("av").size() == 3) {
+         vector<GLfloat>::iterator avit = self.c_qs["av"].begin();
+         GLfloat incax = (GLfloat)(1.0/64.0) * (*avit); avit++;
+         GLfloat incay = (GLfloat)(1.0/64.0) * (*avit); avit++;
+         GLfloat incaz = (GLfloat)(1.0/64.0) * (*avit);
+         ((Group*)self.group)->rotate_abt_center(incax, incay, incaz);
+      }
+
+      if (self.work == self.maxwork && g->voit != g->vis_objs.begin()) {
+         g->voit = g->vis_objs.begin();
+      }
+
+      // check for intersection with second group
+      // loop through visible objects and check for second group
+      // in nearby sections
+      if (self.work != 0) {
+
+      //if (count == 50) {cout << " --- physics group: " << self.gid << endl;}
+
+         for (g->voit; g->voit != g->vis_objs.end(); g->voit++) {
+
+            // get nearest sections
+            // check each object with visible sides for intersection
+
+            string v_obj_id = *g->voit;
+
+            Tetrahedron vt = GS[self.gid].objs[v_obj_id].tetra;
+            // get nearby sections
+            string v_obj_skey = om_get_section_key(vt.center());
+            vector<string> sections;
+            om_get_nearby_sections(v_obj_skey, sections);
+
+
+            vector<string>::iterator secit = sections.begin();
+            map<string, vector<string>> n_objs;
+            for (secit; secit != sections.end(); secit++) {
+
+               vector<oinfo>::iterator n_it = M()[*secit].begin();
+               for (n_it; n_it != M()[*secit].end(); n_it++) {
+                  if (n_it->gid != self.gid) {
+                     n_objs[n_it->gid].push_back(n_it->oid);
+                  }
+               }
+            }
+
+            if (count == 50) {
+               //cout << "n_obj size: " << n_objs.size() << endl;
+               for (auto it = n_objs.begin(); it != n_objs.end(); it++) {
+                  //cout << "n_objs " << it->first << " " << it->second.size() << endl;
+               }
+            }
+
+            self.work--;
+            if (self.work == 0) {
+               //cout << "gobj_physics: mw:" << self.maxwork << " o: "
+               //     << select_obj << endl;
+               self.work = self.maxwork;
+               g->voit = g->vis_objs.begin();
+               return NULL;
+            }
+         }
+         g->voit = g->vis_objs.begin();
       }
 
       // store index for objects in group and loop through work_n objects
@@ -855,10 +934,17 @@ tools::Error player_gravity(double t, Object &self) {
    }
 
    GLfloat incx, incz = 0.0;
+   vector<GLfloat> incr = {0.0, 0.0, 0.0};
    // check if player object has velocity and calculate distance to travel
    if (self.getConstQ("v").size() == 3) {
       incx = (GLfloat)(1.0/64.0) * self.getConstQ("v")[0];
       incz = (GLfloat)(1.0/64.0) * self.getConstQ("v")[2];
+   }
+   if (self.getConstQ("av").size() == 3) {
+      incr = self.getConstQ("av");
+      incr[0] *= (GLfloat)(1.0/64.0);
+      incr[1] *= (GLfloat)(1.0/64.0);
+      incr[2] *= (GLfloat)(1.0/64.0);
    }
 
    // intersecting group and object id's
@@ -926,6 +1012,7 @@ tools::Error player_gravity(double t, Object &self) {
                   self.translate(
                         CAM.getX() + incx, CAM.getY() + climb_mv,
                         CAM.getZ() + incz);
+
                   CAM.setY((CAM.getY() + climb_mv));
                }
                else {
@@ -934,22 +1021,29 @@ tools::Error player_gravity(double t, Object &self) {
                   CAM.setY(new_cam_y);
                }
 
-               CAM.setX(CAM.getX() + incx);
-               CAM.setZ(CAM.getZ() + incz);
+               Vertex gc = GS[ig].center();
+               self.rotate_abt_vert(gc, incr[0], incr[1], incr[2]);
+               CAM.setAX(CAM.getAX() - incr[1]);
+               //CAM.setAY(CAM.getAY() - incr[0]);
+               //CAM.setAZ(CAM.getAZ() + incr[2]);
+
+               CAM.setX(self.tetra.center().x);
+               CAM.setZ(self.tetra.center().z);
 
                self.setConstQ("AGM_FSTARTT", MECH.current_time);
 
                // if intersecting group has velocity copy x and z to this v
                if (GS[ig].phys_obj == NULL) {
                   self.setCQ("v", {0.0, 0.0, 0.0});
+                  self.setCQ("av", {0.0, 0.0, 0.0});
                }
-               else if(GS[ig].phys_obj->physics_b == true && 
-                       GS[ig].phys_obj->getConstQ("v").size() == 3) {
-
-                  self.setCQ("v", GS[ig].phys_obj->getConstQ("v"));
+               else if(GS[ig].phys_obj->physics_b == true) {
+                  self.setCQ("v", GS[ig].phys_obj->getCQ("v"));
+                  self.setCQ("av", GS[ig].phys_obj->getCQ("av"));
                }
                else {
                   self.setCQ("v", {0.0, 0.0, 0.0});
+                  self.setCQ("av", {0.0, 0.0, 0.0});
                }
                return NULL;
             }
@@ -1112,9 +1206,9 @@ void draw_cam_spheres() {
 
       // check for collision with nearby objects
       Vertex cc;
-      cc.x = CAM.getX();
-      cc.y = CAM.getY();
-      cc.z = CAM.getZ();
+      cc.x = nsx;
+      cc.y = nsy;
+      cc.z = nsz;
       string cc_om_key = om_get_section_key(cc);
 
       vector<string> sections;
@@ -1651,6 +1745,8 @@ keyboard(unsigned char c, int x, int y)
       prefix += "   ";
    }
 
+   cout << "key: " << (int)c << endl;
+
    if (menu_depth != 0) { // go into menu mode
 
       if (menu_depth == 37) { // menu 37 is command line input
@@ -1680,7 +1776,7 @@ keyboard(unsigned char c, int x, int y)
             string cmd;
             vector<string> cmd_argv;
             string word;
-            menu_input += " "; // laziness
+            menu_input += " ";
 
             for (int z = 0; z < menu_input.size(); z++) {
                if (menu_input[z] == '\\') {
@@ -1827,22 +1923,84 @@ keyboard(unsigned char c, int x, int y)
       }
       break;
    case 'i':
-      if (select_gobj != "") {GS[select_gobj].translate(0, 0, -0.1);}
+      if (select_gobj != "") {
+         if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
+             GS[select_gobj].phys_obj->physics_b == true) {
+
+            vector<GLfloat> v = GS[select_gobj].phys_obj->getCQ("v");
+            v[0] += cos(CAM.getAX()-M_PI/2) * 0.25;
+            v[2] += sin(CAM.getAX()-M_PI/2) * 0.25;
+            //v[2] -= 0.25;
+            GS[select_gobj].phys_obj->setCQ("v", v);
+         }
+         else {GS[select_gobj].translate(0, 0, -1.0);}
+      }
       break;
    case 'j':
-      if (select_gobj != "") {GS[select_gobj].translate(-0.1, 0, 0);}
+      if (select_gobj != "") {
+         if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
+             GS[select_gobj].phys_obj->physics_b == true) {
+
+            vector<GLfloat> v = GS[select_gobj].phys_obj->getCQ("v");
+            v[0] -= cos(CAM.getAX()) * 0.25;
+            v[2] -= sin(CAM.getAX()) * 0.25;
+            //v[0] -= 0.25;
+            GS[select_gobj].phys_obj->setCQ("v", v);
+         }
+         else {GS[select_gobj].translate(-1.0, 0, 0);}
+      }
       break;
    case 'k':
-      if (select_gobj != "") {GS[select_gobj].translate(0, 0, 0.1);}
+      if (select_gobj != "") {
+         if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
+             GS[select_gobj].phys_obj->physics_b == true) {
+
+            vector<GLfloat> v = GS[select_gobj].phys_obj->getCQ("v");
+            v[0] -= cos(CAM.getAX()-M_PI/2) * 0.25;
+            v[2] -= sin(CAM.getAX()-M_PI/2) * 0.25;
+            //v[2] += 0.25;
+            GS[select_gobj].phys_obj->setCQ("v", v);
+         }
+         else {GS[select_gobj].translate(0, 0, 1.0);}
+      }
       break;
    case 'l':
-      if (select_gobj != "") {GS[select_gobj].translate(0.1, 0, 0);}
+      if (select_gobj != "") {
+         if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
+             GS[select_gobj].phys_obj->physics_b == true) {
+
+            vector<GLfloat> v = GS[select_gobj].phys_obj->getCQ("v");
+            v[0] += cos(CAM.getAX()) * 0.25;
+            v[2] += sin(CAM.getAX()) * 0.25;
+            //v[0] += 0.25;
+            GS[select_gobj].phys_obj->setCQ("v", v);
+         }
+         else {GS[select_gobj].translate(1.0, 0, 0);}
+      }
       break;
    case 'h':
-      if (select_gobj != "") {GS[select_gobj].translate(0, 0.1, 0);}
+      if (select_gobj != "") {
+         if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
+             GS[select_gobj].phys_obj->physics_b == true) {
+
+            vector<GLfloat> v = GS[select_gobj].phys_obj->getCQ("v");
+            v[1] += 0.25;
+            GS[select_gobj].phys_obj->setCQ("v", v);
+         }
+         else {GS[select_gobj].translate(0, 1.0, 0);}
+      }
       break;
    case 'n':
-      if (select_gobj != "") {GS[select_gobj].translate(0, -0.1, 0);}
+      if (select_gobj != "") {
+         if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
+             GS[select_gobj].phys_obj->physics_b == true) {
+
+            vector<GLfloat> v = GS[select_gobj].phys_obj->getCQ("v");
+            v[1] -= 0.25;
+            GS[select_gobj].phys_obj->setCQ("v", v);
+         }
+         else {GS[select_gobj].translate(0, -1.0, 0);}
+      }
       break;
    case 'o':
 //      GS[select_gobj].scale_by(1.1, 1.1, 1.1);
@@ -1852,32 +2010,95 @@ keyboard(unsigned char c, int x, int y)
       break;
    case 'I':
       if (select_gobj != "") {
-         GS[select_gobj].rotate_abt_center(7.0*(M_PI/4.0), 0.0, 0.0);
+         if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
+             GS[select_gobj].phys_obj->physics_b == true) {
+            vector<GLfloat> av = GS[select_gobj].phys_obj->getCQ("av");
+            av[0] -= cos(CAM.getAX()) * 0.1;
+            av[2] -= sin(CAM.getAX()) * 0.1;
+            //av[0] -= 0.05;
+            GS[select_gobj].phys_obj->setCQ("av", av);
+         }
+         else {
+            GS[select_gobj].rotate_abt_center(7.0*(M_PI/4.0), 0.0, 0.0);
+         }
       }
       break;
    case 'J':
       if (select_gobj != "") {
-         GS[select_gobj].rotate_abt_center(0.0, M_PI/4.0, 0.0);
+         if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
+             GS[select_gobj].phys_obj->physics_b == true) {
+
+            vector<GLfloat> av = GS[select_gobj].phys_obj->getCQ("av");
+            av[1] += 0.1;
+            GS[select_gobj].phys_obj->setCQ("av", av);
+         }
+         else {
+            GS[select_gobj].rotate_abt_center(0.0, M_PI/4.0, 0.0);
+         }
       }
       break;
    case 'K':
       if (select_gobj != "") {
-         GS[select_gobj].rotate_abt_center(M_PI/4.0, 0.0, 0.0);
+         if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
+             GS[select_gobj].phys_obj->physics_b == true) {
+
+            vector<GLfloat> av = GS[select_gobj].phys_obj->getCQ("av");
+            av[0] += cos(CAM.getAX()) * 0.1;
+            av[2] += sin(CAM.getAX()) * 0.1;
+
+            //av[0] += 0.05;
+            GS[select_gobj].phys_obj->setCQ("av", av);
+         }
+         else {
+            GS[select_gobj].rotate_abt_center(M_PI/4.0, 0.0, 0.0);
+         }
       }
       break;
    case 'L':
       if (select_gobj != "") {
-         GS[select_gobj].rotate_abt_center(0.0, 7.0*(M_PI/4.0), 0.0);
+         if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
+             GS[select_gobj].phys_obj->physics_b == true) {
+
+            vector<GLfloat> av = GS[select_gobj].phys_obj->getCQ("av");
+            av[1] -= 0.1;
+            GS[select_gobj].phys_obj->setCQ("av", av);
+         }
+         else {
+
+            GS[select_gobj].rotate_abt_center(0.0, 7.0*(M_PI/4.0), 0.0);
+         }
       }
       break;
    case 'U':
       if (select_gobj != "") {
-         GS[select_gobj].rotate_abt_center(0.0, 0.0, M_PI/4.0);
+         if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
+             GS[select_gobj].phys_obj->physics_b == true) {
+
+            vector<GLfloat> av = GS[select_gobj].phys_obj->getCQ("av");
+            av[0] -= cos(CAM.getAX()-M_PI/2.0) * 0.1;
+            av[2] -= sin(CAM.getAX()-M_PI/2.0) * 0.1;
+            //av[2] += 0.05;
+            GS[select_gobj].phys_obj->setCQ("av", av);
+         }
+         else {
+            GS[select_gobj].rotate_abt_center(0.0, 0.0, M_PI/4.0);
+         }
       }
       break;
    case 'O':
       if (select_gobj != "") {
-         GS[select_gobj].rotate_abt_center(0.0, 0.0, 7.0*(M_PI/4.0));
+         if (GS[select_gobj].phys_obj != NULL && PHYSICS &&
+             GS[select_gobj].phys_obj->physics_b == true) {
+
+            vector<GLfloat> av = GS[select_gobj].phys_obj->getCQ("av");
+            av[0] += cos(CAM.getAX()-M_PI/2.0) * 0.1;
+            av[2] += sin(CAM.getAX()-M_PI/2.0) * 0.1;
+            //av[2] -= 0.05;
+            GS[select_gobj].phys_obj->setCQ("av", av);
+         }
+         else {
+            GS[select_gobj].rotate_abt_center(0.0, 0.0, 7.0*(M_PI/4.0));
+         }
       }
       break;
    case '1':

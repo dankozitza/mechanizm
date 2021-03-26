@@ -9,7 +9,7 @@
 using namespace tools;
 
 unordered_map<string, vector<oinfo>> OM;
-int om_section_size = 5;
+int om_section_size = 1;
 
 unordered_map<string, vector<oinfo>>& M() {
    return OM;

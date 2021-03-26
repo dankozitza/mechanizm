@@ -73,12 +73,32 @@ string tools::fold(int indent_width, int max_line_width, string s) {
    return new_s;
 }
 
+unsigned int tools::as_uint(string& str) {
+   Json::Value jv;
+   Error e = load_json_value_from_string(jv, str);
+   if (e != NULL) {
+      cout << "tools::as_uint: PARSING ERROR: " << e << endl;
+      return 0;
+   }
+   if (jv.isDouble()) {
+      return abs(floor(jv.asDouble()));
+   }
+   if (!jv.isUInt()) {
+      cout << "tools::as_uint: NOT A UINT: " << str << endl;
+      return 0;
+   }
+   return jv.asUInt();
+}
+
 int tools::as_int(string& str) {
    Json::Value jv;
    Error e = load_json_value_from_string(jv, str);
    if (e != NULL) {
       cout << "tools::as_int: PARSING ERROR: " << e << endl;
       return -1;
+   }
+   if (jv.isDouble()) {
+      return floor(jv.asDouble());
    }
    if (!jv.isInt()) {
       cout << "tools::as_int: NOT AN INT: " << str << endl;

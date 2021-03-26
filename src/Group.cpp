@@ -31,6 +31,7 @@ void Group::initialize(Object& obj) {
    obj.gid = id;
    objs[obj.id] = obj;
    vis_objs.push_back(obj.id);
+   voit = vis_objs.begin();
 }
 
 void Group::set_vis_objs(vector<string>& new_vis_objs) {
@@ -278,6 +279,7 @@ void Group::translate(GLfloat x, GLfloat y, GLfloat z) {
 void Group::rotate_abt_center(GLfloat ax, GLfloat ay, GLfloat az) {
    Vertex v = center();
    for (auto it = objs.begin(); it != objs.end(); it++) {
-      it->second.tetra.rotate_abt_vert(v, ax, ay, az);
+      it->second.rotate_abt_vert(v, ax, ay, az);
    }
+   return;
 }

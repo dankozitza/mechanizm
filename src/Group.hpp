@@ -28,6 +28,7 @@ class Group {
       string id;
       unordered_map<string, Object> objs;
       vector<string> vis_objs;
+      vector<string>::iterator voit;// = vis_objs.begin();
 
       Group();
       Group(string nid, Object& obj);
