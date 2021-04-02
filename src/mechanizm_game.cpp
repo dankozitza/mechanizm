@@ -72,6 +72,7 @@ long unsigned int gen_obj_cnt = 0;
 long unsigned int gen_map_cnt = 1;
 string selector_function = "select";
 int draw_x_vertices = 0;
+bool highlight_enabled = false;
 int menu_depth = 0;
 int timed_menu_display = 0;
 int draw_menu_lines = 10;
@@ -197,7 +198,8 @@ int main(int argc, char *argv[]) {
    CMDS_ENV["igcmd_scroll_speed"]    = "5";
    CMDS_ENV["block_color"]           = "0.25 0.3 0.3";
    CMDS_ENV["player_move_speed"]     = "0.001";
-   CMDS_ENV["phys_max_work"]         = "100";
+   CMDS_ENV["phys_max_work"]         = "200";
+   CMDS_ENV["phys_highlight"]        = "false";
 
    // X Y Z theta (ax) psi (ay) rotationSpeed translationSpeed
    CAM = Camera(CAM.getX(), CAM.getY(), CAM.getZ(), 0.0, 0.0, 0.5,
@@ -400,6 +402,10 @@ void cmd_set(vector<string>& argv) {
             }
          }
       }
+      if (argv[0] == "phys_highlight" && argv[1] == "true") {
+         highlight_enabled = true;
+      }
+      else {highlight_enabled = false;}
    }
 
    // update cam in case settings are modified
@@ -836,10 +842,163 @@ tools::Error random_motion(double t, Object &self) {
 tools::Error gobj_physics(double t, Object &self) {
 
    Group *g = (Group*)self.group;
+   bool br = false;
+
+   // do collision checks first and break when max work is reached
+   // collision checks will use a ->vector from the location of the tetrahedron
+   // points to their location one frame ahead for accuate collision
+   // detection.
+   //
+   // on group collision time of intersection is unknown. assume half a
+   // frame is when the collision takes place.
+   //    move to 1/128 seconds ahead
+   //    calculate the new velocities
+   //    move to 1/128 seconds ahead
+   //    return rather than breaking and moving a second time.
+   // 
 
    if (self.physics_b == true) {
 
-      // if velocity is set use that and return;
+      if (self.work == self.maxwork && g->voit != g->vis_objs.begin()) {
+         g->voit = g->vis_objs.begin();
+      }
+
+      // skip if v and av are 0.0
+      Vertex sv = to_vert(self.getCQ("v"));
+      Vertex sav = to_vert(self.getCQ("av"));
+      if (sv.equals(Vertex(0, 0, 0)) && sav.equals(Vertex(0, 0, 0))) {
+         return NULL;
+      }
+
+      // check for intersection with second group
+      // loop through visible objects and check for second group
+      // in nearby sections
+      if (self.work != 0) {
+
+         for (g->voit; g->voit != g->vis_objs.end(); g->voit++) {
+
+            // get nearest sections
+            string v_obj_id = *g->voit;
+
+            // get visible tetrahedron final position
+            Tetrahedron vt = GS[self.gid].objs[v_obj_id].tetra;
+            Tetrahedron vtfin = vt;
+            vtfin.translate((GLfloat)(1.0/64.0) * sv.x,
+                            (GLfloat)(1.0/64.0) * sv.y,
+                            (GLfloat)(1.0/64.0) * sv.z);
+
+            vtfin.rotate_abt_vert(g->center(),
+                                  (GLfloat)(1.0/64.0) * sav.x,
+                                  (GLfloat)(1.0/64.0) * sav.y,
+                                  (GLfloat)(1.0/64.0) * sav.z);
+
+            // get nearby sections
+            string v_obj_skey = om_get_section_key(vtfin.center());
+            vector<string> sections;
+            om_get_nearby_sections(v_obj_skey, sections);
+
+            //GLfloat d[4] = {1000.0, 1000.0, 1000.0};
+
+            vector<string>::iterator secit = sections.begin();
+            map<string, vector<string>> n_objs;
+            for (secit; secit != sections.end(); secit++) {
+
+               vector<oinfo>::iterator n_it = M()[*secit].begin();
+               for (n_it; n_it != M()[*secit].end(); n_it++) {
+                  if (n_it->gid != self.gid) {
+
+                     Tetrahedron nt = GS[n_it->gid].objs[n_it->oid].tetra;
+
+                     // get distance from initial position
+                     GLfloat dis = vt.center().distance( nt.center());
+                     // check against travel distance + approx object radius
+                     if (dis < vt.center().distance( vtfin.center()) + 1.1) {
+
+                        // use lines between vt and vtfin points to
+                        // check for intersection with n_it->oid
+                        Vertex tripnts[3];
+                        Vertex lines[4][2];
+                        for (int pi = 0; pi < 4; pi++) {
+                           lines[pi][0] = vt.points[pi];
+                           lines[pi][1] = vtfin.points[pi];
+                        }
+
+                        // loop over lines
+                        for (int li = 0; li < 4; li++) {
+                           for (int vfi = 0; vfi < nt.vis_faces.size();
+                                                                      vfi++) {
+                              // get triptnts of second object
+                              int fi = nt.vis_faces[vfi];
+                              for (int tripti = 0; tripti < 3; tripti++) {
+                              tripnts[tripti].x = *nt.face[fi].pnts[tripti][0];
+                              tripnts[tripti].y = *nt.face[fi].pnts[tripti][1];
+                              tripnts[tripti].z = *nt.face[fi].pnts[tripti][2];
+                              }
+
+                              // check for intersection
+                              if (tools::line_intersects_triangle(lines[li],
+                                                                  tripnts,
+                                                                  NULL)) {
+                                 // move ahead half a frame
+                                 Object *obj = GS[self.gid].phys_obj;
+                                 if (GS[n_it->gid].phys_obj != NULL &&
+                                     GS[n_it->gid].phys_obj->physics_b) {
+                                    Object *vphobj = GS[self.gid].phys_obj;
+                                    Object *nphobj = GS[n_it->gid].phys_obj;
+                                    vector<GLfloat> tq(vphobj->getCQ("v"));
+                                    vphobj->setCQ("v", nphobj->getCQ("v"));
+                                    nphobj->setCQ("v", tq);
+                                 }
+                                 else {
+                                    Object *obj = GS[self.gid].phys_obj;
+                                    Vertex vc = GS[self.gid].center();
+                                    Vertex nc = GS[n_it->gid].center();
+                                    Vertex gn = nc - vc;
+                                    gn.normalize();
+                                    Vertex v = to_vert(obj->getCQ("v"));
+                                    v *= Vertex(-cos(gn.x - M_PI/2.0),
+                                                -sin(gn.y - M_PI/2.0),
+                                                -cos(gn.z - M_PI/2.0));
+                                    obj->setCQ("v", {v.x, v.y, v.z});
+                                    return NULL;
+                                 }
+                                 //move ahead second half of frame
+                              }
+                           }
+                        }
+
+                        n_objs[n_it->gid].push_back(n_it->oid);
+                     }
+                  }
+               }
+            }
+
+            if (highlight_enabled == true ) {
+               //cout << "n_obj size: " << n_objs.size() << endl;
+
+               for (auto it = n_objs.begin(); it != n_objs.end(); it++) {
+
+                  for (int i = 0; i < it->second.size(); i++) {
+               GS[it->first].objs[it->second[i]].tetra.highlight_frames = 64;
+                  }
+               }
+            }
+
+            self.work--;
+            if (self.work == 0) {
+               self.work = self.maxwork;
+               br = true;
+               break;
+            }
+         }
+         if (br == false) {
+            // g->voit is at end of list, reset it
+            g->voit = g->vis_objs.begin();
+         }
+      } // end of work scope
+
+      // collision detector hasn't returned so move group
+
       if (self.getConstQ("v").size() == 3) {
 
          //move group
@@ -849,7 +1008,7 @@ tools::Error gobj_physics(double t, Object &self) {
          GLfloat incz = (GLfloat)(1.0/64.0) * (*vit);
          // 1/64th of a second x velocity = distance
 
-         ((Group*)self.group)->translate(incx, incy, incz);
+         g->translate(incx, incy, incz);
       }
 
       if (self.getConstQ("av").size() == 3) {
@@ -857,70 +1016,9 @@ tools::Error gobj_physics(double t, Object &self) {
          GLfloat incax = (GLfloat)(1.0/64.0) * (*avit); avit++;
          GLfloat incay = (GLfloat)(1.0/64.0) * (*avit); avit++;
          GLfloat incaz = (GLfloat)(1.0/64.0) * (*avit);
-         ((Group*)self.group)->rotate_abt_center(incax, incay, incaz);
+         g->rotate_abt_center(incax, incay, incaz);
       }
 
-      if (self.work == self.maxwork && g->voit != g->vis_objs.begin()) {
-         g->voit = g->vis_objs.begin();
-      }
-
-      // check for intersection with second group
-      // loop through visible objects and check for second group
-      // in nearby sections
-      if (self.work != 0) {
-
-      //if (count == 50) {cout << " --- physics group: " << self.gid << endl;}
-
-         for (g->voit; g->voit != g->vis_objs.end(); g->voit++) {
-
-            // get nearest sections
-            // check each object with visible sides for intersection
-
-            string v_obj_id = *g->voit;
-
-            Tetrahedron vt = GS[self.gid].objs[v_obj_id].tetra;
-            // get nearby sections
-            string v_obj_skey = om_get_section_key(vt.center());
-            vector<string> sections;
-            om_get_nearby_sections(v_obj_skey, sections);
-
-
-            vector<string>::iterator secit = sections.begin();
-            map<string, vector<string>> n_objs;
-            for (secit; secit != sections.end(); secit++) {
-
-               vector<oinfo>::iterator n_it = M()[*secit].begin();
-               for (n_it; n_it != M()[*secit].end(); n_it++) {
-                  if (n_it->gid != self.gid) {
-                     n_objs[n_it->gid].push_back(n_it->oid);
-                  }
-               }
-            }
-
-            if (count == 50) {
-               //cout << "n_obj size: " << n_objs.size() << endl;
-               for (auto it = n_objs.begin(); it != n_objs.end(); it++) {
-                  //cout << "n_objs " << it->first << " " << it->second.size() << endl;
-               }
-            }
-
-            self.work--;
-            if (self.work == 0) {
-               //cout << "gobj_physics: mw:" << self.maxwork << " o: "
-               //     << select_obj << endl;
-               self.work = self.maxwork;
-               g->voit = g->vis_objs.begin();
-               return NULL;
-            }
-         }
-         g->voit = g->vis_objs.begin();
-      }
-
-      // store index for objects in group and loop through work_n objects
-      // if physics is active get the nearest section of OM to
-      // check for collision
-      //
-      // loop though events and resolve them
    }
    return NULL;
 }
@@ -1123,9 +1221,22 @@ void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
    for (int vfi = 0; vfi < tetra.vis_faces.size(); vfi++) {
       int fi = tetra.vis_faces[vfi];
 
-      glColor3f(brtns(BRTNS, tetra.faceColors[fi][0]),
-                brtns(BRTNS, tetra.faceColors[fi][1]),
-                brtns(BRTNS, tetra.faceColors[fi][2]));
+      if (tetra.highlight_frames == 0) {
+         glColor3f(brtns(BRTNS, tetra.faceColors[fi][0]),
+                   brtns(BRTNS, tetra.faceColors[fi][1]),
+                   brtns(BRTNS, tetra.faceColors[fi][2]));
+      }
+      else {
+         //glColor3f(brtns(BRTNS, tetra.fc[tetra.highlight_color][fi][0]),
+         //          brtns(BRTNS, tetra.fc[tetra.highlight_color][fi][1]),
+         //          brtns(BRTNS, tetra.fc[tetra.highlight_color][fi][2]));
+         glColor3f(brtns(BRTNS, tetra.fc_green[fi][0]),
+                   brtns(BRTNS, tetra.fc_green[fi][1]),
+                   brtns(BRTNS, tetra.fc_green[fi][2]));
+
+         tetra.highlight_frames--;
+      }
+
       //glColor3fv(tetra.faceColors[fi]);
       for (int pi = 0; pi < 3; pi++) {
          Vertex tmpv;
@@ -1163,14 +1274,20 @@ void drawVisibleTriangles(string gsid, string obid, Tetrahedron& tetra) {
    glEnd();
 }
 
-void draw_circle(float cx, float cy, float r, int num_segments) {
+// add bool haxis - true for x axis false for z
+void draw_circle(float cx, float cy, float r, int num_segments, bool haxis) {
    glBegin(GL_LINE_LOOP);
    for (int ii = 0; ii < num_segments; ii++)   {
       //get the current angle
       float theta = 2.0f * 3.1415926f * float(ii) / float(num_segments);
       float x = r * cosf(theta);//calculate the x component
       float y = r * sinf(theta);//calculate the y component
-      glVertex2f(x + cx, y + cy);//output vertex
+      if (haxis = true) {
+         glVertex3f(x + cx, y + cy, 0.0);//output vertex
+      }
+      else {
+         glVertex3f(0.0, y + cy, x + cx);
+      }
    }
    glEnd();
 }
@@ -1550,7 +1667,7 @@ void drawScene(void) {
    glColor3f(0, 0, 1); glVertex3f(1, 0, 1);
    glEnd();
 
-   draw_circle(0.0, 1.0, 3.0, 36);
+   draw_circle(0.0, 1.0, 3.0, 36, false);
 
    draw_spheres();
 

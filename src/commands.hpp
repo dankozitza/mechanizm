@@ -61,6 +61,9 @@ class commands {
       void better_default_help(vector<string>& arg);
       bool resolved();
       void reset();
+      tools::Error evaluate_script(vector<string>& script);
+      tools::Error evaluate_script(vector<string>& script,
+                                   vector<string>& argv, bool args = true);
 };
 
 #endif

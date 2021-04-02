@@ -96,6 +96,7 @@ namespace tools {
    Error load_json_value_from_file(Json::Value& jv, string fname);
 
    // ogl_utils.cpp
+   Vertex to_vert(vector<GLfloat> cmpnts);
    bool line_intersects_triangle(
          Vertex line[2], Vertex tri[3], Vertex* point);
    bool verts_within_eps(Vertex v1, Vertex v2, GLfloat eps);

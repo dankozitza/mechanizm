@@ -29,6 +29,9 @@ void om_add_obj(string glb_id, string obj_id, string om_key);
 void om_remove_obj(string glb_id, string obj_id, string om_key);
 void om_get_nearby_sections(string center, vector<string>& sections);
 
+// draw section corner points with highlight enabled.
+//void om_get_section_points(string om_key, vector<Vertex> &pnts);
+
 string om_getJSON();
 
 #endif

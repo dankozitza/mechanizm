@@ -7,8 +7,9 @@
 #ifndef _MECH_VERTEX
 #define _MECH_VERTEX
 
+#include <glm/glm.hpp>
 #include <GL/glut.h>
-#include <math.h>
+//#include <math.h>
 #include <string>
 
 class Vertex {
@@ -23,9 +24,11 @@ class Vertex {
       ~Vertex();
 
       std::string getJSON();
+      bool equals(Vertex b);
       GLfloat dot(const Vertex & b);
       Vertex cross(const Vertex & b);
       Vertex normalize();
+      GLfloat distance(Vertex b);
       void rotate_about(
             Vertex origin_point, GLfloat AX, GLfloat AY, GLfloat AZ);
 

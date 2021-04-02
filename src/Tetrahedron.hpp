@@ -9,6 +9,7 @@
 
 #include <GL/glut.h>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include "Vertex.hpp"
 #include "Triangle.hpp"
@@ -31,6 +32,10 @@ class Tetrahedron {
       // vector of faceIndex indices
       vector<int> vis_faces;
       vector<bool> vis_fbools;
+
+      unsigned int highlight_frames = 0;
+      string highlight_color = "green";
+      unordered_map<string, GLfloat[4][3]> fc;
 
 		GLfloat faceColors[4][3];
       GLfloat fc_red[4][3] = {
@@ -66,7 +71,7 @@ class Tetrahedron {
       void remove_vis_face(int facei);
       void add_vis_face(int facei);
       void rotate_abt_vert(
-            Vertex& vert, GLfloat AX, GLfloat AY, GLfloat AZ);
+            Vertex vert, GLfloat AX, GLfloat AY, GLfloat AZ);
       void rotate_abt_zero(GLfloat AX, GLfloat AY, GLfloat AZ);
       void rotate_abt_zero_ns(GLfloat AX, GLfloat AY, GLfloat AZ);
       Vertex center();

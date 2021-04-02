@@ -37,6 +37,15 @@ std::string Vertex::getJSON() {
    return r;
 }
 
+bool Vertex::equals(Vertex b) {
+   if (glm::abs(b.x - Vertex::x) < 0.00001 &&
+       glm::abs(b.y - Vertex::y) < 0.00001 &&
+       glm::abs(b.z - Vertex::z) < 0.00001) {
+      return true;
+   }
+   return false;
+}
+
 GLfloat Vertex::dot(const Vertex & b) {
    return Vertex::x * b.x + Vertex::y * b.y + Vertex::z * b.z;
 }
@@ -52,6 +61,12 @@ Vertex Vertex::cross(const Vertex & b) {
 Vertex Vertex::normalize() {
    const GLfloat s = 1.0f / sqrtf(Vertex::x * Vertex::x + Vertex::y * Vertex::y + Vertex::z * Vertex::z);
    return Vertex(Vertex::x * s, Vertex::y * s, Vertex::z * s);
+}
+
+GLfloat Vertex::distance(Vertex b) {
+   return glm::sqrt(glm::pow(b.x - Vertex::x, 2.0) +
+                    glm::pow(b.y - Vertex::y, 2.0) +
+                    glm::pow(b.z - Vertex::z, 2.0));
 }
 
 void Vertex::rotate_about(
@@ -91,6 +106,7 @@ GLfloat& Vertex::operator[](int index) {
 
    //cout << "Vertex::operator[]: index '" << index << "' is out of bounds\n";
    //exit(1);
+   return x;
 }
 
 Vertex Vertex::operator+(const Vertex & b) {

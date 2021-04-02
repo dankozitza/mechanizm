@@ -7,6 +7,16 @@
 #include "../tools.hpp"
 
 #define EPSILON 0.000001f
+
+Vertex tools::to_vert(vector<GLfloat> cmpnts) {
+   Vertex r(0.0, 0.0, 0.0);
+   if (cmpnts.size() != 3) {return r;}
+   r.x = cmpnts[0];
+   r.y = cmpnts[1];
+   r.z = cmpnts[2];
+   return r;
+}
+
 bool tools::line_intersects_triangle(
     Vertex line[2],
     Vertex tri[3],

@@ -64,6 +64,15 @@ void Tetrahedron::initialize() {
       faceColors[i][1] = grayness / 100.0;
       faceColors[i][2] = grayness / 100.0;
    }
+   for (int i = 0; i < 4; i++) {
+      for (int x = 0; x < 3; x++) {
+         fc["red"][i][x]   = fc_red[i][x];
+         fc["green"][i][x] = fc_green[i][x];
+         fc["blue"][i][x]  = fc_blue[i][x];
+      }
+   }
+
+   return;
 }
 
 // assigns 3 pointers from points to each triangle using the face index
@@ -99,7 +108,7 @@ void Tetrahedron::set_points(const Vertex new_points[4]) {
 }
 
 void Tetrahedron::rotate_abt_vert(
-      Vertex& vert, GLfloat AX, GLfloat AY, GLfloat AZ) {
+      Vertex vert, GLfloat AX, GLfloat AY, GLfloat AZ) {
    AXsum += AX;
    AYsum += AY;
    AZsum += AZ;
