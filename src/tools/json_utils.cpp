@@ -15,7 +15,6 @@ tools::Error tools::load_json_value_from_file(Json::Value& jv, string fname) {
       return errorf("tools::load_json_value_from_file: %s", e);
    }
 
-   Json::Reader reader;
    e = load_json_value_from_string(jv, filetxt);
    if (e != NULL) {
       return errorf(

@@ -125,7 +125,7 @@ void
 int main(int argc, char *argv[]) {
 
    char buf[100];
-   sprintf(buf, "%d", time(NULL));
+   sprintf(buf, "%li", time(NULL));
    CMDS_ENV["rng_seed"] = buf;
 
    srand(as_double(CMDS_ENV["rng_seed"]));
@@ -439,7 +439,7 @@ void cmd_grow(vector<string>& argv) {
       }
 
       char buffer[100];
-      sprintf(buffer, "generated_object_%i", gen_obj_cnt);
+      sprintf(buffer, "generated_object_%li", gen_obj_cnt);
       gen_obj_cnt++;
       string id = buffer;
       Object o(id);
@@ -506,7 +506,7 @@ void cmd_stat(vector<string>& argv) {
    for (auto gsit = GAME_STATS.begin(); gsit != GAME_STATS.end(); gsit++) {
       string msg = gsit->first;
       char buffer[100];
-      sprintf(buffer, ": %i", GAME_STATS[gsit->first]);
+      sprintf(buffer, ": %li", GAME_STATS[gsit->first]);
       msg += buffer;
       menu_output.push_back(msg);
    }
@@ -597,7 +597,7 @@ void cmd_load(vector<string>& argv) {
                if (10000.0 * rndmns > rand() % 10001) {
 
                   char buffer[100];
-                  sprintf(buffer, "_matrix_g_obj_%i", gen_obj_cnt);
+                  sprintf(buffer, "_matrix_g_obj_%li", gen_obj_cnt);
                   gen_obj_cnt++;
                   string g_obj_name = name + buffer;
 
@@ -674,7 +674,7 @@ void cmd_info(vector<string>& argv) {
    }
 
    char buf[1000];
-   sprintf(buf, "selected group: %s\nselected object: %s\nobjects: %i\nvis_objs: %i\nphysics enabled: %s\nphysics events: %i\nv- CQS -v\n",
+   sprintf(buf, "selected group: %s\nselected object: %s\nobjects: %li\nvis_objs: %li\nphysics enabled: %s\nphysics events: %i\nv- CQS -v\n",
            select_gobj.c_str(), select_obj.c_str(),
            GS[select_gobj].objs.size(), GS[select_gobj].vis_objs.size(),
            physics_s.c_str(), 0);
@@ -1396,7 +1396,7 @@ void draw_cam_spheres() {
                      string msg("selected group: " + gi + "\nobject: " + j);
                      char buffer[100];
                      sprintf(buffer,
-                             ", face %i, vis_faces: %i",
+                             ", face %i, vis_faces: %li",
                              fi,
                              tetra.vis_faces.size());
 
@@ -1431,7 +1431,7 @@ void draw_cam_spheres() {
                      select_gobj = gi;
 
                      char buffer[100];
-                     sprintf(buffer, "generated_object_%i", gen_obj_cnt++);
+                     sprintf(buffer, "generated_object_%li", gen_obj_cnt++);
                      select_obj = buffer;
 
                      Object o(buffer);
@@ -1738,7 +1738,7 @@ setMatrix(int w, int h)
 
 void generate_map(void) {
    char buffer[100];
-   sprintf(buffer, "initmapid%d", gen_map_cnt++);
+   sprintf(buffer, "initmapid%li", gen_map_cnt++);
 
    string x, y, z;
    x = as_string(CAM.getX());
@@ -1951,7 +1951,7 @@ keyboard(unsigned char c, int x, int y)
    if (c == 'b') {
       string id ;
       char n[100];
-      sprintf(n, "spawned_g_object_%i", GS.size());
+      sprintf(n, "spawned_g_object_%li", GS.size());
       id = n;
 
       Object tmp(id);
